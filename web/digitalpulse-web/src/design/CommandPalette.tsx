@@ -9,7 +9,8 @@ const COMMANDS = [
   { id: "connections", label: "Connection center", to: "/app/connections" },
   { id: "findings", label: "Findings", to: "/app/findings" },
   { id: "website", label: "Website intelligence", to: "/app/website" },
-  { id: "social", label: "Social content", to: "/app/social" }
+  { id: "social", label: "Social content", to: "/app/social" },
+  { id: "directories", label: "IndiaMART / Justdial", to: "/app/directories" }
 ];
 
 export function CommandPalette() {

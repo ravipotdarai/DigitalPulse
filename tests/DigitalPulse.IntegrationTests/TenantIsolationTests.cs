@@ -2,6 +2,7 @@ using DigitalPulse.Domain.Businesses;
 using DigitalPulse.Domain.Platforms;
 using DigitalPulse.Domain.Scans;
 using DigitalPulse.Domain.Tenancy;
+using DigitalPulse.Domain.Directories;
 using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
 using DigitalPulse.Infrastructure.Persistence;
@@ -139,6 +140,31 @@ public sealed class TenantIsolationTests
         await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
         var visible = await dbA.SocialContent.Select(c => c.Title).ToListAsync();
         Assert.Equal(["A"], visible);
+    }
+
+    [Fact]
+    public async Task Query_filter_hides_other_tenant_directory_tasks()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var businessA = Business.Create(tenantA, "A Co", null);
+        var businessB = Business.Create(tenantB, "B Co", null);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"iso-dir-{Guid.NewGuid()}")
+            .Options;
+
+        await using (var seed = new AppDbContext(options, tenantContext: null))
+        {
+            seed.Businesses.AddRange(businessA, businessB);
+            var taskA = DirectoryTask.Prepare(tenantA, businessA.Id, "INDIAMART", "A Co", null, null, null, null, [("One", "A")]);
+            var taskB = DirectoryTask.Prepare(tenantB, businessB.Id, "INDIAMART", "B Co", null, null, null, null, [("One", "B")]);
+            seed.DirectoryTasks.AddRange(taskA, taskB);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
+        var visible = await dbA.DirectoryTasks.Select(t => t.PreparedName).ToListAsync();
+        Assert.Equal(["A Co"], visible);
     }
 
     private sealed class FixedTenantContext : Application.Abstractions.ITenantContext

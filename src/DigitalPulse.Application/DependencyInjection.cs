@@ -9,11 +9,13 @@ using DigitalPulse.Application.Features.Plans;
 using DigitalPulse.Application.Features.Scans;
 using DigitalPulse.Application.Features.Subscriptions;
 using DigitalPulse.Application.Features.Tenants;
+using DigitalPulse.Application.Features.Directories;
 using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Application.Features.Website;
 using DigitalPulse.Contracts.Auth;
 using DigitalPulse.Contracts.Billing;
 using DigitalPulse.Contracts.Businesses;
+using DigitalPulse.Contracts.Directories;
 using DigitalPulse.Contracts.Social;
 using DigitalPulse.Contracts.Tenancy;
 using FluentValidation;
@@ -75,6 +77,11 @@ public static class DependencyInjection
         services.AddScoped<ApproveSocialContentHandler>();
         services.AddScoped<PublishSocialContentHandler>();
         services.AddScoped<RefreshSocialMetricsHandler>();
+        services.AddScoped<GetDirectoryWorkspaceHandler>();
+        services.AddScoped<PrepareDirectoryTaskHandler>();
+        services.AddScoped<CompleteDirectoryStepHandler>();
+        services.AddScoped<VerifyDirectoryTaskHandler>();
+        services.AddScoped<MonitorDirectoryHandler>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         return services;
     }
@@ -237,5 +244,21 @@ public sealed class UpdateSocialContentRequestValidator : AbstractValidator<Upda
     {
         RuleFor(x => x.Title).NotEmpty().MaximumLength(160);
         RuleFor(x => x.Body).NotEmpty().MaximumLength(4000);
+    }
+}
+
+public sealed class PrepareDirectoryRequestValidator : AbstractValidator<PrepareDirectoryRequest>
+{
+    public PrepareDirectoryRequestValidator()
+    {
+        RuleFor(x => x.PlatformCode).NotEmpty().MaximumLength(32);
+    }
+}
+
+public sealed class VerifyDirectoryRequestValidator : AbstractValidator<VerifyDirectoryRequest>
+{
+    public VerifyDirectoryRequestValidator()
+    {
+        RuleFor(x => x.Note).NotEmpty().MaximumLength(500);
     }
 }

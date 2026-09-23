@@ -17,6 +17,7 @@ import { ConnectionsPage } from "./pages/ConnectionsPage";
 import { FindingsPage } from "./pages/FindingsPage";
 import { WebsitePage } from "./pages/WebsitePage";
 import { SocialPage } from "./pages/SocialPage";
+import { DirectoriesPage } from "./pages/DirectoriesPage";
 import { BusinessPage } from "./pages/onboarding/BusinessPage";
 import { CreateTenantPage } from "./pages/onboarding/CreateTenantPage";
 import { LocationPage } from "./pages/onboarding/LocationPage";
@@ -68,6 +69,7 @@ function AnimatedRoutes() {
           <Route path="/app/findings" element={<RequireAuth><FindingsPage /></RequireAuth>} />
           <Route path="/app/website" element={<RequireAuth><WebsitePage /></RequireAuth>} />
           <Route path="/app/social" element={<RequireAuth><SocialPage /></RequireAuth>} />
+          <Route path="/app/directories" element={<RequireAuth><DirectoriesPage /></RequireAuth>} />
           <Route path="/app/businesses/:businessId" element={<RequireAuth><BusinessIdentityPage /></RequireAuth>} />
         </Routes>
       </motion.div>

@@ -97,6 +97,8 @@ export type DashboardResponse = {
   searchProvider: string;
   socialDraftCount: number;
   socialBlockedCount: number;
+  directoryOpenCount: number;
+  directoryVerifiedCount: number;
 };
 
 export class ApiError extends Error {
@@ -259,7 +261,16 @@ export const api = {
   publishSocial: (businessId: string, contentId: string) =>
     request<SocialContent>(`/v1/businesses/${businessId}/social/content/${contentId}/publish`, { method: "POST" }),
   refreshSocialMetrics: (businessId: string) =>
-    request<SocialWorkspace>(`/v1/businesses/${businessId}/social/metrics/refresh`, { method: "POST" })
+    request<SocialWorkspace>(`/v1/businesses/${businessId}/social/metrics/refresh`, { method: "POST" }),
+  directories: (businessId: string) => request<DirectoryWorkspace>(`/v1/businesses/${businessId}/directories`),
+  prepareDirectory: (businessId: string, platformCode: string) =>
+    request<DirectoryTask>(`/v1/businesses/${businessId}/directories/prepare`, { method: "POST", body: JSON.stringify({ platformCode }) }),
+  completeDirectoryStep: (businessId: string, taskId: string, stepId: string) =>
+    request<DirectoryTask>(`/v1/businesses/${businessId}/directories/tasks/${taskId}/steps/${stepId}/complete`, { method: "POST" }),
+  verifyDirectory: (businessId: string, taskId: string, note: string) =>
+    request<DirectoryTask>(`/v1/businesses/${businessId}/directories/tasks/${taskId}/verify`, { method: "POST", body: JSON.stringify({ note }) }),
+  monitorDirectory: (businessId: string, platformCode: string) =>
+    request<DirectoryWorkspace>(`/v1/businesses/${businessId}/directories/${platformCode}/monitor`, { method: "POST" })
 };
 
 export type PlatformCapabilities = {
@@ -428,5 +439,50 @@ export type SocialContent = {
 export type SocialWorkspace = {
   channels: SocialChannel[];
   items: SocialContent[];
+  note: string;
+};
+export type DirectoryCapability = {
+  platformCode: string;
+  platformName: string;
+  canRead: boolean;
+  canWriteOfficially: boolean;
+  assistedOnly: boolean;
+  officialRead: string;
+  officialWrite: string;
+};
+export type DirectoryProvider = {
+  capabilities: DirectoryCapability;
+  connectionStatus: string | null;
+  grantKind: string | null;
+  lastHealthStatus: string | null;
+  readStatus: string;
+  readDetail: string;
+};
+export type DirectoryStep = {
+  id: string;
+  ordinal: number;
+  title: string;
+  detail: string;
+  completedAtUtc: string | null;
+};
+export type DirectoryTask = {
+  id: string;
+  platformCode: string;
+  kind: string;
+  status: string;
+  preparedName: string;
+  preparedPhone: string | null;
+  preparedWebsite: string | null;
+  preparedCategory: string | null;
+  preparedServices: string | null;
+  verificationNote: string | null;
+  verifiedAtUtc: string | null;
+  lastMonitoredAtUtc: string | null;
+  monitorDetail: string | null;
+  steps: DirectoryStep[];
+};
+export type DirectoryWorkspace = {
+  providers: DirectoryProvider[];
+  tasks: DirectoryTask[];
   note: string;
 };

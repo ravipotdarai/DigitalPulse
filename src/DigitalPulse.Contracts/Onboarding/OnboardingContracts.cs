@@ -24,7 +24,9 @@ public sealed record DashboardResponse(
     int WebsiteObservationCount,
     string SearchProvider,
     int SocialDraftCount,
-    int SocialBlockedCount);
+    int SocialBlockedCount,
+    int DirectoryOpenCount,
+    int DirectoryVerifiedCount);
 
 public sealed record DashboardBusinessResponse(
     Guid Id,

@@ -15,6 +15,7 @@ const NAV = [
   { to: "/app/findings", label: "Findings" },
   { to: "/app/website", label: "Website" },
   { to: "/app/social", label: "Social" },
+  { to: "/app/directories", label: "Directories" },
   { to: "/app/info", label: "Workspace" }
 ];
 

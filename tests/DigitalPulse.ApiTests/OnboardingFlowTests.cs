@@ -7,6 +7,7 @@ using DigitalPulse.Contracts.Businesses;
 using DigitalPulse.Contracts.Connections;
 using DigitalPulse.Contracts.Onboarding;
 using DigitalPulse.Contracts.Scans;
+using DigitalPulse.Contracts.Directories;
 using DigitalPulse.Contracts.Social;
 using DigitalPulse.Contracts.Website;
 using DigitalPulse.Contracts.Tenancy;
@@ -508,6 +509,95 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
         Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
         var approve = await _client.PostAsync($"/v1/businesses/{userA.BusinessId}/social/content/{draft!.Id}/approve", null);
         Assert.Equal(HttpStatusCode.NotFound, approve.StatusCode);
+    }
+
+    [Fact]
+    public async Task Directory_playbooks_are_assisted_and_never_scrape()
+    {
+        var session = await RegisterAndOnboard("Direct", "Directory Co");
+        UseToken(session.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        await _client.PutAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/profile",
+            new UpdateBusinessProfileRequest("Harbour Coffee", "https://harbour.example", null, null, null));
+
+        var social = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/directories/prepare",
+            new PrepareDirectoryRequest("FACEBOOK"));
+        Assert.Equal(HttpStatusCode.BadRequest, social.StatusCode);
+
+        var missing = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/directories/prepare",
+            new PrepareDirectoryRequest("INDIAMART"));
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+
+        var enabled = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/connections",
+            new StartConnectionRequest("INDIAMART"));
+        enabled.EnsureSuccessStatusCode();
+
+        var prepared = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/directories/prepare",
+            new PrepareDirectoryRequest("INDIAMART"));
+        prepared.EnsureSuccessStatusCode();
+        var task = await prepared.Content.ReadFromJsonAsync<DirectoryTaskResponse>();
+        Assert.Equal("Harbour Coffee", task!.PreparedName);
+        Assert.Equal("https://harbour.example", task.PreparedWebsite);
+        Assert.True(task.Steps.Count >= 4);
+
+        var early = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/directories/tasks/{task.Id}/verify",
+            new VerifyDirectoryRequest("Too soon"));
+        Assert.Equal(HttpStatusCode.BadRequest, early.StatusCode);
+
+        foreach (var step in task.Steps)
+        {
+            var done = await _client.PostAsync(
+                $"/v1/businesses/{session.BusinessId}/directories/tasks/{task.Id}/steps/{step.Id}/complete", null);
+            done.EnsureSuccessStatusCode();
+        }
+
+        var verified = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/directories/tasks/{task.Id}/verify",
+            new VerifyDirectoryRequest("Confirmed on the official seller profile."));
+        verified.EnsureSuccessStatusCode();
+        var after = await verified.Content.ReadFromJsonAsync<DirectoryTaskResponse>();
+        Assert.Equal("Verified", after!.Status);
+
+        var workspace = await _client.GetFromJsonAsync<DirectoryWorkspaceResponse>($"/v1/businesses/{session.BusinessId}/directories");
+        Assert.Contains(workspace!.Providers, p => p.Capabilities.PlatformCode == "INDIAMART" && p.ReadStatus == "Hold");
+        Assert.Contains(workspace.Providers, p => p.Capabilities.PlatformCode == "JUSTDIAL" && !p.Capabilities.CanWriteOfficially);
+        Assert.DoesNotContain(workspace.Providers, p => p.Capabilities.PlatformCode == "FACEBOOK");
+
+        var monitor = await _client.PostAsync($"/v1/businesses/{session.BusinessId}/directories/INDIAMART/monitor", null);
+        monitor.EnsureSuccessStatusCode();
+        var monitored = await monitor.Content.ReadFromJsonAsync<DirectoryWorkspaceResponse>();
+        Assert.Contains(monitored!.Tasks, t => t.MonitorDetail != null && t.MonitorDetail.Contains("hold", StringComparison.OrdinalIgnoreCase));
+
+        var dashboard = await _client.GetFromJsonAsync<DashboardResponse>("/v1/dashboard");
+        Assert.True(dashboard!.DirectoryVerifiedCount >= 1);
+    }
+
+    [Fact]
+    public async Task Directory_tasks_stay_isolated_across_tenants()
+    {
+        var userA = await RegisterAndOnboard("Direct", "Alpha Dir");
+        UseToken(userA.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        await _client.PostAsJsonAsync($"/v1/businesses/{userA.BusinessId}/connections", new StartConnectionRequest("JUSTDIAL"));
+        await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/directories/prepare",
+            new PrepareDirectoryRequest("JUSTDIAL"));
+
+        var userB = await RegisterAndOnboard("Direct", "Beta Dir");
+        UseToken(userB.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var peek = await _client.GetAsync($"/v1/businesses/{userA.BusinessId}/directories");
+        Assert.Equal(HttpStatusCode.NotFound, peek.StatusCode);
+        var steal = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/directories/prepare",
+            new PrepareDirectoryRequest("JUSTDIAL"));
+        Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
     }
 
     [Fact]

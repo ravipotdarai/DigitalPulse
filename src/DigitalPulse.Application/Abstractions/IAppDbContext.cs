@@ -4,6 +4,7 @@ using DigitalPulse.Domain.Identity;
 using DigitalPulse.Domain.Platforms;
 using DigitalPulse.Domain.Scans;
 using DigitalPulse.Domain.Tenancy;
+using DigitalPulse.Domain.Directories;
 using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
 using Microsoft.EntityFrameworkCore;
@@ -37,6 +38,8 @@ public interface IAppDbContext
     DbSet<SearchObservation> SearchObservations { get; }
     DbSet<SocialContentItem> SocialContent { get; }
     DbSet<SocialMetricSnapshot> SocialMetrics { get; }
+    DbSet<DirectoryTask> DirectoryTasks { get; }
+    DbSet<DirectoryStep> DirectorySteps { get; }
 
     Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
