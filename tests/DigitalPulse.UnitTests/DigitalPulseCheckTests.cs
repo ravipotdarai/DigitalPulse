@@ -89,5 +89,9 @@ public sealed class DigitalPulseCheckTests
             Task.FromResult(new PlatformHealthResult("Hold", "Test"));
         public Task<IReadOnlyList<PlatformDiagnostic>> DiagnoseAsync(PlatformConnection connection, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<PlatformDiagnostic>>([]);
+        public Task<PlatformPublishResult> PublishAsync(PlatformConnection connection, string title, string body, CancellationToken cancellationToken) =>
+            Task.FromResult(new PlatformPublishResult("Hold", "Test"));
+        public Task<PlatformMetricsResult> MetricsAsync(PlatformConnection connection, CancellationToken cancellationToken) =>
+            Task.FromResult(new PlatformMetricsResult("Hold", "Test"));
     }
 }

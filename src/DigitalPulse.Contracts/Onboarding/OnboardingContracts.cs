@@ -22,7 +22,9 @@ public sealed record DashboardResponse(
     IReadOnlyList<DashboardFindingResponse> TopFindings,
     DateTimeOffset? LastWebsiteAtUtc,
     int WebsiteObservationCount,
-    string SearchProvider);
+    string SearchProvider,
+    int SocialDraftCount,
+    int SocialBlockedCount);
 
 public sealed record DashboardBusinessResponse(
     Guid Id,

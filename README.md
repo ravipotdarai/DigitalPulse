@@ -1,6 +1,6 @@
 # DigitalPulse
 
-AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phase 2 business digital identity + Phase 3 connection center + Phase 4 DigitalPulse Check + Phase 5 website + search**.
+AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phase 2–5 + Phase 6 Google/Meta/social drafts**.
 
 ## Run locally
 
@@ -27,13 +27,15 @@ Open http://localhost:5173 (API http://localhost:5088).
 
 ## Flow
 
-Landing → Register → Login → Create Tenant → Tenant → Business → Location → Select Plan → Dashboard → Business identity → Connection Center → DigitalPulse Check → Website intelligence
+Landing → Register → Login → Create Tenant → Tenant → Business → Location → Select Plan → Dashboard → Business identity → Connection Center → DigitalPulse Check → Website intelligence → Social
 
 Connection Center lists official adapters (Google, Meta, LinkedIn, YouTube, IndiaMART, Justdial, WhatsApp Cloud API, Website, Search Console, Google Ads). Connect issues a **development grant** behind `IPlatformAuthorizationBroker`. Live provider OAuth is not invented. IndiaMART/Justdial are assisted-only. WhatsApp is Cloud API only.
 
 DigitalPulse Check compares canonical identity to a safe website fetch (SSRF-blocked) and to authorized connections. Development grants produce “snapshot unavailable” findings — they do not invent live listing data. Scan volume follows `SubscriptionPlan.ScansPerMonth`.
 
 Website intelligence stores an on-page SEO/AEO snapshot from the official homepage. `ISearchProvider` is InMemory and tenant-scoped. Vector search and live Search Console metrics are not configured and are not invented.
+
+Social workspace drafts Google, Facebook, Instagram, LinkedIn, and YouTube copy. Approve → publish stays on hold unless a live provider write exists. WhatsApp is not a social post. Metrics are hold/unavailable — likes and views are not invented.
 
 Development authentication is JWT behind `IAuthTokenIssuer` (`DevelopmentJwtTokenIssuer`). Entra External ID is not wired yet.
 

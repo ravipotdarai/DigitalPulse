@@ -42,6 +42,7 @@ app.MapIdentityEndpoints();
 app.MapConnectionEndpoints();
 app.MapScanEndpoints();
 app.MapWebsiteEndpoints();
+app.MapSocialEndpoints();
 app.MapBillingAndOnboardingEndpoints();
 
 if (app.Environment.IsDevelopment())
@@ -63,6 +64,7 @@ if (app.Environment.IsDevelopment())
         await ConnectionsSchemaUpgrader.EnsureAsync(db);
         await ScansSchemaUpgrader.EnsureAsync(db);
         await WebsiteSchemaUpgrader.EnsureAsync(db);
+        await SocialSchemaUpgrader.EnsureAsync(db);
     }
     else
     {

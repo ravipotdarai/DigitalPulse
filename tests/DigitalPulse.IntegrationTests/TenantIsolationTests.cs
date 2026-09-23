@@ -2,6 +2,7 @@ using DigitalPulse.Domain.Businesses;
 using DigitalPulse.Domain.Platforms;
 using DigitalPulse.Domain.Scans;
 using DigitalPulse.Domain.Tenancy;
+using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
 using DigitalPulse.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -113,6 +114,30 @@ public sealed class TenantIsolationTests
 
         await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
         var visible = await dbA.WebsiteSnapshots.Select(s => s.Title).ToListAsync();
+        Assert.Equal(["A"], visible);
+    }
+
+    [Fact]
+    public async Task Query_filter_hides_other_tenant_social_content()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var businessA = Business.Create(tenantA, "A Co", null);
+        var businessB = Business.Create(tenantB, "B Co", null);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"iso-social-{Guid.NewGuid()}")
+            .Options;
+
+        await using (var seed = new AppDbContext(options, tenantContext: null))
+        {
+            seed.Businesses.AddRange(businessA, businessB);
+            seed.SocialContent.Add(SocialContentItem.Draft(tenantA, businessA.Id, "FACEBOOK", SocialContentKind.FacebookPost, "A", "A body"));
+            seed.SocialContent.Add(SocialContentItem.Draft(tenantB, businessB.Id, "FACEBOOK", SocialContentKind.FacebookPost, "B", "B body"));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
+        var visible = await dbA.SocialContent.Select(c => c.Title).ToListAsync();
         Assert.Equal(["A"], visible);
     }
 

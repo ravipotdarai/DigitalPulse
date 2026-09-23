@@ -9,10 +9,12 @@ using DigitalPulse.Application.Features.Plans;
 using DigitalPulse.Application.Features.Scans;
 using DigitalPulse.Application.Features.Subscriptions;
 using DigitalPulse.Application.Features.Tenants;
+using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Application.Features.Website;
 using DigitalPulse.Contracts.Auth;
 using DigitalPulse.Contracts.Billing;
 using DigitalPulse.Contracts.Businesses;
+using DigitalPulse.Contracts.Social;
 using DigitalPulse.Contracts.Tenancy;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -67,6 +69,12 @@ public static class DependencyInjection
         services.AddScoped<GetWebsiteIntelligenceHandler>();
         services.AddScoped<AnalyzeWebsiteHandler>();
         services.AddScoped<SearchWebsiteHandler>();
+        services.AddScoped<GetSocialWorkspaceHandler>();
+        services.AddScoped<CreateSocialContentHandler>();
+        services.AddScoped<UpdateSocialContentHandler>();
+        services.AddScoped<ApproveSocialContentHandler>();
+        services.AddScoped<PublishSocialContentHandler>();
+        services.AddScoped<RefreshSocialMetricsHandler>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         return services;
     }
@@ -210,5 +218,24 @@ public sealed class CustomerContactRequestValidator : AbstractValidator<Customer
     {
         RuleFor(x => x.Kind).NotEmpty();
         RuleFor(x => x.Value).NotEmpty().MaximumLength(320);
+    }
+}
+
+public sealed class CreateSocialContentRequestValidator : AbstractValidator<CreateSocialContentRequest>
+{
+    public CreateSocialContentRequestValidator()
+    {
+        RuleFor(x => x.PlatformCode).NotEmpty().MaximumLength(32);
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Body).NotEmpty().MaximumLength(4000);
+    }
+}
+
+public sealed class UpdateSocialContentRequestValidator : AbstractValidator<UpdateSocialContentRequest>
+{
+    public UpdateSocialContentRequestValidator()
+    {
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Body).NotEmpty().MaximumLength(4000);
     }
 }

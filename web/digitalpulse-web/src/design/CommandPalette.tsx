@@ -8,7 +8,8 @@ const COMMANDS = [
   { id: "workspace", label: "Update workspace info", to: "/app/info" },
   { id: "connections", label: "Connection center", to: "/app/connections" },
   { id: "findings", label: "Findings", to: "/app/findings" },
-  { id: "website", label: "Website intelligence", to: "/app/website" }
+  { id: "website", label: "Website intelligence", to: "/app/website" },
+  { id: "social", label: "Social content", to: "/app/social" }
 ];
 
 export function CommandPalette() {

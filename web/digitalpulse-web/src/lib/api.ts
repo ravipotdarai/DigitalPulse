@@ -95,6 +95,8 @@ export type DashboardResponse = {
   lastWebsiteAtUtc: string | null;
   websiteObservationCount: number;
   searchProvider: string;
+  socialDraftCount: number;
+  socialBlockedCount: number;
 };
 
 export class ApiError extends Error {
@@ -246,7 +248,18 @@ export const api = {
   analyzeWebsite: (businessId: string) =>
     request<WebsiteIntelligence>(`/v1/businesses/${businessId}/website/analyze`, { method: "POST" }),
   searchWebsite: (businessId: string, query: string) =>
-    request<SiteSearch>(`/v1/businesses/${businessId}/website/search?q=${encodeURIComponent(query)}`)
+    request<SiteSearch>(`/v1/businesses/${businessId}/website/search?q=${encodeURIComponent(query)}`),
+  social: (businessId: string) => request<SocialWorkspace>(`/v1/businesses/${businessId}/social`),
+  createSocial: (businessId: string, body: { platformCode: string; title: string; body: string }) =>
+    request<SocialContent>(`/v1/businesses/${businessId}/social/content`, { method: "POST", body: JSON.stringify(body) }),
+  updateSocial: (businessId: string, contentId: string, body: { title: string; body: string }) =>
+    request<SocialContent>(`/v1/businesses/${businessId}/social/content/${contentId}`, { method: "PUT", body: JSON.stringify(body) }),
+  approveSocial: (businessId: string, contentId: string) =>
+    request<SocialContent>(`/v1/businesses/${businessId}/social/content/${contentId}/approve`, { method: "POST" }),
+  publishSocial: (businessId: string, contentId: string) =>
+    request<SocialContent>(`/v1/businesses/${businessId}/social/content/${contentId}/publish`, { method: "POST" }),
+  refreshSocialMetrics: (businessId: string) =>
+    request<SocialWorkspace>(`/v1/businesses/${businessId}/social/metrics/refresh`, { method: "POST" })
 };
 
 export type PlatformCapabilities = {
@@ -385,4 +398,35 @@ export type SiteSearch = {
   provider: string;
   query: string;
   hits: { title: string; url: string; snippet: string; score: number }[];
+};
+export type SocialChannel = {
+  platformCode: string;
+  platformName: string;
+  category: string;
+  canPublish: boolean;
+  canGetMetrics: boolean;
+  assistedOnly: boolean;
+  connectionStatus: string | null;
+  grantKind: string | null;
+  metricStatus: string | null;
+  metricDetail: string | null;
+};
+export type SocialContent = {
+  id: string;
+  businessId: string;
+  platformCode: string;
+  kind: string;
+  title: string;
+  body: string;
+  status: string;
+  verificationStatus: string;
+  verificationDetail: string | null;
+  lastPublishError: string | null;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+};
+export type SocialWorkspace = {
+  channels: SocialChannel[];
+  items: SocialContent[];
+  note: string;
 };

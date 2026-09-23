@@ -3,6 +3,7 @@ using DigitalPulse.Application.Common;
 using DigitalPulse.Contracts.Onboarding;
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Scans;
+using DigitalPulse.Domain.Social;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigitalPulse.Application.Features.Dashboard;
@@ -78,6 +79,8 @@ public sealed class GetDashboardHandler
             top,
             latestWebsite?.FetchedAtUtc,
             websiteObservations,
-            _search.ProviderCode);
+            _search.ProviderCode,
+            await _db.SocialContent.CountAsync(c => c.TenantId == tenantId && c.Status == SocialContentStatus.Draft, cancellationToken),
+            await _db.SocialContent.CountAsync(c => c.TenantId == tenantId && c.Status == SocialContentStatus.Blocked, cancellationToken));
     }
 }

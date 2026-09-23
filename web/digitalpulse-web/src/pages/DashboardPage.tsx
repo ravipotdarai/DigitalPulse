@@ -87,10 +87,18 @@ export function DashboardPage() {
       <div className="band band-3">
         <article className="panel">
           <h2>Active actions</h2>
-          <div className="dp-empty" style={{ minHeight: "7rem" }}>
-            <strong>Queue empty</strong>
-            <p>Approve → Execute needs a connected adapter.</p>
-          </div>
+          {data.socialDraftCount === 0 && data.socialBlockedCount === 0 ? (
+            <div className="dp-empty" style={{ minHeight: "7rem" }}>
+              <strong>Queue empty</strong>
+              <p>Social drafts wait in Social. Live Google or Meta posts are not sent.</p>
+            </div>
+          ) : (
+            <>
+              <div className="row-line"><span>Social drafts</span><span className="sev sev-hold">{data.socialDraftCount}</span></div>
+              <div className="row-line"><span>Publish holds</span><span className={`sev ${data.socialBlockedCount ? "sev-warn" : "sev-ok"}`}>{data.socialBlockedCount}</span></div>
+              <Button appearance="subtle" onClick={() => navigate("/app/social")}>Open social</Button>
+            </>
+          )}
         </article>
         <article className="panel">
           <h2>Platform health</h2>

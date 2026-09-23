@@ -51,6 +51,47 @@ public abstract class PlatformAdapter : IPlatformAdapter
         return Task.FromResult(checks);
     }
 
+    public Task<PlatformPublishResult> PublishAsync(PlatformConnection connection, string title, string body, CancellationToken cancellationToken)
+    {
+        _ = title;
+        _ = body;
+        if (Descriptor.Capabilities.AssistedOnly)
+        {
+            return Task.FromResult(new PlatformPublishResult("Assisted", "This adapter is assisted-only. Publish the copy on the platform yourself."));
+        }
+
+        if (!Descriptor.Capabilities.CanPublish)
+        {
+            return Task.FromResult(new PlatformPublishResult("Assisted", $"{Descriptor.Name} does not expose an official publish capability in this catalog."));
+        }
+
+        if (connection.Status != ConnectionStatus.Connected)
+        {
+            return Task.FromResult(new PlatformPublishResult("Blocked", "Connect the platform before attempting a publish."));
+        }
+
+        return Task.FromResult(new PlatformPublishResult(
+            "Hold",
+            "Live provider publish is not wired. DigitalPulse will not invent a posted update."));
+    }
+
+    public Task<PlatformMetricsResult> MetricsAsync(PlatformConnection connection, CancellationToken cancellationToken)
+    {
+        if (!Descriptor.Capabilities.CanGetMetrics)
+        {
+            return Task.FromResult(new PlatformMetricsResult("Unavailable", $"{Descriptor.Name} does not expose metrics in this catalog."));
+        }
+
+        if (connection.Status != ConnectionStatus.Connected)
+        {
+            return Task.FromResult(new PlatformMetricsResult("Unavailable", "Connect the platform before requesting metrics."));
+        }
+
+        return Task.FromResult(new PlatformMetricsResult(
+            "Hold",
+            "Live provider metrics are not wired. DigitalPulse will not invent likes, views, or reach."));
+    }
+
     private static string Summarize(PlatformCapabilities caps) =>
         string.Join(", ", new[]
         {

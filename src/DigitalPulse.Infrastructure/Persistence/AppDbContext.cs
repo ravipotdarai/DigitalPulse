@@ -6,6 +6,7 @@ using DigitalPulse.Domain.Identity;
 using DigitalPulse.Domain.Platforms;
 using DigitalPulse.Domain.Scans;
 using DigitalPulse.Domain.Tenancy;
+using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
 using Microsoft.EntityFrameworkCore;
 
@@ -44,6 +45,8 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<FindingEvidence> FindingEvidence => Set<FindingEvidence>();
     public DbSet<WebsiteSnapshot> WebsiteSnapshots => Set<WebsiteSnapshot>();
     public DbSet<SearchObservation> SearchObservations => Set<SearchObservation>();
+    public DbSet<SocialContentItem> SocialContent => Set<SocialContentItem>();
+    public DbSet<SocialMetricSnapshot> SocialMetrics => Set<SocialMetricSnapshot>();
 
     public Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken) =>
         Connections.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.AuthorizationState == state, cancellationToken);
@@ -71,6 +74,8 @@ public sealed class AppDbContext : DbContext, IAppDbContext
         ApplyTenantFilter<FindingEvidence>(modelBuilder);
         ApplyTenantFilter<WebsiteSnapshot>(modelBuilder);
         ApplyTenantFilter<SearchObservation>(modelBuilder);
+        ApplyTenantFilter<SocialContentItem>(modelBuilder);
+        ApplyTenantFilter<SocialMetricSnapshot>(modelBuilder);
     }
 
     private void ApplyTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : TenantOwnedEntity =>

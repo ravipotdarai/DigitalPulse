@@ -7,6 +7,7 @@ using DigitalPulse.Contracts.Businesses;
 using DigitalPulse.Contracts.Connections;
 using DigitalPulse.Contracts.Onboarding;
 using DigitalPulse.Contracts.Scans;
+using DigitalPulse.Contracts.Social;
 using DigitalPulse.Contracts.Website;
 using DigitalPulse.Contracts.Tenancy;
 using DigitalPulse.Infrastructure.Persistence;
@@ -430,6 +431,83 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
         Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
         var search = await _client.GetAsync($"/v1/businesses/{userA.BusinessId}/website/search?q=Welcome");
         Assert.Equal(HttpStatusCode.NotFound, search.StatusCode);
+    }
+
+    [Fact]
+    public async Task Social_workspace_drafts_and_holds_publish_without_invented_metrics()
+    {
+        var session = await RegisterAndOnboard("Direct", "Social Co");
+        UseToken(session.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+
+        var whatsapp = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/social/content",
+            new CreateSocialContentRequest("WHATSAPP", "Hi", "Hello"));
+        Assert.Equal(HttpStatusCode.BadRequest, whatsapp.StatusCode);
+
+        var created = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/social/content",
+            new CreateSocialContentRequest("FACEBOOK", "Weekend hours", "Open until 8 on Saturday."));
+        created.EnsureSuccessStatusCode();
+        var draft = await created.Content.ReadFromJsonAsync<SocialContentResponse>();
+        Assert.Equal("Draft", draft!.Status);
+        Assert.Equal("FacebookPost", draft.Kind);
+
+        var earlyPublish = await _client.PostAsync(
+            $"/v1/businesses/{session.BusinessId}/social/content/{draft.Id}/publish", null);
+        Assert.Equal(HttpStatusCode.BadRequest, earlyPublish.StatusCode);
+
+        await _client.PostAsync($"/v1/businesses/{session.BusinessId}/social/content/{draft.Id}/approve", null);
+        var start = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/connections",
+            new StartConnectionRequest("FACEBOOK"));
+        var startBody = await start.Content.ReadFromJsonAsync<StartConnectionResponse>();
+        await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/connections/{startBody!.Connection.Id}/complete",
+            new CompleteConnectionRequest("development"));
+
+        var published = await _client.PostAsync(
+            $"/v1/businesses/{session.BusinessId}/social/content/{draft.Id}/publish", null);
+        published.EnsureSuccessStatusCode();
+        var after = await published.Content.ReadFromJsonAsync<SocialContentResponse>();
+        Assert.Equal("Blocked", after!.Status);
+        Assert.Equal("Hold", after.VerificationStatus);
+        Assert.DoesNotContain("Published", after.Status, StringComparison.Ordinal);
+
+        var metrics = await _client.PostAsync($"/v1/businesses/{session.BusinessId}/social/metrics/refresh", null);
+        metrics.EnsureSuccessStatusCode();
+        var workspace = await metrics.Content.ReadFromJsonAsync<SocialWorkspaceResponse>();
+        Assert.DoesNotContain(workspace!.Channels, c => c.PlatformCode == "WHATSAPP");
+        Assert.Contains(workspace.Channels, c => c.PlatformCode == "FACEBOOK" && c.MetricStatus == "Hold");
+        Assert.DoesNotContain(workspace.Channels, c => c.MetricDetail?.Any(char.IsDigit) == true && c.MetricDetail!.Contains("likes", StringComparison.OrdinalIgnoreCase));
+
+        var dashboard = await _client.GetFromJsonAsync<DashboardResponse>("/v1/dashboard");
+        Assert.Equal(0, dashboard!.SocialDraftCount);
+        Assert.True(dashboard.SocialBlockedCount >= 1);
+    }
+
+    [Fact]
+    public async Task Social_content_stays_isolated_across_tenants()
+    {
+        var userA = await RegisterAndOnboard("Direct", "Alpha Social");
+        UseToken(userA.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var created = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/social/content",
+            new CreateSocialContentRequest("LINKEDIN", "Only A", "Alpha only"));
+        var draft = await created.Content.ReadFromJsonAsync<SocialContentResponse>();
+
+        var userB = await RegisterAndOnboard("Direct", "Beta Social");
+        UseToken(userB.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var peek = await _client.GetAsync($"/v1/businesses/{userA.BusinessId}/social");
+        Assert.Equal(HttpStatusCode.NotFound, peek.StatusCode);
+        var steal = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/social/content",
+            new CreateSocialContentRequest("LINKEDIN", "Intruder", "No"));
+        Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
+        var approve = await _client.PostAsync($"/v1/businesses/{userA.BusinessId}/social/content/{draft!.Id}/approve", null);
+        Assert.Equal(HttpStatusCode.NotFound, approve.StatusCode);
     }
 
     [Fact]
