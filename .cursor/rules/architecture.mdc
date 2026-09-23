@@ -1,0 +1,15 @@
+---
+description: DigitalPulse architecture, tenancy, and auth boundaries
+alwaysApply: true
+---
+
+# DigitalPulse
+
+Follow `Docs/DigitalPulse_Architecture_Development_Master_Specification_v2.0.md`.
+
+- Modular monolith: Domain, Application, Infrastructure, Api, Worker, Contracts, `web/digitalpulse-web`.
+- TenantId is resolved from the authenticated session. Never trust client `TenantId` or `X-Tenant-Id` unless it matches the session.
+- Auth UI talks only to `/v1/auth`. Do not hard-code users or tokens in components. Development JWT lives behind `IAuthTokenIssuer`.
+- Subscription plans come from `ISubscriptionPlanCatalog` / SQL seed. Do not hard-code plan prices in feature logic.
+- Isolation boundary is Tenant. Work object is Business. Agency clients are businesses under one Agency tenant.
+- Every page: loading, empty, error, success, validation. Mobile-first. No fake production integrations.

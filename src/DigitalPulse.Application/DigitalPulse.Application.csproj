@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>DigitalPulse.Application</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DigitalPulse.Domain\DigitalPulse.Domain.csproj" />
+    <ProjectReference Include="..\DigitalPulse.Contracts\DigitalPulse.Contracts.csproj" />
+  </ItemGroup>
+</Project>

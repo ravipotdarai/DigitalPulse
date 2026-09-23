@@ -1,0 +1,201 @@
+import { Button, Input, Label } from "@fluentui/react-components";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FormEvent, useState } from "react";
+import { ApiError, api, type BusinessResponse, type LocationResponse } from "../lib/api";
+import { PageState } from "../components/PageState";
+import { useSession } from "../state/session";
+
+export function WorkspacePage() {
+  const profile = useSession((s) => s.profile);
+  const tenantQuery = useQuery({ queryKey: ["tenant"], queryFn: api.currentTenant });
+  const businessesQuery = useQuery({ queryKey: ["businesses"], queryFn: api.listBusinesses });
+  const business = businessesQuery.data?.[0];
+  const locationsQuery = useQuery({
+    queryKey: ["locations", business?.id],
+    queryFn: () => api.listLocations(business!.id),
+    enabled: Boolean(business?.id)
+  });
+
+  if (tenantQuery.isLoading || businessesQuery.isLoading) {
+    return <PageState mode="loading" title="Loading workspace" />;
+  }
+  if (tenantQuery.isError || businessesQuery.isError || !tenantQuery.data) {
+    return <PageState mode="error" title="Could not load workspace" detail="Finish onboarding first, then return here to update details." />;
+  }
+
+  return (
+    <main className="mx-auto grid max-w-3xl gap-6 px-5 py-8 md:px-8">
+      <div>
+        <p className="text-xs uppercase tracking-[0.24em]" style={{ color: "var(--signal)" }}>Workspace</p>
+        <h1 className="display mt-2 text-4xl">Update info</h1>
+        <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>Change the details captured during onboarding. This does not restart the flow.</p>
+      </div>
+      <ProfileForm displayName={profile?.displayName ?? ""} email={profile?.email ?? ""} />
+      <TenantForm name={tenantQuery.data.name} type={tenantQuery.data.type} />
+      {business ? <BusinessForm business={business} /> : <PageState mode="empty" title="No business yet" />}
+      {business && locationsQuery.data?.map((location) => (
+        <LocationForm key={location.id} businessId={business.id} location={location} />
+      ))}
+    </main>
+  );
+}
+
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-3xl border p-5 md:p-6" style={{ background: "var(--card)", borderColor: "var(--stroke)" }}>
+      <h2 className="display mb-4 text-2xl">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function Status({ error, ok }: { error: string | null; ok: boolean }) {
+  if (error) return <p className="text-sm" style={{ color: "var(--signal)" }}>{error}</p>;
+  if (ok) return <p className="text-sm" style={{ color: "var(--muted)" }}>Saved.</p>;
+  return null;
+}
+
+function ProfileForm({ displayName, email }: { displayName: string; email: string }) {
+  const queryClient = useQueryClient();
+  const hydrate = useSession((s) => s.hydrate);
+  const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: (name: string) => api.updateProfile(name),
+    onSuccess: async () => {
+      await hydrate();
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    }
+  });
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setError(null);
+    try {
+      await mutation.mutateAsync(String(form.get("displayName") ?? ""));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.title : "Could not update profile.");
+    }
+  }
+
+  return (
+    <Card title="Your profile">
+      <form className="grid gap-4" onSubmit={onSubmit}>
+        <label className="grid gap-2"><Label>Name</Label><Input name="displayName" defaultValue={displayName} required /></label>
+        <label className="grid gap-2"><Label>Email</Label><Input value={email} disabled /></label>
+        <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save profile"}</Button>
+        <Status error={error} ok={mutation.isSuccess && !error} />
+      </form>
+    </Card>
+  );
+}
+
+function TenantForm({ name, type }: { name: string; type: string }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: (next: string) => api.updateTenant(next),
+    onSuccess: () => queryClient.invalidateQueries()
+  });
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    try {
+      await mutation.mutateAsync(String(new FormData(event.currentTarget).get("name") ?? ""));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.title : "Could not update tenant.");
+    }
+  }
+
+  return (
+    <Card title="Tenant">
+      <form className="grid gap-4" onSubmit={onSubmit}>
+        <label className="grid gap-2"><Label>Workspace name</Label><Input name="name" defaultValue={name} required /></label>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>Type: {type}</p>
+        <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save tenant"}</Button>
+        <Status error={error} ok={mutation.isSuccess && !error} />
+      </form>
+    </Card>
+  );
+}
+
+function BusinessForm({ business }: { business: BusinessResponse }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: (body: { name: string; website?: string }) => api.updateBusiness(business.id, body),
+    onSuccess: () => queryClient.invalidateQueries()
+  });
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setError(null);
+    try {
+      await mutation.mutateAsync({
+        name: String(form.get("name") ?? ""),
+        website: String(form.get("website") ?? "")
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.title : "Could not update business.");
+    }
+  }
+
+  return (
+    <Card title="Business">
+      <form className="grid gap-4" onSubmit={onSubmit}>
+        <label className="grid gap-2"><Label>Business name</Label><Input name="name" defaultValue={business.name} required /></label>
+        <label className="grid gap-2"><Label>Website</Label><Input name="website" defaultValue={business.website ?? ""} /></label>
+        <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save business"}</Button>
+        <Status error={error} ok={mutation.isSuccess && !error} />
+      </form>
+    </Card>
+  );
+}
+
+function LocationForm({ businessId, location }: { businessId: string; location: LocationResponse }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: (body: Record<string, string>) => api.updateLocation(businessId, location.id, body),
+    onSuccess: () => queryClient.invalidateQueries()
+  });
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setError(null);
+    try {
+      await mutation.mutateAsync({
+        name: String(form.get("name") ?? ""),
+        addressLine: String(form.get("addressLine") ?? ""),
+        city: String(form.get("city") ?? ""),
+        region: String(form.get("region") ?? ""),
+        postalCode: String(form.get("postalCode") ?? ""),
+        countryCode: String(form.get("countryCode") ?? "IN")
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.title : "Could not update location.");
+    }
+  }
+
+  return (
+    <Card title="Location">
+      <form className="grid gap-4" onSubmit={onSubmit}>
+        <label className="grid gap-2"><Label>Location name</Label><Input name="name" defaultValue={location.name} required /></label>
+        <label className="grid gap-2"><Label>Address</Label><Input name="addressLine" defaultValue={location.addressLine ?? ""} /></label>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="grid gap-2"><Label>City</Label><Input name="city" defaultValue={location.city ?? ""} /></label>
+          <label className="grid gap-2"><Label>Region</Label><Input name="region" defaultValue={location.region ?? ""} /></label>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="grid gap-2"><Label>Postal code</Label><Input name="postalCode" defaultValue={location.postalCode ?? ""} /></label>
+          <label className="grid gap-2"><Label>Country</Label><Input name="countryCode" defaultValue={location.countryCode} maxLength={2} /></label>
+        </div>
+        <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save location"}</Button>
+        <Status error={error} ok={mutation.isSuccess && !error} />
+      </form>
+    </Card>
+  );
+}

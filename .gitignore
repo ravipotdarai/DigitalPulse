@@ -1,0 +1,16 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+artifacts/
+TestResults/
+web/digitalpulse-web/node_modules/
+web/digitalpulse-web/dist/
+.env
+.env.local
+*.log
+coverage/
+graphify-out/
+.codegraph/

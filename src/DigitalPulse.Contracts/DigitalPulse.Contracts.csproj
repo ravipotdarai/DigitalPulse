@@ -1,0 +1,5 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>DigitalPulse.Contracts</RootNamespace>
+  </PropertyGroup>
+</Project>

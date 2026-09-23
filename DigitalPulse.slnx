@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DigitalPulse.Api/DigitalPulse.Api.csproj" />
+    <Project Path="src/DigitalPulse.Application/DigitalPulse.Application.csproj" />
+    <Project Path="src/DigitalPulse.Contracts/DigitalPulse.Contracts.csproj" />
+    <Project Path="src/DigitalPulse.Domain/DigitalPulse.Domain.csproj" />
+    <Project Path="src/DigitalPulse.Infrastructure/DigitalPulse.Infrastructure.csproj" />
+    <Project Path="src/DigitalPulse.Worker/DigitalPulse.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DigitalPulse.ApiTests/DigitalPulse.ApiTests.csproj" />
+    <Project Path="tests/DigitalPulse.E2ETests/DigitalPulse.E2ETests.csproj" />
+    <Project Path="tests/DigitalPulse.IntegrationTests/DigitalPulse.IntegrationTests.csproj" />
+    <Project Path="tests/DigitalPulse.UnitTests/DigitalPulse.UnitTests.csproj" />
+  </Folder>
+</Solution>
