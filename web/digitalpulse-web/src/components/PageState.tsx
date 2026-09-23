@@ -1,4 +1,4 @@
-import { Spinner, Text } from "@fluentui/react-components";
+import { Spinner } from "@fluentui/react-components";
 
 export function PageState({
   title,
@@ -10,10 +10,9 @@ export function PageState({
   mode?: "loading" | "empty" | "error" | "info";
 }) {
   return (
-    <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-6 text-center">
-      {mode === "loading" ? <Spinner size="large" label={title} /> : null}
-      {mode !== "loading" ? <h2 className="display text-3xl">{title}</h2> : null}
-      {detail ? <Text style={{ color: "var(--muted)" }}>{detail}</Text> : null}
+    <div className="state" role={mode === "error" ? "alert" : "status"}>
+      {mode === "loading" ? <Spinner size="medium" label={title} /> : <h2 className="display">{title}</h2>}
+      {detail ? <p>{detail}</p> : null}
     </div>
   );
 }

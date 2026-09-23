@@ -13,4 +13,20 @@ public static class EntitlementRules
             throw new InvalidOperationException($"Plan {plan.Code} allows {plan.MaxBusinesses} business(es).");
         }
     }
+
+    public static void EnsureCanAddConnection(SubscriptionPlan plan, int currentConnectionCount)
+    {
+        if (currentConnectionCount >= plan.MaxConnections)
+        {
+            throw new InvalidOperationException($"Plan {plan.Code} allows {plan.MaxConnections} connection(s).");
+        }
+    }
+
+    public static void EnsureCanRunScan(SubscriptionPlan plan, int scansThisMonth)
+    {
+        if (scansThisMonth >= plan.ScansPerMonth)
+        {
+            throw new InvalidOperationException($"Plan {plan.Code} allows {plan.ScansPerMonth} scan(s) this month.");
+        }
+    }
 }

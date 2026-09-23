@@ -14,9 +14,9 @@ export function TenantReviewPage() {
 
   return (
     <Wizard title="Tenant ready" step="2 / 5">
-      <dl className="grid gap-3 text-sm">
-        <div><dt style={{ color: "var(--muted)" }}>Name</dt><dd className="text-lg">{query.data.name}</dd></div>
-        <div><dt style={{ color: "var(--muted)" }}>Type</dt><dd>{query.data.type}</dd></div>
+      <dl className="panel">
+        <div className="row-line"><dt>Name</dt><dd>{query.data.name}</dd></div>
+        <div className="row-line"><dt>Type</dt><dd>{query.data.type}</dd></div>
       </dl>
       <Button className="mt-6" appearance="primary" onClick={() => navigate("/onboarding/business")}>Add business</Button>
     </Wizard>

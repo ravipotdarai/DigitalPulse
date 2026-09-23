@@ -15,10 +15,25 @@ public sealed record DashboardResponse(
     int MaxBusinesses,
     int BusinessCount,
     int LocationCount,
-    IReadOnlyList<DashboardBusinessResponse> Businesses);
+    IReadOnlyList<DashboardBusinessResponse> Businesses,
+    DateTimeOffset? LastScanAtUtc,
+    int OpenFindingCount,
+    int HighFindingCount,
+    IReadOnlyList<DashboardFindingResponse> TopFindings,
+    DateTimeOffset? LastWebsiteAtUtc,
+    int WebsiteObservationCount,
+    string SearchProvider);
 
 public sealed record DashboardBusinessResponse(
     Guid Id,
     string Name,
     string? Website,
     int LocationCount);
+
+public sealed record DashboardFindingResponse(
+    Guid Id,
+    Guid BusinessId,
+    string Severity,
+    string Category,
+    string Title,
+    string Status);

@@ -21,7 +21,7 @@ public sealed class ListBusinessesHandler
         return await _db.Businesses.AsNoTracking()
             .Where(b => b.TenantId == tenantId)
             .OrderBy(b => b.Name)
-            .Select(b => new BusinessResponse(b.Id, b.TenantId, b.Name, b.Website))
+            .Select(b => new BusinessResponse(b.Id, b.TenantId, b.Name, b.Website, b.FoundedYear, b.BrandVoice, b.IndustryCode))
             .ToListAsync(cancellationToken);
     }
 }

@@ -1,34 +1,51 @@
 import { BrandVariants, createDarkTheme, createLightTheme, Theme } from "@fluentui/react-components";
 
-const copper: BrandVariants = {
-  10: "#1A0C07",
-  20: "#36180C",
-  30: "#52230F",
-  40: "#6E2F12",
-  50: "#8A3B14",
-  60: "#A64818",
+const pulse: BrandVariants = {
+  10: "#140904",
+  20: "#2A1408",
+  30: "#3F1D0C",
+  40: "#5A2910",
+  50: "#7A3714",
+  60: "#9C4818",
   70: "#C45C26",
-  80: "#D36F3B",
-  90: "#E07A3D",
-  100: "#E8925E",
-  110: "#EEA97E",
-  120: "#F3BF9E",
-  130: "#F7D4BE",
-  140: "#FBE6D8",
-  150: "#FDF3EC",
+  80: "#E46A2E",
+  90: "#F07A3F",
+  100: "#F3925E",
+  110: "#F6AB7E",
+  120: "#F8C3A0",
+  130: "#FAD8C0",
+  140: "#FCE8D8",
+  150: "#FDF4EC",
   160: "#FFFAF7"
 };
 
-export const lightTheme: Theme = {
-  ...createLightTheme(copper),
+const type = {
   fontFamilyBase: '"Outfit", sans-serif',
-  colorNeutralBackground1: "#f3eee4",
-  colorNeutralForeground1: "#12151c"
+  fontFamilyMonospace: '"DM Mono", ui-monospace, monospace',
+  borderRadiusSmall: "4px",
+  borderRadiusMedium: "6px",
+  borderRadiusLarge: "8px",
+  borderRadiusXLarge: "8px"
+};
+
+export const lightTheme: Theme = {
+  ...createLightTheme(pulse),
+  ...type,
+  colorNeutralBackground1: "#f3efe6",
+  colorNeutralForeground1: "#12141a",
+  colorNeutralStroke1: "rgba(18, 20, 26, 0.12)",
+  colorBrandBackground: "#c45c26",
+  colorBrandBackgroundHover: "#a64818",
+  colorBrandBackgroundPressed: "#7a3714"
 };
 
 export const darkTheme: Theme = {
-  ...createDarkTheme(copper),
-  fontFamilyBase: '"Outfit", sans-serif',
-  colorNeutralBackground1: "#0d1016",
-  colorNeutralForeground1: "#f4efe6"
+  ...createDarkTheme(pulse),
+  ...type,
+  colorNeutralBackground1: "#0b0d12",
+  colorNeutralForeground1: "#ece7de",
+  colorNeutralStroke1: "rgba(236, 231, 222, 0.1)",
+  colorBrandBackground: "#e46a2e",
+  colorBrandBackgroundHover: "#f07a3f",
+  colorBrandBackgroundPressed: "#c45c26"
 };

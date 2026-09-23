@@ -1,0 +1,19 @@
+---
+description: Commit and push the current phase before starting the next one
+alwaysApply: true
+---
+
+# Phase gate
+
+When the user asks to start the next DigitalPulse phase:
+
+1. If the working tree has uncommitted phase work, create a git commit first. Message: why this phase exists, not a file list. Follow the repo git safety rules (no `--no-verify`, no amend unless explicitly requested).
+2. Push the current branch to `origin` (`git push -u origin HEAD` if it has no upstream). Do not start the next phase until push succeeds.
+3. Only then implement the next phase from `Docs/DigitalPulse_Architecture_Development_Master_Specification_v2.0.md`.
+
+Do not invent live provider data to “finish” a phase. Development grants and honest hold-states are allowed.
+
+```text
+❌ BAD: start Phase 6 while Phase 5 changes are uncommitted
+✅ GOOD: commit + push Phase 5, then start Phase 6
+```

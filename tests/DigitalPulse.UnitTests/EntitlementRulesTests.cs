@@ -33,4 +33,20 @@ public sealed class EntitlementRulesTests
         Assert.True(starter.IsAvailableTo(TenantType.Direct));
         Assert.False(starter.IsAvailableTo(TenantType.Agency));
     }
+
+    [Fact]
+    public void Starter_rejects_sixth_connection()
+    {
+        var plan = SubscriptionPlan.Create("STARTER", "Starter", 2999m, 1, false, 1, 5);
+        var ex = Assert.Throws<InvalidOperationException>(() => EntitlementRules.EnsureCanAddConnection(plan, 5));
+        Assert.Contains("5 connection", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Starter_rejects_third_scan_in_the_month()
+    {
+        var plan = SubscriptionPlan.Create("STARTER", "Starter", 2999m, 1, false, 1, 5, 2);
+        var ex = Assert.Throws<InvalidOperationException>(() => EntitlementRules.EnsureCanRunScan(plan, 2));
+        Assert.Contains("2 scan", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }

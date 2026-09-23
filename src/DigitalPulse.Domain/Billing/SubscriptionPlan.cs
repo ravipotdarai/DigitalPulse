@@ -8,6 +8,8 @@ public sealed class SubscriptionPlan : Entity
     public string Name { get; private set; } = string.Empty;
     public decimal MonthlyPriceInr { get; private set; }
     public int MaxBusinesses { get; private set; }
+    public int MaxConnections { get; private set; } = 5;
+    public int ScansPerMonth { get; private set; } = 2;
     public bool AgencyOnly { get; private set; }
     public int SortOrder { get; private set; }
 
@@ -19,12 +21,16 @@ public sealed class SubscriptionPlan : Entity
         decimal monthlyPriceInr,
         int maxBusinesses,
         bool agencyOnly,
-        int sortOrder)
+        int sortOrder,
+        int maxConnections = 5,
+        int scansPerMonth = 2)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (monthlyPriceInr < 0) throw new ArgumentOutOfRangeException(nameof(monthlyPriceInr));
         if (maxBusinesses < 1) throw new ArgumentOutOfRangeException(nameof(maxBusinesses));
+        if (maxConnections < 0) throw new ArgumentOutOfRangeException(nameof(maxConnections));
+        if (scansPerMonth < 0) throw new ArgumentOutOfRangeException(nameof(scansPerMonth));
 
         return new SubscriptionPlan
         {
@@ -32,6 +38,8 @@ public sealed class SubscriptionPlan : Entity
             Name = name.Trim(),
             MonthlyPriceInr = monthlyPriceInr,
             MaxBusinesses = maxBusinesses,
+            MaxConnections = maxConnections,
+            ScansPerMonth = scansPerMonth,
             AgencyOnly = agencyOnly,
             SortOrder = sortOrder
         };

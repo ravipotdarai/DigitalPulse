@@ -40,6 +40,6 @@ public sealed class CreateBusinessHandler
         var business = Business.Create(tenantId, request.Name, request.Website);
         _db.Businesses.Add(business);
         await _db.SaveChangesAsync(cancellationToken);
-        return new BusinessResponse(business.Id, business.TenantId, business.Name, business.Website);
+        return new BusinessResponse(business.Id, business.TenantId, business.Name, business.Website, business.FoundedYear, business.BrandVoice, business.IndustryCode);
     }
 }

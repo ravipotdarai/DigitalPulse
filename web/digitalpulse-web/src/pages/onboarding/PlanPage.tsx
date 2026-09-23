@@ -15,9 +15,12 @@ export function PlanPage() {
   if (query.isError) return <PageState mode="error" title="Plans unavailable" />;
   if (!query.data?.length) return <PageState mode="empty" title="No plans available" />;
 
+  const recommended = query.data.find((plan) => plan.maxBusinesses === 3)?.code;
+
   return (
     <Wizard title="Select a plan" step="5 / 5">
-      <div className="grid gap-3">
+      <p className="lead">Prices come from the plan catalog. Payment is not collected in this slice.</p>
+      <div className="plan-board">
         {query.data.map((plan) => (
           <button
             key={plan.code}
@@ -35,22 +38,20 @@ export function PlanPage() {
                 setBusy(null);
               }
             }}
-            className="rounded-2xl border p-4 text-left transition hover:-translate-y-0.5"
-            style={{ borderColor: "var(--stroke)", background: "transparent" }}
+            className={plan.code === recommended ? "plan-card is-rec" : "plan-card"}
           >
-            <div className="flex items-baseline justify-between">
-              <span className="display text-2xl">{plan.name}</span>
-              <span style={{ color: "var(--signal)" }}>₹{plan.monthlyPriceInr.toLocaleString("en-IN")}/mo</span>
-            </div>
-            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-              {plan.maxBusinesses} business{plan.maxBusinesses === 1 ? "" : "es"} · billed later
+            <span className="hero-kicker">{plan.code === recommended ? "Recommended" : plan.agencyOnly ? "Agency" : "Direct"}</span>
+            <strong>{plan.name}</strong>
+            <em>₹{plan.monthlyPriceInr.toLocaleString("en-IN")} / month</em>
+            <p style={{ color: "var(--muted)", margin: 0 }}>
+              {plan.maxBusinesses} business{plan.maxBusinesses === 1 ? "" : "es"}
+              {plan.agencyOnly ? " · agencies" : ""}
             </p>
-            {busy === plan.code ? <p className="mt-2 text-xs">Saving…</p> : null}
+            {busy === plan.code ? <p className="mono" style={{ fontSize: "0.75rem" }}>Saving…</p> : null}
           </button>
         ))}
       </div>
       {error ? <PageState mode="error" title="Plan not saved" detail={error} /> : null}
-      <p className="mt-4 text-xs" style={{ color: "var(--muted)" }}>Plans come from SQL seed data. Payments are not collected in this slice.</p>
     </Wizard>
   );
 }

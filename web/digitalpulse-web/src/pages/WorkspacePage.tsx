@@ -1,6 +1,7 @@
 import { Button, Input, Label } from "@fluentui/react-components";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ApiError, api, type BusinessResponse, type LocationResponse } from "../lib/api";
 import { PageState } from "../components/PageState";
 import { useSession } from "../state/session";
@@ -24,11 +25,11 @@ export function WorkspacePage() {
   }
 
   return (
-    <main className="mx-auto grid max-w-3xl gap-6 px-5 py-8 md:px-8">
+    <main className="command">
       <div>
-        <p className="text-xs uppercase tracking-[0.24em]" style={{ color: "var(--signal)" }}>Workspace</p>
-        <h1 className="display mt-2 text-4xl">Update info</h1>
-        <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>Change the details captured during onboarding. This does not restart the flow.</p>
+        <p className="hero-kicker">Workspace</p>
+        <h1 className="display" style={{ fontSize: "clamp(2rem, 5vw, 3.2rem)", margin: 0 }}>Update info</h1>
+        <p style={{ color: "var(--muted)" }}>Change the details captured during onboarding. This does not restart the flow.</p>
       </div>
       <ProfileForm displayName={profile?.displayName ?? ""} email={profile?.email ?? ""} />
       <TenantForm name={tenantQuery.data.name} type={tenantQuery.data.type} />
@@ -42,8 +43,8 @@ export function WorkspacePage() {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl border p-5 md:p-6" style={{ background: "var(--card)", borderColor: "var(--stroke)" }}>
-      <h2 className="display mb-4 text-2xl">{title}</h2>
+    <section className="panel">
+      <h2>{title}</h2>
       {children}
     </section>
   );
@@ -121,6 +122,7 @@ function TenantForm({ name, type }: { name: string; type: string }) {
 }
 
 function BusinessForm({ business }: { business: BusinessResponse }) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const mutation = useMutation({
@@ -147,7 +149,10 @@ function BusinessForm({ business }: { business: BusinessResponse }) {
       <form className="grid gap-4" onSubmit={onSubmit}>
         <label className="grid gap-2"><Label>Business name</Label><Input name="name" defaultValue={business.name} required /></label>
         <label className="grid gap-2"><Label>Website</Label><Input name="website" defaultValue={business.website ?? ""} /></label>
-        <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save business"}</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save business"}</Button>
+          <Button appearance="subtle" type="button" onClick={() => navigate(`/app/businesses/${business.id}`)}>Open identity</Button>
+        </div>
         <Status error={error} ok={mutation.isSuccess && !error} />
       </form>
     </Card>

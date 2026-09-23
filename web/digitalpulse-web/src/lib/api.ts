@@ -18,7 +18,33 @@ export type MeResponse = {
 };
 
 export type TenantResponse = { id: string; name: string; type: string };
-export type BusinessResponse = { id: string; tenantId: string; name: string; website: string | null };
+export type BusinessResponse = {
+  id: string;
+  tenantId: string;
+  name: string;
+  website: string | null;
+  foundedYear?: number | null;
+  brandVoice?: string | null;
+  industryCode?: string | null;
+};
+export type CatalogItem = { code: string; name: string };
+export type ContactPoint = { id: string; businessId: string; kind: string; value: string; label: string | null };
+export type NamedItem = { id: string; name: string; description?: string | null };
+export type BusinessBrand = { id: string; brandId: string; name: string };
+export type BusinessFact = { id: string; factTypeCode: string; value: string; status: string; canPublish: boolean };
+export type CustomerContact = { id: string; kind: string; value: string };
+export type Customer = { id: string; displayName: string; notes: string | null; contacts: CustomerContact[] };
+export type BusinessIdentity = {
+  business: BusinessResponse;
+  industries: CatalogItem[];
+  factTypes: CatalogItem[];
+  contacts: ContactPoint[];
+  categories: NamedItem[];
+  services: NamedItem[];
+  brands: BusinessBrand[];
+  facts: BusinessFact[];
+  customers: Customer[];
+};
 export type LocationResponse = {
   id: string;
   businessId: string;
@@ -45,6 +71,14 @@ export type OnboardingStatus = {
   hasSubscription: boolean;
   nextStep: string;
 };
+export type DashboardFinding = {
+  id: string;
+  businessId: string;
+  severity: string;
+  category: string;
+  title: string;
+  status: string;
+};
 export type DashboardResponse = {
   tenantId: string;
   tenantName: string;
@@ -54,6 +88,13 @@ export type DashboardResponse = {
   businessCount: number;
   locationCount: number;
   businesses: { id: string; name: string; website: string | null; locationCount: number }[];
+  lastScanAtUtc: string | null;
+  openFindingCount: number;
+  highFindingCount: number;
+  topFindings: DashboardFinding[];
+  lastWebsiteAtUtc: string | null;
+  websiteObservationCount: number;
+  searchProvider: string;
 };
 
 export class ApiError extends Error {
@@ -137,5 +178,211 @@ export const api = {
     request<LocationResponse>(`/v1/businesses/${businessId}/locations/${locationId}`, {
       method: "PUT",
       body: JSON.stringify(body)
-    })
+    }),
+  identity: (businessId: string) => request<BusinessIdentity>(`/v1/businesses/${businessId}/identity`),
+  updateBusinessProfile: (
+    businessId: string,
+    body: { name: string; website?: string; foundedYear?: number | null; brandVoice?: string; industryCode?: string }
+  ) => request<BusinessResponse>(`/v1/businesses/${businessId}/profile`, { method: "PUT", body: JSON.stringify(body) }),
+  addContact: (businessId: string, body: { kind: string; value: string; label?: string }) =>
+    request<ContactPoint>(`/v1/businesses/${businessId}/contacts`, { method: "POST", body: JSON.stringify(body) }),
+  updateContact: (businessId: string, contactId: string, body: { kind: string; value: string; label?: string }) =>
+    request<ContactPoint>(`/v1/businesses/${businessId}/contacts/${contactId}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteContact: (businessId: string, contactId: string) =>
+    request<void>(`/v1/businesses/${businessId}/contacts/${contactId}`, { method: "DELETE" }),
+  addCategory: (businessId: string, name: string) =>
+    request<NamedItem>(`/v1/businesses/${businessId}/categories`, { method: "POST", body: JSON.stringify({ name }) }),
+  updateCategory: (businessId: string, categoryId: string, name: string) =>
+    request<NamedItem>(`/v1/businesses/${businessId}/categories/${categoryId}`, { method: "PUT", body: JSON.stringify({ name }) }),
+  deleteCategory: (businessId: string, categoryId: string) =>
+    request<void>(`/v1/businesses/${businessId}/categories/${categoryId}`, { method: "DELETE" }),
+  addService: (businessId: string, body: { name: string; description?: string }) =>
+    request<NamedItem>(`/v1/businesses/${businessId}/services`, { method: "POST", body: JSON.stringify(body) }),
+  updateService: (businessId: string, serviceId: string, body: { name: string; description?: string }) =>
+    request<NamedItem>(`/v1/businesses/${businessId}/services/${serviceId}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteService: (businessId: string, serviceId: string) =>
+    request<void>(`/v1/businesses/${businessId}/services/${serviceId}`, { method: "DELETE" }),
+  addBrand: (businessId: string, name: string) =>
+    request<BusinessBrand>(`/v1/businesses/${businessId}/brands`, { method: "POST", body: JSON.stringify({ name }) }),
+  deleteBrand: (businessId: string, linkId: string) =>
+    request<void>(`/v1/businesses/${businessId}/brands/${linkId}`, { method: "DELETE" }),
+  addFact: (businessId: string, body: { factTypeCode: string; value: string; status: string }) =>
+    request<BusinessFact>(`/v1/businesses/${businessId}/facts`, { method: "POST", body: JSON.stringify(body) }),
+  updateFact: (businessId: string, factId: string, body: { factTypeCode: string; value: string; status: string }) =>
+    request<BusinessFact>(`/v1/businesses/${businessId}/facts/${factId}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteFact: (businessId: string, factId: string) =>
+    request<void>(`/v1/businesses/${businessId}/facts/${factId}`, { method: "DELETE" }),
+  addCustomer: (businessId: string, body: { displayName: string; mobile: string; email?: string; notes?: string }) =>
+    request<Customer>(`/v1/businesses/${businessId}/customers`, { method: "POST", body: JSON.stringify(body) }),
+  updateCustomer: (businessId: string, customerId: string, body: { displayName: string; mobile: string; email?: string; notes?: string }) =>
+    request<Customer>(`/v1/businesses/${businessId}/customers/${customerId}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteCustomer: (businessId: string, customerId: string) =>
+    request<void>(`/v1/businesses/${businessId}/customers/${customerId}`, { method: "DELETE" }),
+  connections: (businessId: string) =>
+    request<ConnectionCenter>(`/v1/businesses/${businessId}/connections`),
+  startConnection: (businessId: string, platformCode: string) =>
+    request<StartConnection>(`/v1/businesses/${businessId}/connections`, { method: "POST", body: JSON.stringify({ platformCode }) }),
+  completeConnection: (businessId: string, connectionId: string, code = "development") =>
+    request<PlatformConnection>(`/v1/businesses/${businessId}/connections/${connectionId}/complete`, { method: "POST", body: JSON.stringify({ code }) }),
+  healthConnection: (businessId: string, connectionId: string) =>
+    request<PlatformConnection>(`/v1/businesses/${businessId}/connections/${connectionId}/health`, { method: "POST" }),
+  diagnoseConnection: (businessId: string, connectionId: string) =>
+    request<ConnectionDiagnostic[]>(`/v1/businesses/${businessId}/connections/${connectionId}/diagnose`, { method: "POST" }),
+  reauthorizeConnection: (businessId: string, connectionId: string) =>
+    request<StartConnection>(`/v1/businesses/${businessId}/connections/${connectionId}/reauthorize`, { method: "POST" }),
+  disconnectConnection: (businessId: string, connectionId: string) =>
+    request<void>(`/v1/businesses/${businessId}/connections/${connectionId}`, { method: "DELETE" }),
+  scans: (businessId: string) => request<ScanCenter>(`/v1/businesses/${businessId}/scans`),
+  runScan: (businessId: string) =>
+    request<ScanDetail>(`/v1/businesses/${businessId}/scans`, { method: "POST" }),
+  scan: (businessId: string, scanId: string) =>
+    request<ScanDetail>(`/v1/businesses/${businessId}/scans/${scanId}`),
+  updateFinding: (businessId: string, findingId: string, status: string) =>
+    request<Finding>(`/v1/businesses/${businessId}/findings/${findingId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status })
+    }),
+  website: (businessId: string) => request<WebsiteIntelligence>(`/v1/businesses/${businessId}/website`),
+  analyzeWebsite: (businessId: string) =>
+    request<WebsiteIntelligence>(`/v1/businesses/${businessId}/website/analyze`, { method: "POST" }),
+  searchWebsite: (businessId: string, query: string) =>
+    request<SiteSearch>(`/v1/businesses/${businessId}/website/search?q=${encodeURIComponent(query)}`)
+};
+
+export type PlatformCapabilities = {
+  canRead: boolean;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  canPublish: boolean;
+  canGetMetrics: boolean;
+  assistedOnly: boolean;
+};
+export type PlatformCatalogItem = {
+  code: string;
+  name: string;
+  category: string;
+  authMode: string;
+  summary: string;
+  capabilities: PlatformCapabilities;
+};
+export type PlatformConnection = {
+  id: string;
+  businessId: string;
+  platformCode: string;
+  platformName: string;
+  category: string;
+  status: string;
+  authMode: string;
+  externalAccount: string | null;
+  grantKind: string | null;
+  connectedAtUtc: string | null;
+  lastHealthAtUtc: string | null;
+  lastHealthStatus: string | null;
+  lastError: string | null;
+  capabilities: PlatformCapabilities;
+};
+export type ConnectionCenter = {
+  catalog: PlatformCatalogItem[];
+  connections: PlatformConnection[];
+  maxConnections: number;
+};
+export type StartConnection = {
+  connection: PlatformConnection;
+  authorizationUrl: string | null;
+  completeInPlace: boolean;
+};
+export type ConnectionDiagnostic = { check: string; status: string; detail: string };
+export type Evidence = { id: string; kind: string; label: string; value: string; source: string };
+export type Finding = {
+  id: string;
+  scanId: string;
+  businessId: string;
+  category: string;
+  severity: string;
+  title: string;
+  description: string;
+  expectedValue: string | null;
+  observedValue: string | null;
+  recommendation: string;
+  suggestedAction: string;
+  verificationMethod: string;
+  automationState: string;
+  status: string;
+  evidence: Evidence[];
+};
+export type ScanSummary = {
+  id: string;
+  businessId: string;
+  trigger: string;
+  status: string;
+  startedAtUtc: string;
+  completedAtUtc: string | null;
+  summary: string | null;
+  error: string | null;
+  findingCount: number;
+  openCount: number;
+  criticalCount: number;
+};
+export type ScanDetail = {
+  id: string;
+  businessId: string;
+  trigger: string;
+  status: string;
+  startedAtUtc: string;
+  completedAtUtc: string | null;
+  summary: string | null;
+  error: string | null;
+  scansPerMonth: number;
+  scansUsedThisMonth: number;
+  findings: Finding[];
+};
+export type ScanCenter = {
+  scans: ScanSummary[];
+  latest: ScanDetail | null;
+  scansPerMonth: number;
+  scansUsedThisMonth: number;
+};
+export type WebsiteSnapshot = {
+  id: string;
+  businessId: string;
+  url: string | null;
+  status: string;
+  statusCode: number | null;
+  title: string | null;
+  metaDescription: string | null;
+  h1: string | null;
+  canonicalUrl: string | null;
+  robots: string | null;
+  hasJsonLd: boolean;
+  hasFaqSchema: boolean;
+  hasOrganizationSchema: boolean;
+  hasOgTitle: boolean;
+  wordCount: number;
+  containsBusinessName: boolean;
+  containsPhone: boolean;
+  error: string | null;
+  fetchedAtUtc: string;
+};
+export type SearchObservation = {
+  id: string;
+  category: string;
+  severity: string;
+  title: string;
+  detail: string;
+  expectedValue: string | null;
+  observedValue: string | null;
+  recommendation: string;
+};
+export type WebsiteIntelligence = {
+  snapshot: WebsiteSnapshot | null;
+  observations: SearchObservation[];
+  searchConsole: { status: string; grantKind: string | null; detail: string };
+  searchProvider: string;
+  vectorSearchConfigured: boolean;
+};
+export type SiteSearch = {
+  provider: string;
+  query: string;
+  hits: { title: string; url: string; snippet: string; score: number }[];
 };

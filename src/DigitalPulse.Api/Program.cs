@@ -38,6 +38,10 @@ app.MapOpenApi();
 app.MapAuthEndpoints();
 app.MapTenantEndpoints();
 app.MapBusinessEndpoints();
+app.MapIdentityEndpoints();
+app.MapConnectionEndpoints();
+app.MapScanEndpoints();
+app.MapWebsiteEndpoints();
 app.MapBillingAndOnboardingEndpoints();
 
 if (app.Environment.IsDevelopment())
@@ -54,6 +58,11 @@ if (app.Environment.IsDevelopment())
         {
             await db.Database.EnsureCreatedAsync();
         }
+
+        await IdentitySchemaUpgrader.EnsureAsync(db);
+        await ConnectionsSchemaUpgrader.EnsureAsync(db);
+        await ScansSchemaUpgrader.EnsureAsync(db);
+        await WebsiteSchemaUpgrader.EnsureAsync(db);
     }
     else
     {

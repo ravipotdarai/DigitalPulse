@@ -2,6 +2,9 @@ using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Infrastructure.Auth;
 using DigitalPulse.Infrastructure.Billing;
 using DigitalPulse.Infrastructure.Persistence;
+using DigitalPulse.Infrastructure.Platforms;
+using DigitalPulse.Infrastructure.Scanning;
+using DigitalPulse.Infrastructure.Search;
 using DigitalPulse.Infrastructure.Tenancy;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +27,49 @@ public static class DependencyInjection
         services.AddSingleton<IAuthTokenIssuer>(sp => sp.GetRequiredService<DevelopmentJwtTokenIssuer>());
         services.AddSingleton<IPasswordService, AspNetPasswordService>();
         services.AddScoped<ISubscriptionPlanCatalog, EfSubscriptionPlanCatalog>();
+        services.AddSingleton<IPlatformAdapter, GoogleAdapter>();
+        services.AddSingleton<IPlatformAdapter, FacebookAdapter>();
+        services.AddSingleton<IPlatformAdapter, InstagramAdapter>();
+        services.AddSingleton<IPlatformAdapter, LinkedInAdapter>();
+        services.AddSingleton<IPlatformAdapter, YouTubeAdapter>();
+        services.AddSingleton<IPlatformAdapter, IndiaMartAdapter>();
+        services.AddSingleton<IPlatformAdapter, JustdialAdapter>();
+        services.AddSingleton<IPlatformAdapter, WhatsAppAdapter>();
+        services.AddSingleton<IPlatformAdapter, WebsiteAdapter>();
+        services.AddSingleton<IPlatformAdapter, SearchConsoleAdapter>();
+        services.AddSingleton<IPlatformAdapter, GoogleAdsAdapter>();
+        services.AddSingleton<IPlatformAdapterCatalog, PlatformAdapterCatalog>();
+        services.AddSingleton<IPlatformAuthorizationBroker, DevelopmentAuthorizationBroker>();
+        services.AddSingleton<ISearchProvider, InMemorySearchProvider>();
+        services.AddSingleton<IVectorSearchProvider, UnconfiguredVectorSearchProvider>();
+        if (configuration.GetValue<bool>("Testing:UseInMemory"))
+        {
+            services.AddSingleton<IWebsiteProbe, StubWebsiteProbe>();
+            services.AddSingleton<IWebsiteFetcher, StubWebsiteFetcher>();
+        }
+        else
+        {
+            services.AddHttpClient<IWebsiteProbe, WebsiteProbe>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(8);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("DigitalPulse-Check/1.0");
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                ConnectTimeout = TimeSpan.FromSeconds(5)
+            });
+            services.AddHttpClient<IWebsiteFetcher, WebsiteFetcher>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(8);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("DigitalPulse-Website/1.0");
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                ConnectTimeout = TimeSpan.FromSeconds(5)
+            });
+        }
 
         services.AddDbContext<AppDbContext>(options =>
         {

@@ -13,6 +13,8 @@ public sealed class BusinessConfiguration : IEntityTypeConfiguration<Business>
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Name).HasMaxLength(160).IsRequired();
         builder.Property(x => x.Website).HasMaxLength(2048);
+        builder.Property(x => x.BrandVoice).HasMaxLength(2000);
+        builder.Property(x => x.IndustryCode).HasMaxLength(32);
         builder.HasIndex(x => new { x.TenantId, x.Name });
         builder.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.Ignore(x => x.Locations);
