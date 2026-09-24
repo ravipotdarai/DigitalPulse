@@ -7,6 +7,7 @@ import { AssistantDrawer } from "../design/AssistantDrawer";
 import { CommandPalette } from "../design/CommandPalette";
 import { useSession } from "../state/session";
 import { useUi } from "../state/ui";
+import { ThemeSwitcher, useTheme } from "../theme";
 
 const NAV = [
   { to: "/app", label: "Command", end: true },
@@ -19,15 +20,8 @@ const NAV = [
   { to: "/app/info", label: "Workspace" }
 ];
 
-export function AppShell({
-  children,
-  dark,
-  onToggleTheme
-}: {
-  children: React.ReactNode;
-  dark: boolean;
-  onToggleTheme: () => void;
-}) {
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const { scheme, setScheme } = useTheme();
   const profile = useSession((s) => s.profile);
   const clear = useSession((s) => s.clear);
   const navigate = useNavigate();
@@ -62,7 +56,7 @@ export function AppShell({
   return (
     <div className="os">
       <aside className={navOpen ? "os-nav is-open" : "os-nav"} aria-label="Product">
-        <Link to="/app" className="mark" style={{ margin: "0 0.4rem 1rem" }}><i /><span>DigitalPulse</span></Link>
+        <Link to="/app" className="mark os-mark"><i /><span>DigitalPulse</span></Link>
         {NAV.map((item) => (
           <NavLink
             key={item.to}
@@ -74,7 +68,7 @@ export function AppShell({
             {item.label}
           </NavLink>
         ))}
-        <div style={{ marginTop: "auto", padding: "1rem 0.7rem 0.4rem", color: "var(--muted)", fontSize: "0.75rem" }}>
+        <div className="os-tenant ink-muted">
           {profile?.tenantName ?? "Workspace"}
           <br />
           {profile?.tenantType ?? ""}
@@ -88,13 +82,12 @@ export function AppShell({
           <kbd>Ctrl K</kbd>
         </button>
         <span className="health-pill" title="Development grants only. Production provider APIs are not configured.">
-          <i style={{ background: healthLabel === "Granted" ? "var(--ok)" : healthLabel === "Reauth" ? "var(--warn)" : undefined }} />
+          <i className={healthLabel === "Granted" ? "is-ok" : healthLabel === "Reauth" ? "is-warn" : undefined} />
           {healthLabel}
         </span>
         <select
           aria-label="Business"
-          className="search-hit"
-          style={{ flex: "0 1 12rem" }}
+          className="search-hit business-hit"
           value={businesses.data?.[0]?.id ?? ""}
           onChange={(event) => navigate(`/app/businesses/${event.target.value}`)}
         >
@@ -105,7 +98,13 @@ export function AppShell({
         </select>
         <Button appearance="subtle" onClick={() => setAssistant(true)}>Insights</Button>
         <Button appearance="subtle" onClick={() => setNotice(!noticeOpen)}>Signals</Button>
-        <Button appearance="subtle" icon={dark ? <WeatherSunny20Regular /> : <WeatherMoon20Regular />} onClick={onToggleTheme} aria-label="Toggle theme" />
+        <ThemeSwitcher />
+        <Button
+          appearance="subtle"
+          icon={scheme === "dark" ? <WeatherSunny20Regular /> : <WeatherMoon20Regular />}
+          onClick={() => setScheme(scheme === "dark" ? "light" : "dark")}
+          aria-label={scheme === "dark" ? "Switch to light scheme" : "Switch to dark scheme"}
+        />
         <Button appearance="subtle" onClick={async () => { await api.logout().catch(() => undefined); clear(); navigate("/"); }}>
           Sign out
         </Button>
@@ -117,7 +116,7 @@ export function AppShell({
       {noticeOpen ? (
         <aside className="drawer" aria-label="Signals">
           <div className="flex items-center justify-between">
-            <p className="hero-kicker" style={{ margin: 0 }}>Signals</p>
+            <p className="hero-kicker kicker-flush">Signals</p>
             <Button appearance="subtle" onClick={() => setNotice(false)}>Close</Button>
           </div>
           <div className="dp-empty">

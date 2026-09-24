@@ -1,6 +1,6 @@
 # DigitalPulse
 
-AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phases 2–7**.
+AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phases 2–7**, plus a **theme architecture** (Editorial implemented; Executive / Future AI / Minimal fallback tokens).
 
 ## Run locally
 
@@ -42,3 +42,5 @@ IndiaMART and Justdial are assisted playbooks prepared from canonical identity. 
 Development authentication is JWT behind `IAuthTokenIssuer` (`DevelopmentJwtTokenIssuer`). Entra External ID is not wired yet.
 
 Plans are seeded in SQL (`STARTER`, `GROWTH`, `BUSINESS`, `AGENCY`). Payments are not implemented.
+
+Visual themes live in `web/digitalpulse-web/src/theme`. Components consume CSS tokens from `ThemeProvider`. Theme preference is stored in `localStorage` (`dp.theme` / `dp.theme.user.{userId}`) and is not part of tenant or plan logic. A developer theme switcher is available in `npm run dev`.

@@ -1,17 +1,43 @@
 import { Button } from "@fluentui/react-components";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { PresenceLoop } from "../design/PresenceLoop";
+import { useParallax, useTheme } from "../theme";
+
+const CHAPTERS = [
+  {
+    num: "02",
+    kicker: "The record",
+    title: "One identity. Authorized action only.",
+    lead: "DigitalPulse does not invent live connections. Every later phase hangs on the identity you keep here.",
+    stories: [
+      { title: "Identity first", body: "The business record is the source of truth for every listing comparison." },
+      { title: "Authorization first", body: "Adapters expose only what the provider allows. Unsupported actions stay out." },
+      { title: "Evidence before claims", body: "Restricted facts never publish. Low-confidence output waits for approval." }
+    ]
+  }
+];
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const { tokens } = useTheme();
+  const reduce = useReducedMotion();
+  const offset = useParallax(Number(tokens.motion.parallax));
+  const duration = reduce ? 0 : Number.parseFloat(tokens.motion.durationSlow) / 1000;
+
   return (
-    <main>
+    <main className="landing">
       <section className="hero">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}>
-          <p className="hero-kicker">AI digital presence OS</p>
+        <motion.div
+          className="hero-copy"
+          initial={reduce ? false : { opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration }}
+        >
+          <p className="chapter-num">01</p>
+          <p className="hero-kicker">Presence OS</p>
           <h1 className="display">
-            AI that continuously manages your <em>digital presence.</em>
+            Continuously managed <em>digital presence.</em>
           </h1>
           <p className="hero-lead">
             Connect authorized platforms. Keep one identity. Detect drift. Approve what matters. Execute only what the provider allows. Verify the result. Then watch it.
@@ -22,36 +48,33 @@ export function LandingPage() {
           </div>
         </motion.div>
         <motion.div
-          className="os-canvas"
-          initial={{ opacity: 0, y: 20 }}
+          className="os-canvas parallax-field will-parallax"
+          style={{ transform: reduce ? undefined : `translate3d(0, ${offset}px, 0)` }}
+          initial={reduce ? false : { opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration, delay: reduce ? 0 : 0.08 }}
         >
           <span className="preview-chip">Operating loop</span>
           <PresenceLoop active="identity" />
         </motion.div>
       </section>
-      <section style={{ position: "relative", zIndex: 1, padding: "0 1.15rem 4rem" }}>
-        <p className="hero-kicker">The loop</p>
-        <h2 className="display" style={{ fontSize: "clamp(2rem, 4vw, 3.2rem)", maxWidth: "16ch" }}>One identity. Authorized action only.</h2>
-        <p className="hero-lead">
-          DigitalPulse does not invent live connections. Every later phase hangs on the identity you keep here.
-        </p>
-        <div className="band band-3">
-          {["Identity first", "Authorization first", "Evidence before claims"].map((title) => (
-            <article className="panel" key={title}>
-              <h3>{title}</h3>
-              <p style={{ color: "var(--muted)", margin: 0 }}>
-                {title === "Identity first"
-                  ? "The business record is the source of truth for every listing comparison."
-                  : title === "Authorization first"
-                    ? "Adapters expose only what the provider allows. Unsupported actions stay out."
-                    : "Restricted facts never publish. Low-confidence output waits for approval."}
-              </p>
-            </article>
-          ))}
-        </div>
-      </section>
+
+      {CHAPTERS.map((chapter) => (
+        <section className="chapter" key={chapter.num}>
+          <p className="chapter-num">{chapter.num}</p>
+          <p className="hero-kicker">{chapter.kicker}</p>
+          <h2 className="display display-section">{chapter.title}</h2>
+          <p className="hero-lead">{chapter.lead}</p>
+          <div className="band band-3">
+            {chapter.stories.map((story) => (
+              <article className="panel" key={story.title}>
+                <h3>{story.title}</h3>
+                <p className="ink-muted flush">{story.body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ))}
     </main>
   );
 }

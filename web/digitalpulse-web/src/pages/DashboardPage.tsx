@@ -34,8 +34,8 @@ export function DashboardPage() {
         <HealthRing value={coverage} label="Digital presence health from the identity record" />
         <div>
           <p className="hero-kicker">{data.tenantType} · {data.planName}</p>
-          <h1 className="display" style={{ fontSize: "clamp(2rem, 5vw, 3.6rem)", margin: 0 }}>{data.tenantName}</h1>
-          <p style={{ color: "var(--muted)", margin: "0.55rem 0 0.9rem" }}>
+          <h1 className="display display-page command-title">{data.tenantName}</h1>
+          <p className="ink-muted command-lead">
             Health starts from the identity record. Open findings come from the latest DigitalPulse Check, not invented platform listings.
           </p>
           <PresenceTimeline now={data.lastScanAtUtc ? "findings" : "identity"} />
@@ -46,7 +46,7 @@ export function DashboardPage() {
         <article className="panel">
           <h2>Critical findings</h2>
           {data.topFindings.length === 0 ? (
-            <div className="dp-empty" style={{ minHeight: "8rem" }}>
+            <div className="dp-empty dp-empty-sm">
               <strong>{data.lastScanAtUtc ? "None open" : "No scan has run"}</strong>
               <p>
                 {data.lastScanAtUtc
@@ -78,7 +78,7 @@ export function DashboardPage() {
             <div className="row-line"><span>Approve one publishable fact</span><span className="sev sev-hold">Fact</span></div>
           ) : null}
           {identity.data && identity.data.business.website && identity.data.contacts.length > 0 && identity.data.facts.some((f) => f.status === "Approved") ? (
-            <p style={{ color: "var(--muted)" }}>No identity recommendations. Run DigitalPulse Check for evidence-backed findings.</p>
+            <p className="ink-muted">No identity recommendations. Run DigitalPulse Check for evidence-backed findings.</p>
           ) : null}
           <Button appearance="subtle" onClick={() => firstId && navigate(`/app/businesses/${firstId}`)}>Open identity</Button>
         </article>
@@ -88,7 +88,7 @@ export function DashboardPage() {
         <article className="panel">
           <h2>Active actions</h2>
           {data.socialDraftCount === 0 && data.socialBlockedCount === 0 ? (
-            <div className="dp-empty" style={{ minHeight: "7rem" }}>
+            <div className="dp-empty dp-empty-xs">
               <strong>Queue empty</strong>
               <p>Social drafts wait in Social. Live Google or Meta posts are not sent.</p>
             </div>
@@ -123,7 +123,7 @@ export function DashboardPage() {
       </div>
 
       <article>
-        <h2 className="display" style={{ fontSize: "1.4rem", margin: "0.4rem 0 0.7rem" }}>Businesses</h2>
+        <h2 className="display display-sub">Businesses</h2>
         {data.businesses.length === 0 ? (
           <PageState mode="empty" title="No businesses yet" />
         ) : (

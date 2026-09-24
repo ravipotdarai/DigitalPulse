@@ -1,7 +1,6 @@
-import { FluentProvider } from "@fluentui/react-components";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { PublicChrome } from "./components/PublicChrome";
@@ -24,7 +23,7 @@ import { LocationPage } from "./pages/onboarding/LocationPage";
 import { PlanPage } from "./pages/onboarding/PlanPage";
 import { TenantReviewPage } from "./pages/onboarding/TenantReviewPage";
 import { useSession } from "./state/session";
-import { darkTheme, lightTheme } from "./theme/pulseTheme";
+import { ThemeProvider, useTheme } from "./theme";
 
 const queryClient = new QueryClient();
 
@@ -38,19 +37,29 @@ function GuestOnly({ children }: { children: React.ReactNode }) {
   return children;
 }
 
-function Frame({ dark, onToggleTheme, children }: { dark: boolean; onToggleTheme: () => void; children: React.ReactNode }) {
+function Frame({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   if (pathname.startsWith("/app")) {
-    return <AppShell dark={dark} onToggleTheme={onToggleTheme}>{children}</AppShell>;
+    return <AppShell>{children}</AppShell>;
   }
-  return <PublicChrome dark={dark} onToggleTheme={onToggleTheme}>{children}</PublicChrome>;
+  return <PublicChrome>{children}</PublicChrome>;
 }
 
 function AnimatedRoutes() {
   const location = useLocation();
+  const reduce = useReducedMotion();
+  const { tokens } = useTheme();
+  const duration = reduce ? 0 : Number.parseFloat(tokens.motion.duration) / 1000;
+
   return (
     <AnimatePresence mode="wait">
-      <motion.div key={location.pathname} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+      <motion.div
+        key={location.pathname}
+        initial={reduce ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={reduce ? undefined : { opacity: 0 }}
+        transition={{ duration }}
+      >
         <Routes location={location}>
           <Route path="/" element={<GuestOnly><LandingPage /></GuestOnly>} />
           <Route path="/register" element={<GuestOnly><RegisterPage /></GuestOnly>} />
@@ -77,29 +86,31 @@ function AnimatedRoutes() {
   );
 }
 
-export function App() {
-  const [dark, setDark] = useState(true);
-  const hydrate = useSession((s) => s.hydrate);
-  const theme = useMemo(() => (dark ? darkTheme : lightTheme), [dark]);
+function ThemedShell() {
+  const userId = useSession((state) => state.profile?.userId);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-  }, [dark]);
+  return (
+    <ThemeProvider userId={userId}>
+      <div className="grain" aria-hidden="true" />
+      <Frame>
+        <AnimatedRoutes />
+      </Frame>
+    </ThemeProvider>
+  );
+}
+
+export function App() {
+  const hydrate = useSession((state) => state.hydrate);
 
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
 
   return (
-    <FluentProvider theme={theme} style={{ minHeight: "100dvh", background: "transparent" }}>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <div className="grain" />
-          <Frame dark={dark} onToggleTheme={() => setDark((value) => !value)}>
-            <AnimatedRoutes />
-          </Frame>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </FluentProvider>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <ThemedShell />
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }

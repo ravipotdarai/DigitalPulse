@@ -13,13 +13,14 @@ export function OnboardingFrame({
 }) {
   return (
     <main className="wizard">
+      <p className="chapter-num">{String(step).padStart(2, "0")}</p>
       <div className="wizard-steps" aria-hidden="true">
         {Array.from({ length: total }, (_, index) => (
           <i key={index} className={index < step ? "is-on" : undefined} />
         ))}
       </div>
       <p className="hero-kicker">Onboarding {step} / {total}</p>
-      <h1 className="display">{title}</h1>
+      <h1 className="display display-page">{title}</h1>
       {lead ? <p className="lead">{lead}</p> : null}
       {children}
     </main>

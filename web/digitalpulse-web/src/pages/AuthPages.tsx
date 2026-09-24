@@ -37,7 +37,7 @@ export function RegisterPage() {
         <Field label="Password" value={password} onChange={setPassword} type="password" required />
         <Note error={error} ok={false} />
         <Button appearance="primary" type="submit" disabled={busy}>{busy ? "Creating…" : "Create account"}</Button>
-        <p style={{ color: "var(--muted)", fontSize: "0.88rem" }}>Already onboarded? <Link to="/login">Log in</Link></p>
+        <p className="auth-foot">Already onboarded? <Link to="/login">Log in</Link></p>
       </form>
     </AuthSplit>
   );
@@ -72,7 +72,7 @@ export function LoginPage() {
         <Field label="Password" value={password} onChange={setPassword} type="password" required />
         <Note error={error} ok={false} />
         <Button appearance="primary" type="submit" disabled={busy}>{busy ? "Checking…" : "Enter workspace"}</Button>
-        <p style={{ color: "var(--muted)", fontSize: "0.88rem" }}>
+        <p className="auth-foot">
           <Link to="/forgot">Forgot password</Link>
           {" · "}
           <Link to="/register">Create account</Link>
@@ -100,7 +100,7 @@ export function ForgotPasswordPage() {
         ) : (
           <Button appearance="primary" type="submit">Check email</Button>
         )}
-        <p style={{ color: "var(--muted)", fontSize: "0.88rem" }}><Link to="/login">Back to login</Link></p>
+        <p className="auth-foot"><Link to="/login">Back to login</Link></p>
       </form>
     </AuthSplit>
   );
@@ -110,12 +110,14 @@ function AuthSplit({ title, stage, children }: { title: string; stage: string; c
   return (
     <main className="auth-split">
       <section className="auth-stage">
+        <p className="chapter-num">Access</p>
         <p className="hero-kicker">Presence OS</p>
         <h2 className="display">{title}</h2>
-        <p style={{ color: "var(--muted)", maxWidth: "22rem" }}>{stage}</p>
+        <p className="ink-muted stage-copy">{stage}</p>
       </section>
       <section className="auth-panel">
-        <h1 className="display" style={{ fontSize: "2rem", marginBottom: "1.2rem" }}>{title}</h1>
+        <h1 className="display display-page">{title}</h1>
+        <p className="ink-muted auth-stage-mobile">{stage}</p>
         {children}
       </section>
     </main>

@@ -14,6 +14,42 @@ public sealed class WebShellTests
         Assert.Contains("DigitalPulse", html, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void Theme_architecture_is_catalogued_and_independent_of_the_api()
+    {
+        var root = FindRepoRoot();
+        var themeDir = Path.Combine(root, "web", "digitalpulse-web", "src", "theme");
+        var required = new[]
+        {
+            "types.ts",
+            "registry.ts",
+            "applyTokens.ts",
+            "persist.ts",
+            "ThemeProvider.tsx",
+            "ThemeSwitcher.tsx",
+            Path.Combine("themes", "editorial.ts"),
+            Path.Combine("themes", "executive.ts"),
+            Path.Combine("themes", "futureAi.ts"),
+            Path.Combine("themes", "minimal.ts")
+        };
+
+        foreach (var file in required)
+        {
+            var path = Path.Combine(themeDir, file);
+            Assert.True(File.Exists(path), $"Expected theme file {file}.");
+        }
+
+        var types = File.ReadAllText(Path.Combine(themeDir, "types.ts"));
+        foreach (var id in new[] { "editorial", "executive", "future-ai", "minimal" })
+        {
+            Assert.Contains(id, types, StringComparison.Ordinal);
+        }
+
+        var persist = File.ReadAllText(Path.Combine(themeDir, "persist.ts"));
+        Assert.Contains("localStorage", persist, StringComparison.Ordinal);
+        Assert.DoesNotContain("tenantId", persist, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
