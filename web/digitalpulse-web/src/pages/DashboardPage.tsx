@@ -163,7 +163,7 @@ export function DashboardPage() {
           </Stagger>
         </Reveal>
         <Reveal delay={0.08}>
-          <SectionTitle kicker="Monitoring" title="What DigitalPulse is watching" />
+          <SectionTitle kicker="Monitoring" title="What DigitalPulse is watching" action={<Link className="text-link" to="/app/monitoring">Monitoring workspace</Link>} />
           <Stagger className="watch" as="ul" gap={0.04}>
             <Watch label="DigitalPulse Check" value={relativeTime(data.lastScanAtUtc) ?? "Never run"} tone={data.lastScanAtUtc ? "live" : "idle"} />
             <Watch
@@ -173,7 +173,13 @@ export function DashboardPage() {
             />
             <Watch label="Site search index" value={data.searchProvider} tone="live" />
             <Watch label="Directories verified" value={`${data.directoryVerifiedCount}`} tone={data.directoryVerifiedCount ? "live" : "idle"} />
-            <Watch label="Continuous monitoring" value="Needs live provider APIs" tone="idle" />
+            <Watch
+              label="Continuous monitoring"
+              value={data.lastMonitoringAtUtc ? `${data.openAlertCount} open alert${data.openAlertCount === 1 ? "" : "s"} · ${relativeTime(data.lastMonitoringAtUtc)}` : data.monitoringHoldReason}
+              tone={data.openAlertCount ? "warning" : data.lastMonitoringAtUtc ? "live" : "idle"}
+            />
+            <Watch label="Presence reports" value={String(data.reportCount)} tone={data.reportCount ? "live" : "idle"} />
+            <Watch label="Plan interval" value={`Every ${data.monitoringIntervalHours}h`} tone="idle" />
           </Stagger>
         </Reveal>
       </section>
@@ -296,13 +302,15 @@ function loopStates(data: DashboardResponse, coverage: number, linked: number) {
     Approve: data.socialBlockedCount + data.contentHoldCount > 0,
     Execute: data.actionHeldCount > 0 ? "held" : data.actionOpenCount > 0,
     Verify: data.directoryVerifiedCount > 0,
-    Monitor: "held"
+    Monitor: data.lastMonitoringAtUtc ? true : data.openAlertCount > 0 ? "held" : false
   };
   const notes: Partial<Record<LoopStage, string>> = {
     Execute: data.actionHeldCount > 0
       ? "Some actions wait for approval or a live write"
       : "Internal checks can run. Live publishes stay held.",
-    Monitor: "Waits for live provider APIs"
+    Monitor: data.lastMonitoringAtUtc
+      ? "Stored health is recorded. Live provider metrics stay held."
+      : "Run monitoring to record stored health. Live APIs are not invented."
   };
   let nowAssigned = false;
   const states = {} as Record<LoopStage, StageState>;

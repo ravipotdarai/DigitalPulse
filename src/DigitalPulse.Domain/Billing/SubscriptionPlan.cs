@@ -13,6 +13,7 @@ public sealed class SubscriptionPlan : Entity
     public int ActionsPerMonth { get; private set; } = 25;
     public bool WhatsAppEnabled { get; private set; }
     public int WhatsAppMessagesPerMonth { get; private set; }
+    public int MonitoringIntervalHours { get; private set; } = 168;
     public bool AgencyOnly { get; private set; }
     public int SortOrder { get; private set; }
 
@@ -29,7 +30,8 @@ public sealed class SubscriptionPlan : Entity
         int scansPerMonth = 2,
         int actionsPerMonth = 25,
         bool whatsAppEnabled = false,
-        int whatsAppMessagesPerMonth = 0)
+        int whatsAppMessagesPerMonth = 0,
+        int monitoringIntervalHours = 168)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -39,6 +41,7 @@ public sealed class SubscriptionPlan : Entity
         if (scansPerMonth < 0) throw new ArgumentOutOfRangeException(nameof(scansPerMonth));
         if (actionsPerMonth < 0) throw new ArgumentOutOfRangeException(nameof(actionsPerMonth));
         if (whatsAppMessagesPerMonth < 0) throw new ArgumentOutOfRangeException(nameof(whatsAppMessagesPerMonth));
+        if (monitoringIntervalHours < 1) throw new ArgumentOutOfRangeException(nameof(monitoringIntervalHours));
 
         return new SubscriptionPlan
         {
@@ -51,6 +54,7 @@ public sealed class SubscriptionPlan : Entity
             ActionsPerMonth = actionsPerMonth,
             WhatsAppEnabled = whatsAppEnabled,
             WhatsAppMessagesPerMonth = whatsAppMessagesPerMonth,
+            MonitoringIntervalHours = monitoringIntervalHours,
             AgencyOnly = agencyOnly,
             SortOrder = sortOrder
         };

@@ -22,6 +22,7 @@ import { ProjectsPage } from "./pages/ProjectsPage";
 import { AiPage } from "./pages/AiPage";
 import { ActionsPage } from "./pages/ActionsPage";
 import { WhatsAppPage } from "./pages/WhatsAppPage";
+import { MonitoringPage } from "./pages/MonitoringPage";
 import { BusinessPage } from "./pages/onboarding/BusinessPage";
 import { CreateTenantPage } from "./pages/onboarding/CreateTenantPage";
 import { LocationPage } from "./pages/onboarding/LocationPage";
@@ -88,6 +89,7 @@ function AnimatedRoutes() {
           <Route path="/app/ai" element={<RequireAuth><AiPage /></RequireAuth>} />
           <Route path="/app/actions" element={<RequireAuth><ActionsPage /></RequireAuth>} />
           <Route path="/app/whatsapp" element={<RequireAuth><WhatsAppPage /></RequireAuth>} />
+          <Route path="/app/monitoring" element={<RequireAuth><MonitoringPage /></RequireAuth>} />
           <Route path="/app/businesses/:businessId" element={<RequireAuth><BusinessIdentityPage /></RequireAuth>} />
         </Routes>
       </motion.div>

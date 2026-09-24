@@ -2,6 +2,7 @@ using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Contracts.Onboarding;
 using DigitalPulse.Domain.WhatsApp;
+using DigitalPulse.Domain.Monitoring;
 using DigitalPulse.Domain.Actions;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Billing;
@@ -96,6 +97,18 @@ public sealed class GetDashboardHandler
             await _db.WorkActions.CountAsync(a => a.TenantId == tenantId && a.Status != ActionStatus.Verified && a.Status != ActionStatus.Escalated, cancellationToken),
             await _db.WorkActions.CountAsync(a => a.TenantId == tenantId && (a.Status == ActionStatus.Assisted || a.Status == ActionStatus.Failed || a.Status == ActionStatus.PendingApproval), cancellationToken),
             await _db.WhatsAppContacts.CountAsync(c => c.TenantId == tenantId && c.Consent == WhatsAppConsentStatus.OptedIn, cancellationToken),
-            await _db.WhatsAppMessages.CountAsync(m => m.TenantId == tenantId && (m.Status == WhatsAppMessageStatus.Held || m.Status == WhatsAppMessageStatus.Failed), cancellationToken));
+            await _db.WhatsAppMessages.CountAsync(m => m.TenantId == tenantId && (m.Status == WhatsAppMessageStatus.Held || m.Status == WhatsAppMessageStatus.Failed), cancellationToken),
+            (await _db.MonitoringRuns.AsNoTracking()
+                .Where(r => r.TenantId == tenantId && r.Status == MonitoringRunStatus.Completed)
+                .OrderByDescending(r => r.CompletedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken))?.CompletedAtUtc,
+            await _db.MonitoringAlerts.CountAsync(a => a.TenantId == tenantId && a.Status == AlertStatus.Open, cancellationToken),
+            await _db.PresenceReports.CountAsync(r => r.TenantId == tenantId, cancellationToken),
+            plan.MonitoringIntervalHours > 0 ? plan.MonitoringIntervalHours : MonitoringPolicy.IntervalHoursFor(plan.Code),
+            (await _db.MonitoringSchedules.AsNoTracking()
+                .Where(s => s.TenantId == tenantId)
+                .OrderByDescending(s => s.UpdatedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken))?.HoldReason
+            ?? "Scheduled monitoring waits for the first run. Live provider metrics stay held.");
     }
 }

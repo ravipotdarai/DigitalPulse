@@ -1,4 +1,5 @@
 using DigitalPulse.Domain.WhatsApp;
+using DigitalPulse.Domain.Monitoring;
 using DigitalPulse.Domain.Actions;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Businesses;
@@ -267,6 +268,34 @@ public sealed class TenantIsolationTests
         await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
         var visible = await dbA.WhatsAppContacts.Select(c => c.DisplayName).ToListAsync();
         Assert.Equal(["A Customer"], visible);
+    }
+
+    [Fact]
+    public async Task Query_filter_hides_other_tenant_monitoring()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var businessA = Business.Create(tenantA, "A Co", null);
+        var businessB = Business.Create(tenantB, "B Co", null);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"iso-mon-{Guid.NewGuid()}")
+            .Options;
+
+        await using (var seed = new AppDbContext(options, tenantContext: null))
+        {
+            seed.Businesses.AddRange(businessA, businessB);
+            seed.MonitoringSchedules.Add(MonitoringSchedule.Create(tenantA, businessA.Id, 24));
+            seed.MonitoringSchedules.Add(MonitoringSchedule.Create(tenantB, businessB.Id, 6));
+            seed.MonitoringAlerts.Add(MonitoringAlert.Open(tenantA, businessA.Id, null, AlertSeverity.Warning, "A alert", "Only A"));
+            seed.MonitoringAlerts.Add(MonitoringAlert.Open(tenantB, businessB.Id, null, AlertSeverity.Warning, "B alert", "Only B"));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
+        var schedules = await dbA.MonitoringSchedules.Select(s => s.IntervalHours).ToListAsync();
+        var alerts = await dbA.MonitoringAlerts.Select(a => a.Title).ToListAsync();
+        Assert.Equal([24], schedules);
+        Assert.Equal(["A alert"], alerts);
     }
 
     private sealed class FixedTenantContext : Application.Abstractions.ITenantContext

@@ -16,7 +16,9 @@ using DigitalPulse.Application.Features.Projects;
 using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Application.Features.Website;
 using DigitalPulse.Application.Features.WhatsApp;
+using DigitalPulse.Application.Features.Monitoring;
 using DigitalPulse.Contracts.WhatsApp;
+using DigitalPulse.Contracts.Monitoring;
 using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
@@ -127,6 +129,12 @@ public static class DependencyInjection
         services.AddScoped<SendWhatsAppMessageHandler>();
         services.AddScoped<RecordWhatsAppInboundHandler>();
         services.AddScoped<ReplyWhatsAppHandler>();
+        services.AddScoped<GetMonitoringWorkspaceHandler>();
+        services.AddScoped<RunMonitoringHandler>();
+        services.AddScoped<AssemblePresenceReportHandler>();
+        services.AddScoped<AddCompetitorHandler>();
+        services.AddScoped<AcknowledgeAlertHandler>();
+        services.AddScoped<RecordReportDecisionHandler>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         return services;
     }
@@ -411,5 +419,23 @@ public sealed class DraftWhatsAppMessageRequestValidator : AbstractValidator<Dra
         RuleFor(x => x.ContactId).NotEmpty();
         RuleFor(x => x.Kind).NotEmpty();
         RuleFor(x => x.Body).NotEmpty().MinimumLength(3).MaximumLength(4000);
+    }
+}
+
+public sealed class AddCompetitorRequestValidator : AbstractValidator<AddCompetitorRequest>
+{
+    public AddCompetitorRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Website).MaximumLength(2048);
+        RuleFor(x => x.Notes).MaximumLength(500);
+    }
+}
+
+public sealed class RecordReportDecisionRequestValidator : AbstractValidator<RecordReportDecisionRequest>
+{
+    public RecordReportDecisionRequestValidator()
+    {
+        RuleFor(x => x.Decision).NotEmpty().MaximumLength(500);
     }
 }

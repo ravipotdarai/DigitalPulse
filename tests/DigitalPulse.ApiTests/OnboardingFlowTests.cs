@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using DigitalPulse.Contracts.WhatsApp;
+using DigitalPulse.Contracts.Monitoring;
 using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
@@ -976,6 +977,75 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
         var steal = await _client.PostAsJsonAsync(
             $"/v1/businesses/{userA.BusinessId}/whatsapp/connect",
             new ConnectWhatsAppRequest("Stolen", "+912200000333"));
+        Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
+    }
+
+    [Fact]
+    public async Task Monitoring_records_stored_health_and_holds_live_metrics()
+    {
+        var session = await RegisterAndOnboard("Direct", "Monitor Co");
+        UseToken(session.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("GROWTH"));
+        await _client.PutAsJsonAsync($"/v1/businesses/{session.BusinessId}", new UpdateBusinessRequest("Monitor Co Biz", "https://example.com"));
+
+        var opened = await _client.GetAsync($"/v1/businesses/{session.BusinessId}/monitoring");
+        opened.EnsureSuccessStatusCode();
+        var workspace = await opened.Content.ReadFromJsonAsync<MonitoringWorkspaceResponse>();
+        Assert.Equal(24, workspace!.Schedule.IntervalHours);
+        Assert.True(workspace.Schedule.Due);
+        Assert.Contains(workspace.Kinds, k => k.Code == "search-visibility" && !k.CanObserveWithoutLiveApi);
+
+        var ran = await _client.PostAsync($"/v1/businesses/{session.BusinessId}/monitoring/runs", null);
+        ran.EnsureSuccessStatusCode();
+        workspace = await ran.Content.ReadFromJsonAsync<MonitoringWorkspaceResponse>();
+        var latest = Assert.Single(workspace!.Runs);
+        Assert.Equal("Manual", latest.Trigger);
+        Assert.Equal("Completed", latest.Status);
+        Assert.Contains(latest.Results, r => r.Kind == "search-visibility" && r.Status == "Held");
+        Assert.Contains(latest.Results, r => r.Kind == "review-changes" && r.Status == "Held");
+        Assert.Contains(latest.Results, r => r.Kind == "website-availability" && r.Status == "Observed");
+        Assert.DoesNotContain(latest.Results, r => r.ObservedFact.Contains("invented ranking", StringComparison.OrdinalIgnoreCase));
+
+        var competitor = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/monitoring/competitors",
+            new AddCompetitorRequest("Harbor Beans", "https://harbor.example", null));
+        competitor.EnsureSuccessStatusCode();
+
+        var report = await _client.PostAsync($"/v1/businesses/{session.BusinessId}/monitoring/reports", null);
+        report.EnsureSuccessStatusCode();
+        workspace = await report.Content.ReadFromJsonAsync<MonitoringWorkspaceResponse>();
+        var pulse = Assert.Single(workspace!.Reports);
+        Assert.Equal("Pulse", pulse.Kind);
+        Assert.Contains("No AI interpretation", pulse.AiInterpretation, StringComparison.Ordinal);
+        Assert.Null(pulse.CustomerDecision);
+
+        var decided = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/monitoring/reports/{pulse.Id}/decision",
+            new RecordReportDecisionRequest("Accepted. We will review listings next week."));
+        decided.EnsureSuccessStatusCode();
+        workspace = await decided.Content.ReadFromJsonAsync<MonitoringWorkspaceResponse>();
+        Assert.Equal("Accepted. We will review listings next week.", workspace!.Reports[0].CustomerDecision);
+
+        var dashboard = await _client.GetFromJsonAsync<DashboardResponse>("/v1/dashboard");
+        Assert.NotNull(dashboard!.LastMonitoringAtUtc);
+        Assert.Equal(24, dashboard.MonitoringIntervalHours);
+        Assert.True(dashboard.ReportCount >= 1);
+    }
+
+    [Fact]
+    public async Task Monitoring_stays_isolated_across_tenants()
+    {
+        var userA = await RegisterAndOnboard("Direct", "Alpha Monitor");
+        UseToken(userA.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        await _client.PostAsync($"/v1/businesses/{userA.BusinessId}/monitoring/runs", null);
+
+        var userB = await RegisterAndOnboard("Direct", "Beta Monitor");
+        UseToken(userB.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var peek = await _client.GetAsync($"/v1/businesses/{userA.BusinessId}/monitoring");
+        Assert.Equal(HttpStatusCode.NotFound, peek.StatusCode);
+        var steal = await _client.PostAsync($"/v1/businesses/{userA.BusinessId}/monitoring/runs", null);
         Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
     }
 

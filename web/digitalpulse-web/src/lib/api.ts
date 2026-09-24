@@ -107,6 +107,11 @@ export type DashboardResponse = {
   actionHeldCount: number;
   whatsAppOptInCount: number;
   whatsAppHeldCount: number;
+  lastMonitoringAtUtc: string | null;
+  openAlertCount: number;
+  reportCount: number;
+  monitoringIntervalHours: number;
+  monitoringHoldReason: string;
 };
 
 export class ApiError extends Error {
@@ -353,7 +358,18 @@ export const api = {
   recordWhatsAppInbound: (businessId: string, body: { contactId: string; body: string }) =>
     request<WhatsAppWorkspace>(`/v1/businesses/${businessId}/whatsapp/inbound`, { method: "POST", body: JSON.stringify(body) }),
   replyWhatsApp: (businessId: string, conversationId: string, body: string) =>
-    request<WhatsAppMessage>(`/v1/businesses/${businessId}/whatsapp/conversations/${conversationId}/reply`, { method: "POST", body: JSON.stringify({ body }) })
+    request<WhatsAppMessage>(`/v1/businesses/${businessId}/whatsapp/conversations/${conversationId}/reply`, { method: "POST", body: JSON.stringify({ body }) }),
+  monitoring: (businessId: string) => request<MonitoringWorkspace>(`/v1/businesses/${businessId}/monitoring`),
+  runMonitoring: (businessId: string) =>
+    request<MonitoringWorkspace>(`/v1/businesses/${businessId}/monitoring/runs`, { method: "POST" }),
+  assembleReport: (businessId: string) =>
+    request<MonitoringWorkspace>(`/v1/businesses/${businessId}/monitoring/reports`, { method: "POST" }),
+  recordReportDecision: (businessId: string, reportId: string, body: { decision: string }) =>
+    request<MonitoringWorkspace>(`/v1/businesses/${businessId}/monitoring/reports/${reportId}/decision`, { method: "POST", body: JSON.stringify(body) }),
+  addCompetitor: (businessId: string, body: { name: string; website: string | null; notes: string | null }) =>
+    request<MonitoringWorkspace>(`/v1/businesses/${businessId}/monitoring/competitors`, { method: "POST", body: JSON.stringify(body) }),
+  acknowledgeAlert: (businessId: string, alertId: string) =>
+    request<MonitoringWorkspace>(`/v1/businesses/${businessId}/monitoring/alerts/${alertId}/acknowledge`, { method: "POST" })
 };
 
 export type PlatformCapabilities = {
@@ -783,4 +799,61 @@ export type WhatsAppWorkspace = {
   campaigns: WhatsAppCampaign[];
   conversations: { id: string; contactId: string; windowOpen: boolean; messages: WhatsAppMessage[] }[];
   messages: WhatsAppMessage[];
+};
+export type MonitoringKind = { code: string; name: string; canObserveWithoutLiveApi: boolean; purpose: string };
+export type MonitoringResult = {
+  id: string;
+  kind: string;
+  status: string;
+  title: string;
+  observedFact: string;
+  recommendation: string;
+  previousValue: string | null;
+  currentValue: string | null;
+};
+export type MonitoringRun = {
+  id: string;
+  trigger: string;
+  status: string;
+  summary: string;
+  startedAtUtc: string;
+  completedAtUtc: string | null;
+  results: MonitoringResult[];
+};
+export type MonitoringAlert = {
+  id: string;
+  severity: string;
+  status: string;
+  title: string;
+  detail: string;
+  openedAtUtc: string;
+  acknowledgedAtUtc: string | null;
+};
+export type PresenceReport = {
+  id: string;
+  kind: string;
+  title: string;
+  observedFact: string;
+  recommendation: string;
+  aiInterpretation: string;
+  customerDecision: string | null;
+  periodStartUtc: string;
+  periodEndUtc: string;
+  holdReason: string;
+};
+export type MonitoringWorkspace = {
+  schedule: {
+    intervalHours: number;
+    enabled: boolean;
+    lastRunAtUtc: string | null;
+    nextRunAtUtc: string | null;
+    due: boolean;
+    holdReason: string;
+  };
+  note: string;
+  kinds: MonitoringKind[];
+  runs: MonitoringRun[];
+  alerts: MonitoringAlert[];
+  competitors: { id: string; name: string; website: string | null; notes: string | null }[];
+  reports: PresenceReport[];
 };

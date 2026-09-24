@@ -10,7 +10,8 @@ import {
   Settings20Regular,
   Chat20Regular,
   Flash20Regular,
-  Sparkle20Regular
+  Sparkle20Regular,
+  Eye20Regular
 } from "@fluentui/react-icons";
 import type { FluentIcon } from "@fluentui/react-icons";
 
@@ -24,7 +25,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/app", label: "Overview", icon: Pulse20Regular, end: true },
       { to: "/app/findings", label: "Signals", icon: Radar20Regular },
       { to: "/app/ai", label: "Orchestrator", icon: Sparkle20Regular },
-      { to: "/app/actions", label: "Actions", icon: Flash20Regular }
+      { to: "/app/actions", label: "Actions", icon: Flash20Regular },
+      { to: "/app/monitoring", label: "Monitor", icon: Eye20Regular }
     ]
   },
   {

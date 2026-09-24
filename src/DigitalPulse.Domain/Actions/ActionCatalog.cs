@@ -13,7 +13,9 @@ public enum ActionKind
     PublishSocial = 6,
     VerifyDirectory = 7,
     SendWhatsAppTemplate = 8,
-    SendWhatsAppSession = 9
+    SendWhatsAppSession = 9,
+    RunMonitoring = 10,
+    AssembleReport = 11
 }
 
 public enum ActionRisk
@@ -66,7 +68,9 @@ public static class ActionKindCatalog
         new(ActionKind.PublishSocial, "publish-social", "Publish social", ActionRisk.High, true, "External write. Holds unless a live publish adapter exists."),
         new(ActionKind.VerifyDirectory, "verify-directory", "Verify directory", ActionRisk.High, true, "Operator-confirmed directory verification. Not an unofficial write."),
         new(ActionKind.SendWhatsAppTemplate, "send-whatsapp-template", "Send WhatsApp template", ActionRisk.High, true, "Cloud API template send. Opt-in and approval required. Unofficial clients are out of scope."),
-        new(ActionKind.SendWhatsAppSession, "send-whatsapp-session", "Send WhatsApp session reply", ActionRisk.High, true, "Cloud API session reply inside the 24-hour window. Never an unofficial send.")
+        new(ActionKind.SendWhatsAppSession, "send-whatsapp-session", "Send WhatsApp session reply", ActionRisk.High, true, "Cloud API session reply inside the 24-hour window. Never an unofficial send."),
+        new(ActionKind.RunMonitoring, "run-monitoring", "Run monitoring", ActionRisk.Low, false, "Records stored health and honest holds. Live provider metrics are not invented."),
+        new(ActionKind.AssembleReport, "assemble-report", "Assemble presence report", ActionRisk.Low, false, "Assembles Observed Fact, Recommendation, AI Interpretation, and Customer Decision from stored observations.")
     ];
 
     public static ActionKindDescriptor Require(string code) =>

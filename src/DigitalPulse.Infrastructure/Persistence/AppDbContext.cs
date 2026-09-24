@@ -13,18 +13,21 @@ using DigitalPulse.Domain.Projects;
 using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
 using DigitalPulse.Domain.WhatsApp;
+using DigitalPulse.Domain.Monitoring;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigitalPulse.Infrastructure.Persistence;
 
 public sealed class AppDbContext : DbContext, IAppDbContext
 {
-    private readonly ITenantContext? _tenantContext;
+    private readonly bool _bypassTenantFilter;
+    private readonly Guid? _filterTenantId;
 
     public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext? tenantContext = null)
         : base(options)
     {
-        _tenantContext = tenantContext;
+        _bypassTenantFilter = tenantContext is null;
+        _filterTenantId = tenantContext?.TenantId;
     }
 
     public DbSet<AppUser> Users => Set<AppUser>();
@@ -81,6 +84,13 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<WhatsAppMessage> WhatsAppMessages => Set<WhatsAppMessage>();
     public DbSet<WhatsAppMessageAttempt> WhatsAppMessageAttempts => Set<WhatsAppMessageAttempt>();
     public DbSet<WhatsAppWebhookEvent> WhatsAppWebhookEvents => Set<WhatsAppWebhookEvent>();
+    public DbSet<MonitoringSchedule> MonitoringSchedules => Set<MonitoringSchedule>();
+    public DbSet<MonitoringRun> MonitoringRuns => Set<MonitoringRun>();
+    public DbSet<MonitoringResult> MonitoringResults => Set<MonitoringResult>();
+    public DbSet<MonitoringAlert> MonitoringAlerts => Set<MonitoringAlert>();
+    public DbSet<Competitor> Competitors => Set<Competitor>();
+    public DbSet<CompetitorObservation> CompetitorObservations => Set<CompetitorObservation>();
+    public DbSet<PresenceReport> PresenceReports => Set<PresenceReport>();
 
     public Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken) =>
         Connections.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.AuthorizationState == state, cancellationToken);
@@ -139,11 +149,18 @@ public sealed class AppDbContext : DbContext, IAppDbContext
         ApplyTenantFilter<WhatsAppMessage>(modelBuilder);
         ApplyTenantFilter<WhatsAppMessageAttempt>(modelBuilder);
         ApplyTenantFilter<WhatsAppWebhookEvent>(modelBuilder);
+        ApplyTenantFilter<MonitoringSchedule>(modelBuilder);
+        ApplyTenantFilter<MonitoringRun>(modelBuilder);
+        ApplyTenantFilter<MonitoringResult>(modelBuilder);
+        ApplyTenantFilter<MonitoringAlert>(modelBuilder);
+        ApplyTenantFilter<Competitor>(modelBuilder);
+        ApplyTenantFilter<CompetitorObservation>(modelBuilder);
+        ApplyTenantFilter<PresenceReport>(modelBuilder);
     }
 
     private void ApplyTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : TenantOwnedEntity =>
         modelBuilder.Entity<TEntity>().HasQueryFilter(e =>
-            _tenantContext == null || e.TenantId == _tenantContext.TenantId);
+            _bypassTenantFilter || (_filterTenantId != null && e.TenantId == _filterTenantId));
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

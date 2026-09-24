@@ -1,6 +1,6 @@
 # DigitalPulse
 
-AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phases 2–11**, plus a **theme architecture** (Editorial implemented; Executive / Future AI / Minimal fallback tokens).
+AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phases 2–12**, plus a **theme architecture** (Editorial implemented; Executive / Future AI / Minimal fallback tokens).
 
 ## Run locally
 
@@ -27,7 +27,7 @@ Open http://localhost:5173 (API http://localhost:5088).
 
 ## Flow
 
-Landing → Register → Login → Create Tenant → Tenant → Business → Location → Select Plan → Dashboard → Business identity → Connection Center → DigitalPulse Check → Website intelligence → Social → WhatsApp → Directories → Projects → AI Orchestrator → Action center
+Landing → Register → Login → Create Tenant → Tenant → Business → Location → Select Plan → Dashboard → Business identity → Connection Center → DigitalPulse Check → Website intelligence → Social → WhatsApp → Directories → Projects → AI Orchestrator → Action center → Monitoring
 
 Connection Center lists official adapters (Google, Meta, LinkedIn, YouTube, IndiaMART, Justdial, WhatsApp Cloud API, Website, Search Console, Google Ads). Connect issues a **development grant** behind `IPlatformAuthorizationBroker`. Live provider OAuth is not invented. IndiaMART/Justdial are assisted-only. WhatsApp is Cloud API only.
 
@@ -46,6 +46,8 @@ The AI orchestrator retrieves Graphify + knowledge, builds a prompt, calls `IAiP
 The action engine queues work through Draft → PendingApproval → Approved → Queued → Executing → Executed → Verified. Failures retry, then escalate. Full Auto only auto-executes low-risk internal work. Publish and directory writes stay assisted unless an official live adapter exists. Autopilot never invents a provider result. Monthly volume follows `SubscriptionPlan.ActionsPerMonth`.
 
 WhatsApp Business Messaging uses official Cloud API only. Starter is disabled. Growth / Business / Agency get 2,000 / 10,000 / 50,000 messages per month. A stored mobile number is not sendable until an explicit opt-in. Business-initiated sends need an approved template. Session replies need an open 24-hour window. Opt-out stops campaign and template sends immediately. Without `WhatsApp:CloudApi:AccessToken` the development provider holds. Unofficial WhatsApp clients are out of scope.
+
+Monitoring records stored platform health, a safe website probe, identity fingerprints, WhatsApp holds, action failures, and operator-listed competitors. Search, live social metrics, reviews, competitor listings, and provider API failures stay held. Reports keep Observed Fact, Recommendation, AI Interpretation, and Customer Decision separate — AI commentary is not invented. Plan intervals are 168h / 24h / 6h / 1h. The hosted ticker uses an unfiltered `AppDbContext` so a null HTTP tenant cannot hide every row.
 
 Development authentication is JWT behind `IAuthTokenIssuer` (`DevelopmentJwtTokenIssuer`). Entra External ID is not wired yet.
 

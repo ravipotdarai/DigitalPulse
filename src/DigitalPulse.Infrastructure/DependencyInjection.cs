@@ -5,6 +5,7 @@ using DigitalPulse.Infrastructure.Billing;
 using DigitalPulse.Infrastructure.Persistence;
 using DigitalPulse.Infrastructure.Platforms;
 using DigitalPulse.Infrastructure.WhatsApp;
+using DigitalPulse.Infrastructure.Monitoring;
 using DigitalPulse.Infrastructure.Scanning;
 using DigitalPulse.Infrastructure.Search;
 using DigitalPulse.Infrastructure.Tenancy;
@@ -112,6 +113,10 @@ public static class DependencyInjection
             }
         });
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+        if (!configuration.GetValue<bool>("Testing:UseInMemory"))
+        {
+            services.AddHostedService<MonitoringTicker>();
+        }
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

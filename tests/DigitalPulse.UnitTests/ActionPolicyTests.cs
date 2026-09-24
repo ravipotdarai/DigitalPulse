@@ -55,6 +55,15 @@ public sealed class ActionPolicyTests
     }
 
     [Fact]
+    public void Full_auto_monitoring_is_eligible()
+    {
+        var decision = ActionPolicy.Evaluate(ActionKind.RunMonitoring, AutomationMode.FullAuto, liveWriteAvailable: false, alreadyApproved: false);
+        Assert.True(decision.EligibleForAutopilot);
+        Assert.False(decision.RequiresApproval);
+        Assert.Equal(ActionRisk.Low, decision.Risk);
+    }
+
+    [Fact]
     public void Full_auto_enqueue_queues_low_risk_work()
     {
         var kind = ActionKindCatalog.Of(ActionKind.RebuildGraphify);

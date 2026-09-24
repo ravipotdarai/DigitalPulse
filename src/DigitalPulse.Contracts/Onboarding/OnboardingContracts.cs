@@ -34,7 +34,12 @@ public sealed record DashboardResponse(
     int ActionOpenCount,
     int ActionHeldCount,
     int WhatsAppOptInCount,
-    int WhatsAppHeldCount);
+    int WhatsAppHeldCount,
+    DateTimeOffset? LastMonitoringAtUtc,
+    int OpenAlertCount,
+    int ReportCount,
+    int MonitoringIntervalHours,
+    string MonitoringHoldReason);
 
 public sealed record DashboardBusinessResponse(
     Guid Id,

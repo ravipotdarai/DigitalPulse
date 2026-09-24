@@ -7,6 +7,7 @@ using DigitalPulse.Application.Features.Scans;
 using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Application.Features.Website;
 using DigitalPulse.Application.Features.WhatsApp;
+using DigitalPulse.Application.Features.Monitoring;
 using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Directories;
 using DigitalPulse.Domain.Actions;
@@ -264,6 +265,8 @@ public sealed class ExecuteActionHandler
     private readonly MonitorDirectoryHandler _monitor;
     private readonly VerifyDirectoryTaskHandler _verify;
     private readonly SendWhatsAppMessageHandler _whatsApp;
+    private readonly RunMonitoringHandler _monitoring;
+    private readonly AssemblePresenceReportHandler _report;
 
     public ExecuteActionHandler(
         IAppDbContext db,
@@ -275,7 +278,9 @@ public sealed class ExecuteActionHandler
         PublishSocialContentHandler publish,
         MonitorDirectoryHandler monitor,
         VerifyDirectoryTaskHandler verify,
-        SendWhatsAppMessageHandler whatsApp)
+        SendWhatsAppMessageHandler whatsApp,
+        RunMonitoringHandler monitoring,
+        AssemblePresenceReportHandler report)
     {
         _db = db;
         _tenant = tenant;
@@ -287,6 +292,8 @@ public sealed class ExecuteActionHandler
         _monitor = monitor;
         _verify = verify;
         _whatsApp = whatsApp;
+        _monitoring = monitoring;
+        _report = report;
     }
 
     public async Task<WorkActionResponse> Handle(Guid businessId, Guid actionId, CancellationToken cancellationToken)
@@ -378,6 +385,12 @@ public sealed class ExecuteActionHandler
 
                 var sent = await _whatsApp.Handle(businessId, action.TargetId.Value, cancellationToken);
                 return (true, sent.HoldReason);
+            case ActionKind.RunMonitoring:
+                await _monitoring.Handle(businessId, cancellationToken);
+                return (false, "Monitoring recorded stored health and honest holds. Live provider metrics were not invented.");
+            case ActionKind.AssembleReport:
+                await _report.Handle(businessId, cancellationToken);
+                return (false, "Report assembled from stored observations. AI interpretation was not invented.");
             default:
                 return (true, "Unknown action kind stayed held.");
         }
