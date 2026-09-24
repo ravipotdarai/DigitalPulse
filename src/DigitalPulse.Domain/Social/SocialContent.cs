@@ -17,7 +17,8 @@ public enum SocialContentStatus
     Approved = 2,
     Assisted = 3,
     Blocked = 4,
-    Failed = 5
+    Failed = 5,
+    Published = 6
 }
 
 public enum SocialVerificationStatus
@@ -30,7 +31,8 @@ public enum SocialVerificationStatus
 public enum SocialMetricStatus
 {
     Unavailable = 1,
-    Hold = 2
+    Hold = 2,
+    Observed = 3
 }
 
 public sealed class SocialContentItem : TenantOwnedEntity
@@ -119,6 +121,15 @@ public sealed class SocialContentItem : TenantOwnedEntity
         VerificationStatus = SocialVerificationStatus.Failed;
         VerificationDetail = reason.Trim();
         LastPublishError = reason.Trim();
+        Touch();
+    }
+
+    public void MarkPublished(string detail)
+    {
+        Status = SocialContentStatus.Published;
+        VerificationStatus = SocialVerificationStatus.None;
+        VerificationDetail = detail.Trim();
+        LastPublishError = null;
         Touch();
     }
 }

@@ -51,6 +51,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "System",
     items: [
       { to: "/app/agency", label: "Agency", icon: PeopleTeam20Regular },
+      { to: "/app/operations", label: "Operations", icon: Settings20Regular },
       { to: "/app/billing", label: "Billing", icon: Settings20Regular },
       { to: "/app/info", label: "Workspace", icon: Settings20Regular }
     ]

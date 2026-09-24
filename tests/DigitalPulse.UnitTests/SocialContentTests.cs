@@ -6,13 +6,23 @@ namespace DigitalPulse.UnitTests;
 public sealed class SocialContentTests
 {
     [Fact]
-    public void Publish_states_never_become_live_posts()
+    public void Development_hold_does_not_mark_published()
     {
         var item = SocialContentItem.Draft(Guid.NewGuid(), Guid.NewGuid(), "FACEBOOK", SocialContentKind.FacebookPost, "Weekend hours", "Open until 8.");
         item.Approve();
-        item.MarkBlocked("Live provider publish is not wired.");
+        item.MarkBlocked("Live provider publish waits for an official OAuth grant.");
         Assert.Equal(SocialContentStatus.Blocked, item.Status);
         Assert.Equal(SocialVerificationStatus.Hold, item.VerificationStatus);
-        Assert.DoesNotContain("Published", item.Status.ToString(), StringComparison.Ordinal);
+        Assert.NotEqual(SocialContentStatus.Published, item.Status);
+    }
+
+    [Fact]
+    public void Official_write_can_mark_published()
+    {
+        var item = SocialContentItem.Draft(Guid.NewGuid(), Guid.NewGuid(), "FACEBOOK", SocialContentKind.FacebookPost, "Weekend hours", "Open until 8.");
+        item.Approve();
+        item.MarkPublished("Official Facebook write accepted (200).");
+        Assert.Equal(SocialContentStatus.Published, item.Status);
+        Assert.Null(item.LastPublishError);
     }
 }

@@ -12,6 +12,10 @@ public sealed class PlatformConnection : TenantOwnedEntity
     public string? GrantKind { get; private set; }
     public string? GrantReference { get; private set; }
     public string? AuthorizationState { get; private set; }
+    public string? AccessToken { get; private set; }
+    public string? RefreshToken { get; private set; }
+    public DateTimeOffset? TokenExpiresAtUtc { get; private set; }
+    public string? TokenScope { get; private set; }
     public DateTimeOffset? ConnectedAtUtc { get; private set; }
     public DateTimeOffset? LastHealthAtUtc { get; private set; }
     public string? LastHealthStatus { get; private set; }
@@ -39,6 +43,11 @@ public sealed class PlatformConnection : TenantOwnedEntity
         };
     }
 
+    public bool HasLiveCredential =>
+        Status == ConnectionStatus.Connected
+        && !string.IsNullOrWhiteSpace(AccessToken)
+        && GrantKind is "OAuth" or "ApiKey";
+
     public void MarkConnected(string grantKind, string grantReference, string? externalAccount)
     {
         Status = ConnectionStatus.Connected;
@@ -51,6 +60,23 @@ public sealed class PlatformConnection : TenantOwnedEntity
         LastHealthStatus = "Healthy";
         LastHealthAtUtc = DateTimeOffset.UtcNow;
         Touch();
+    }
+
+    public void AttachLiveGrant(
+        string grantKind,
+        string grantReference,
+        string? externalAccount,
+        string accessToken,
+        string? refreshToken,
+        DateTimeOffset? expiresAtUtc,
+        string? scope)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(accessToken);
+        MarkConnected(grantKind, grantReference, externalAccount);
+        AccessToken = accessToken.Trim();
+        RefreshToken = string.IsNullOrWhiteSpace(refreshToken) ? null : refreshToken.Trim();
+        TokenExpiresAtUtc = expiresAtUtc;
+        TokenScope = string.IsNullOrWhiteSpace(scope) ? null : scope.Trim();
     }
 
     public void BeginReauthorize(string authorizationState)

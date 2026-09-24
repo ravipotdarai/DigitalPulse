@@ -206,6 +206,13 @@ public sealed class EnqueueActionHandler
 
     private async Task<bool> LiveWriteAvailableAsync(Guid businessId, ActionKindDescriptor kind, Guid? targetId, CancellationToken cancellationToken)
     {
+        if (kind.Kind is ActionKind.SendWhatsAppTemplate or ActionKind.SendWhatsAppSession)
+        {
+            var whatsApp = await _db.Connections.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.BusinessId == businessId && c.PlatformCode == "WHATSAPP", cancellationToken);
+            return whatsApp?.HasLiveCredential == true;
+        }
+
         if (kind.Kind != ActionKind.PublishSocial || targetId is null)
         {
             return false;
@@ -219,7 +226,14 @@ public sealed class EnqueueActionHandler
         }
 
         var caps = _catalog.Get(item.PlatformCode).Describe().Capabilities;
-        return caps.CanPublish && !caps.AssistedOnly;
+        if (!caps.CanPublish || caps.AssistedOnly)
+        {
+            return false;
+        }
+
+        var connection = await _db.Connections.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.BusinessId == businessId && c.PlatformCode == item.PlatformCode, cancellationToken);
+        return connection?.HasLiveCredential == true;
     }
 }
 
@@ -354,7 +368,11 @@ public sealed class ExecuteActionHandler
                 return (false, "Graphify rebuilt from the identity record.");
             case ActionKind.RefreshSocialMetrics:
                 await _metrics.Handle(businessId, cancellationToken);
-                return (true, "Metrics refresh asked the adapter. Development grants stay unavailable.");
+                var observed = await _db.SocialMetrics.AsNoTracking()
+                    .AnyAsync(m => m.BusinessId == businessId && m.Status == DigitalPulse.Domain.Social.SocialMetricStatus.Observed, cancellationToken);
+                return observed
+                    ? (false, "Official adapter metrics were stored. Counts were not invented beyond the provider body.")
+                    : (true, "Metrics refresh asked the adapter. Development grants stay unavailable.");
             case ActionKind.PublishSocial:
                 if (action.TargetId is null)
                 {
@@ -362,11 +380,18 @@ public sealed class ExecuteActionHandler
                 }
 
                 var published = await _publish.Handle(businessId, action.TargetId.Value, cancellationToken);
-                return (true, published.LastPublishError ?? published.VerificationDetail ?? "Publish stayed on hold. A live post was not invented.");
+                var publishHeld = !published.Status.Equals("Published", StringComparison.OrdinalIgnoreCase);
+                return (publishHeld, published.LastPublishError ?? published.VerificationDetail ?? "Publish stayed on hold. A live post was not invented.");
             case ActionKind.MonitorDirectory:
                 var platform = action.TargetLabel ?? "INDIAMART";
                 await _monitor.Handle(businessId, platform, cancellationToken);
-                return (true, "Directory monitor recorded an assisted observation. Official listing reads were not invented.");
+                var directory = await _db.Connections.AsNoTracking()
+                    .FirstOrDefaultAsync(
+                        c => c.BusinessId == businessId && c.PlatformCode == platform.Trim().ToUpperInvariant(),
+                        cancellationToken);
+                return directory?.HasLiveCredential == true
+                    ? (false, "Official directory read stored. Profile writes stay assisted.")
+                    : (true, "Directory monitor recorded an assisted observation. Official listing reads were not invented.");
             case ActionKind.VerifyDirectory:
                 if (action.TargetId is null)
                 {
@@ -385,7 +410,8 @@ public sealed class ExecuteActionHandler
                 }
 
                 var sent = await _whatsApp.Handle(businessId, action.TargetId.Value, cancellationToken);
-                return (true, sent.HoldReason);
+                var sendHeld = !sent.Status.Equals("Delivered", StringComparison.OrdinalIgnoreCase);
+                return (sendHeld, sent.HoldReason);
             case ActionKind.RunMonitoring:
                 await _monitoring.Handle(businessId, cancellationToken);
                 return (false, "Monitoring recorded stored health and honest holds. Live provider metrics were not invented.");

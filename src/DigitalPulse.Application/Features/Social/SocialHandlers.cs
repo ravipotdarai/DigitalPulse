@@ -96,7 +96,7 @@ public sealed class GetSocialWorkspaceHandler
         return new SocialWorkspaceResponse(
             channels,
             items.Select(i => i.ToResponse()).ToList(),
-            "Google, Meta, LinkedIn, and YouTube drafts stay in DigitalPulse until a live provider publish exists. WhatsApp is not a social post.");
+            "Google, Meta, LinkedIn, and YouTube drafts publish through the official API when a live OAuth grant is stored. Development grants stay on hold. WhatsApp is not a social post.");
     }
 }
 
@@ -229,11 +229,16 @@ public sealed class PublishSocialContentHandler
         }
 
         var result = await adapter.PublishAsync(connection, item.Title, item.Body, cancellationToken);
-        if (result.Status.Equals("Assisted", StringComparison.OrdinalIgnoreCase))
+        if (result.Status.Equals("Published", StringComparison.OrdinalIgnoreCase))
+        {
+            item.MarkPublished(result.Detail);
+        }
+        else if (result.Status.Equals("Assisted", StringComparison.OrdinalIgnoreCase))
         {
             item.MarkAssisted(result.Detail);
         }
-        else if (result.Status.Equals("Hold", StringComparison.OrdinalIgnoreCase))
+        else if (result.Status.Equals("Hold", StringComparison.OrdinalIgnoreCase) ||
+                 result.Status.Equals("Blocked", StringComparison.OrdinalIgnoreCase))
         {
             item.MarkBlocked(result.Detail);
         }
@@ -281,9 +286,11 @@ public sealed class RefreshSocialMetricsHandler
             }
 
             var result = await adapter.MetricsAsync(connection, cancellationToken);
-            var status = result.Status.Equals("Hold", StringComparison.OrdinalIgnoreCase)
-                ? SocialMetricStatus.Hold
-                : SocialMetricStatus.Unavailable;
+            var status = result.Status.Equals("Observed", StringComparison.OrdinalIgnoreCase)
+                ? SocialMetricStatus.Observed
+                : result.Status.Equals("Hold", StringComparison.OrdinalIgnoreCase)
+                    ? SocialMetricStatus.Hold
+                    : SocialMetricStatus.Unavailable;
             _db.SocialMetrics.Add(SocialMetricSnapshot.Hold(
                 tenantId, businessId, connection.Id, code, status, result.Detail));
         }

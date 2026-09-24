@@ -13,6 +13,7 @@ using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
 using DigitalPulse.Domain.WhatsApp;
 using DigitalPulse.Domain.Monitoring;
+using DigitalPulse.Domain.Operations;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigitalPulse.Application.Abstractions;
@@ -91,6 +92,13 @@ public interface IAppDbContext
     DbSet<AgencyWorkflowStep> AgencyWorkflowSteps { get; }
     DbSet<AgencyReport> AgencyReports { get; }
     DbSet<AgencyReportLine> AgencyReportLines { get; }
+    DbSet<BackupSnapshot> BackupSnapshots { get; }
+    DbSet<RestoreAttempt> RestoreAttempts { get; }
+    DbSet<DisasterDrill> DisasterDrills { get; }
+    DbSet<DependencyInventory> DependencyInventories { get; }
+    DbSet<ReadinessReview> ReadinessReviews { get; }
+    DbSet<ReadinessCheck> ReadinessChecks { get; }
+    DbSet<OperationsAudit> OperationsAudits { get; }
 
     Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

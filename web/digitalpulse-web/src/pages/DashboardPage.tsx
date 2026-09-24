@@ -192,6 +192,11 @@ export function DashboardPage() {
                 tone={data.agencyClientCount ? "live" : "idle"}
               />
             ) : null}
+            <Watch
+              label="Operations"
+              value={data.lastBackupAtUtc ? `${data.readinessHoldCount} readiness hold${data.readinessHoldCount === 1 ? "" : "s"}` : data.operationsHoldReason}
+              tone={data.readinessHoldCount ? "warning" : data.lastBackupAtUtc ? "live" : "idle"}
+            />
           </Stagger>
         </Reveal>
       </section>

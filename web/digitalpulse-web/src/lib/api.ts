@@ -131,6 +131,9 @@ export type DashboardResponse = {
   agencyClientCount: number;
   whiteLabelEnabled: boolean;
   agencyHoldReason: string;
+  lastBackupAtUtc: string | null;
+  readinessHoldCount: number;
+  operationsHoldReason: string;
 };
 
 export class ApiError extends Error {
@@ -430,7 +433,16 @@ export const api = {
   assembleAgencyReport: (body: { scope?: string | null; clientId?: string | null }) =>
     request<AgencyWorkspace>("/v1/agency/reports", { method: "POST", body: JSON.stringify(body) }),
   recordAgencyDecision: (reportId: string, body: { decision: string }) =>
-    request<AgencyWorkspace>(`/v1/agency/reports/${reportId}/decision`, { method: "POST", body: JSON.stringify(body) })
+    request<AgencyWorkspace>(`/v1/agency/reports/${reportId}/decision`, { method: "POST", body: JSON.stringify(body) }),
+  operations: () => request<OperationsWorkspace>("/v1/operations"),
+  captureBackup: () => request<OperationsWorkspace>("/v1/operations/backups", { method: "POST" }),
+  restoreBackup: (snapshotId: string) =>
+    request<OperationsWorkspace>(`/v1/operations/backups/${snapshotId}/restore`, { method: "POST" }),
+  startDrill: (body: { kind: string }) =>
+    request<OperationsWorkspace>("/v1/operations/drills", { method: "POST", body: JSON.stringify(body) }),
+  runInventory: (body: { kind?: string | null }) =>
+    request<OperationsWorkspace>("/v1/operations/scans", { method: "POST", body: JSON.stringify(body) }),
+  assembleReadiness: () => request<OperationsWorkspace>("/v1/operations/readiness", { method: "POST" })
 };
 
 export type PlatformCapabilities = {
@@ -997,4 +1009,30 @@ export type AgencyWorkspace = {
     holdReason: string;
     lines: { id: string; businessId: string | null; kind: string; body: string }[];
   }[];
+};
+export type OperationsWorkspace = {
+  environmentName: string;
+  hostRole: string;
+  rateLimitingEnabled: boolean;
+  rateLimitPerMinute: number;
+  keyVaultConfigured: boolean;
+  appInsightsConfigured: boolean;
+  redisConfigured: boolean;
+  azureBackupConfigured: boolean;
+  note: string;
+  cost: { meter: string; used: number; included: number; note: string }[];
+  backups: { id: string; status: string; manifest: string; checksum: string; holdReason: string; createdAtUtc: string }[];
+  restores: { id: string; snapshotId: string; status: string; holdReason: string; createdAtUtc: string }[];
+  drills: { id: string; kind: string; status: string; observedFact: string; holdReason: string; createdAtUtc: string }[];
+  inventories: { id: string; kind: string; status: string; packageCount: number; packages: string; holdReason: string; createdAtUtc: string }[];
+  readiness: {
+    id: string;
+    status: string;
+    environmentName: string;
+    holdCount: number;
+    failCount: number;
+    holdReason: string;
+    checks: { code: string; title: string; outcome: string; detail: string }[];
+  } | null;
+  audits: { id: string; action: string; detail: string; createdAtUtc: string }[];
 };

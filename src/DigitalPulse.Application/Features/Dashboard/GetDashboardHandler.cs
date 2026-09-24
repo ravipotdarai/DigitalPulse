@@ -121,6 +121,19 @@ public sealed class GetDashboardHandler
                 ? (await _db.WhiteLabelProfiles.AsNoTracking()
                     .FirstOrDefaultAsync(p => p.TenantId == tenantId, cancellationToken))?.HoldReason
                   ?? "Agency clients are businesses on this tenant. White-label hosting stays held."
-                : "Agency workspace is available on Agency tenants.");
+                : "Agency workspace is available on Agency tenants.",
+            (await _db.BackupSnapshots.AsNoTracking()
+                .Where(b => b.TenantId == tenantId)
+                .OrderByDescending(b => b.CreatedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken))?.CreatedAtUtc,
+            (await _db.ReadinessReviews.AsNoTracking()
+                .Where(r => r.TenantId == tenantId)
+                .OrderByDescending(r => r.CreatedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken))?.HoldCount ?? 0,
+            (await _db.ReadinessReviews.AsNoTracking()
+                .Where(r => r.TenantId == tenantId)
+                .OrderByDescending(r => r.CreatedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken))?.HoldReason
+            ?? "Production hardening records stored gates. Azure, Redis, and scanners stay held.");
     }
 }

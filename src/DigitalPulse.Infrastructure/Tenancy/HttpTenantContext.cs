@@ -16,6 +16,11 @@ public sealed class HttpTenantContext : ITenantContext
     {
         get
         {
+            if (AmbientTenant.Current is Guid ambient)
+            {
+                return ambient;
+            }
+
             if (_http.HttpContext?.Items[ItemsKey] is Guid fromItems)
             {
                 return fromItems;

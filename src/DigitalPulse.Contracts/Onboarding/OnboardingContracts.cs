@@ -45,7 +45,10 @@ public sealed record DashboardResponse(
     int HeldInvoiceCount,
     int AgencyClientCount,
     bool WhiteLabelEnabled,
-    string AgencyHoldReason);
+    string AgencyHoldReason,
+    DateTimeOffset? LastBackupAtUtc,
+    int ReadinessHoldCount,
+    string OperationsHoldReason);
 
 public sealed record DashboardBusinessResponse(
     Guid Id,

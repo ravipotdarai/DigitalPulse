@@ -10,7 +10,7 @@ public sealed class PulseWorker : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            _logger.LogInformation("DigitalPulse worker idle at {Time}. Onboarding slice has no background jobs.", DateTimeOffset.UtcNow);
+            _logger.LogInformation("DigitalPulse worker heartbeat at {Time}. Monitoring and action dispatch tickers are registered; Azure Service Bus is not invented.", DateTimeOffset.UtcNow);
             await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
         }
     }

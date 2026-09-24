@@ -19,12 +19,14 @@ using DigitalPulse.Application.Features.WhatsApp;
 using DigitalPulse.Application.Features.Monitoring;
 using DigitalPulse.Application.Features.Billing;
 using DigitalPulse.Application.Features.Agency;
+using DigitalPulse.Application.Features.Operations;
 using DigitalPulse.Contracts.WhatsApp;
 using DigitalPulse.Contracts.Monitoring;
 using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
 using DigitalPulse.Contracts.Agency;
+using DigitalPulse.Contracts.Operations;
 using DigitalPulse.Contracts.Billing;
 using DigitalPulse.Contracts.Businesses;
 using DigitalPulse.Contracts.Directories;
@@ -152,6 +154,12 @@ public static class DependencyInjection
         services.AddScoped<AdvanceAgencyWorkflowHandler>();
         services.AddScoped<AssembleAgencyReportHandler>();
         services.AddScoped<RecordAgencyReportDecisionHandler>();
+        services.AddScoped<GetOperationsWorkspaceHandler>();
+        services.AddScoped<CreateBackupHandler>();
+        services.AddScoped<RestoreBackupHandler>();
+        services.AddScoped<StartDisasterDrillHandler>();
+        services.AddScoped<RunInventoryHandler>();
+        services.AddScoped<AssembleReadinessHandler>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         return services;
     }
@@ -524,5 +532,13 @@ public sealed class RecordAgencyDecisionRequestValidator : AbstractValidator<Rec
     public RecordAgencyDecisionRequestValidator()
     {
         RuleFor(x => x.Decision).NotEmpty().MaximumLength(500);
+    }
+}
+
+public sealed class StartDisasterDrillRequestValidator : AbstractValidator<StartDisasterDrillRequest>
+{
+    public StartDisasterDrillRequestValidator()
+    {
+        RuleFor(x => x.Kind).NotEmpty().MaximumLength(16);
     }
 }

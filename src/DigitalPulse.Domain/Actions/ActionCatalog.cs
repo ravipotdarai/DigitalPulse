@@ -17,7 +17,9 @@ public enum ActionKind
     RunMonitoring = 10,
     AssembleReport = 11,
     AssembleAgencyReport = 12,
-    StartAgencyWorkflow = 13
+    StartAgencyWorkflow = 13,
+    CaptureBackup = 14,
+    AssembleReadiness = 15
 }
 
 public enum ActionRisk
@@ -74,7 +76,9 @@ public static class ActionKindCatalog
         new(ActionKind.RunMonitoring, "run-monitoring", "Run monitoring", ActionRisk.Low, false, "Records stored health and honest holds. Live provider metrics are not invented."),
         new(ActionKind.AssembleReport, "assemble-report", "Assemble presence report", ActionRisk.Low, false, "Assembles Observed Fact, Recommendation, AI Interpretation, and Customer Decision from stored observations."),
         new(ActionKind.AssembleAgencyReport, "assemble-agency-report", "Assemble agency report", ActionRisk.Low, false, "Assembles a client or portfolio report from stored work. Live provider metrics are not invented."),
-        new(ActionKind.StartAgencyWorkflow, "start-agency-workflow", "Start agency workflow", ActionRisk.Low, false, "Starts onboarding, review, audit, or white-label review. Custom-domain hosting stays held.")
+        new(ActionKind.StartAgencyWorkflow, "start-agency-workflow", "Start agency workflow", ActionRisk.Low, false, "Starts onboarding, review, audit, or white-label review. Custom-domain hosting stays held."),
+        new(ActionKind.CaptureBackup, "capture-backup", "Capture tenant backup", ActionRisk.Low, false, "Stores a logical tenant snapshot. Azure Backup is not invented."),
+        new(ActionKind.AssembleReadiness, "assemble-readiness", "Assemble production readiness", ActionRisk.Low, false, "Records stored hardening gates. Live Azure and scanners stay held.")
     ];
 
     public static ActionKindDescriptor Require(string code) =>

@@ -54,5 +54,17 @@ public static class ConnectionsSchemaUpgrader
                 CREATE INDEX [IX_PlatformConnection_AuthorizationState] ON [dp].[PlatformConnection] ([AuthorizationState]);
             END
             """, cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            IF COL_LENGTH('dp.PlatformConnection', 'AccessToken') IS NULL
+                ALTER TABLE [dp].[PlatformConnection] ADD [AccessToken] nvarchar(4000) NULL;
+            IF COL_LENGTH('dp.PlatformConnection', 'RefreshToken') IS NULL
+                ALTER TABLE [dp].[PlatformConnection] ADD [RefreshToken] nvarchar(4000) NULL;
+            IF COL_LENGTH('dp.PlatformConnection', 'TokenExpiresAtUtc') IS NULL
+                ALTER TABLE [dp].[PlatformConnection] ADD [TokenExpiresAtUtc] datetimeoffset NULL;
+            IF COL_LENGTH('dp.PlatformConnection', 'TokenScope') IS NULL
+                ALTER TABLE [dp].[PlatformConnection] ADD [TokenScope] nvarchar(500) NULL;
+            """, cancellationToken);
     }
 }

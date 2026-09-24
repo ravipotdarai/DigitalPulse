@@ -2,6 +2,7 @@ using DigitalPulse.Domain.WhatsApp;
 using DigitalPulse.Domain.Monitoring;
 using DigitalPulse.Domain.Agency;
 using DigitalPulse.Domain.Billing;
+using DigitalPulse.Domain.Operations;
 using DigitalPulse.Domain.Actions;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Businesses;
@@ -352,6 +353,27 @@ public sealed class TenantIsolationTests
         var reports = await dbA.AgencyReports.Select(r => r.Title).ToListAsync();
         Assert.Equal([businessA.Id], clients);
         Assert.Equal(["A portfolio"], reports);
+    }
+
+    [Fact]
+    public async Task Query_filter_hides_other_tenant_backups()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"iso-ops-{Guid.NewGuid()}")
+            .Options;
+
+        await using (var seed = new AppDbContext(options, tenantContext: null))
+        {
+            seed.BackupSnapshots.Add(BackupSnapshot.Capture(tenantA, OperationsPolicy.Manifest(1, 0, 0, 0, 0)));
+            seed.BackupSnapshots.Add(BackupSnapshot.Capture(tenantB, OperationsPolicy.Manifest(2, 0, 0, 0, 0)));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
+        var visible = await dbA.BackupSnapshots.Select(s => s.Manifest).ToListAsync();
+        Assert.Equal([OperationsPolicy.Manifest(1, 0, 0, 0, 0)], visible);
     }
 
     private sealed class FixedTenantContext : Application.Abstractions.ITenantContext

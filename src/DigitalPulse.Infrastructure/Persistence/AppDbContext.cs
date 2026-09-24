@@ -15,6 +15,7 @@ using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
 using DigitalPulse.Domain.WhatsApp;
 using DigitalPulse.Domain.Monitoring;
+using DigitalPulse.Domain.Operations;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigitalPulse.Infrastructure.Persistence;
@@ -103,6 +104,13 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<AgencyWorkflowStep> AgencyWorkflowSteps => Set<AgencyWorkflowStep>();
     public DbSet<AgencyReport> AgencyReports => Set<AgencyReport>();
     public DbSet<AgencyReportLine> AgencyReportLines => Set<AgencyReportLine>();
+    public DbSet<BackupSnapshot> BackupSnapshots => Set<BackupSnapshot>();
+    public DbSet<RestoreAttempt> RestoreAttempts => Set<RestoreAttempt>();
+    public DbSet<DisasterDrill> DisasterDrills => Set<DisasterDrill>();
+    public DbSet<DependencyInventory> DependencyInventories => Set<DependencyInventory>();
+    public DbSet<ReadinessReview> ReadinessReviews => Set<ReadinessReview>();
+    public DbSet<ReadinessCheck> ReadinessChecks => Set<ReadinessCheck>();
+    public DbSet<OperationsAudit> OperationsAudits => Set<OperationsAudit>();
 
     public Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken) =>
         Connections.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.AuthorizationState == state, cancellationToken);
@@ -178,6 +186,13 @@ public sealed class AppDbContext : DbContext, IAppDbContext
         ApplyTenantFilter<AgencyWorkflowStep>(modelBuilder);
         ApplyTenantFilter<AgencyReport>(modelBuilder);
         ApplyTenantFilter<AgencyReportLine>(modelBuilder);
+        ApplyTenantFilter<BackupSnapshot>(modelBuilder);
+        ApplyTenantFilter<RestoreAttempt>(modelBuilder);
+        ApplyTenantFilter<DisasterDrill>(modelBuilder);
+        ApplyTenantFilter<DependencyInventory>(modelBuilder);
+        ApplyTenantFilter<ReadinessReview>(modelBuilder);
+        ApplyTenantFilter<ReadinessCheck>(modelBuilder);
+        ApplyTenantFilter<OperationsAudit>(modelBuilder);
     }
 
     private void ApplyTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : TenantOwnedEntity =>

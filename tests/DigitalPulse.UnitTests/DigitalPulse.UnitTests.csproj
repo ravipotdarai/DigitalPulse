@@ -4,6 +4,7 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio">
@@ -18,5 +19,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\DigitalPulse.Domain\DigitalPulse.Domain.csproj" />
     <ProjectReference Include="..\..\src\DigitalPulse.Application\DigitalPulse.Application.csproj" />
+    <ProjectReference Include="..\..\src\DigitalPulse.Infrastructure\DigitalPulse.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

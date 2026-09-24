@@ -19,6 +19,9 @@ public sealed class PlatformConnectionConfiguration : IEntityTypeConfiguration<P
         builder.Property(x => x.GrantKind).HasMaxLength(32);
         builder.Property(x => x.GrantReference).HasMaxLength(64);
         builder.Property(x => x.AuthorizationState).HasMaxLength(64);
+        builder.Property(x => x.AccessToken).HasMaxLength(4000);
+        builder.Property(x => x.RefreshToken).HasMaxLength(4000);
+        builder.Property(x => x.TokenScope).HasMaxLength(500);
         builder.Property(x => x.LastHealthStatus).HasMaxLength(32);
         builder.Property(x => x.LastError).HasMaxLength(500);
         builder.HasIndex(x => new { x.BusinessId, x.PlatformCode }).IsUnique();

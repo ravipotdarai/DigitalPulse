@@ -1,0 +1,17 @@
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "DigitalPulse_Dev1"
+    ports:
+      - "1433:1433"
+  api:
+    build: .
+    depends_on:
+      - sql
+    environment:
+      ConnectionStrings__SqlServer: "Server=sql,1433;Database=DigitalPulse;User Id=sa;Password=DigitalPulse_Dev1;Encrypt=False;TrustServerCertificate=True"
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - "5088:8080"

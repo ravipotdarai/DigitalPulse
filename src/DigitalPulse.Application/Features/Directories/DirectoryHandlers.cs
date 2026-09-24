@@ -295,7 +295,16 @@ public sealed class MonitorDirectoryHandler
         var verify = latest?.Status == DirectoryTaskStatus.Verified
             ? $"Last verified {latest.VerifiedAtUtc:u}."
             : "No verified assisted update yet.";
-        var detail = $"{health} Official listing reads remain on hold. {verify}";
+        string detail;
+        if (connection is { HasLiveCredential: true })
+        {
+            var metrics = await adapter.MetricsAsync(connection, cancellationToken);
+            detail = $"{health} {metrics.Detail} Profile writes stay assisted. {verify}";
+        }
+        else
+        {
+            detail = $"{health} Official listing reads remain on hold. {verify}";
+        }
 
         if (latest is not null)
         {

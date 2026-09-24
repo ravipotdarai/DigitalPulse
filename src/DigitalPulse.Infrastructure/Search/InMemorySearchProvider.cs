@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using DigitalPulse.Application.Abstractions;
+using Microsoft.Extensions.Configuration;
 
 namespace DigitalPulse.Infrastructure.Search;
 
@@ -60,8 +61,39 @@ public sealed class InMemorySearchProvider : ISearchProvider
     }
 }
 
-public sealed class UnconfiguredVectorSearchProvider : IVectorSearchProvider
+public sealed class LocalHashVectorSearchProvider : IVectorSearchProvider
 {
-    public string ProviderCode => "None";
-    public bool IsConfigured => false;
+    private readonly ConcurrentDictionary<string, SearchDocument> _documents = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IConfiguration? _configuration;
+
+    public LocalHashVectorSearchProvider(IConfiguration? configuration = null) => _configuration = configuration;
+
+    public string ProviderCode => string.IsNullOrWhiteSpace(_configuration?["Ai:OpenAi:ApiKey"]) ? "LocalHash" : "OpenAI";
+    public bool IsConfigured => true;
+
+    public Task IndexAsync(SearchDocument document, CancellationToken cancellationToken)
+    {
+        _documents[$"{document.TenantId:N}:{document.BusinessId:N}:{document.Url}"] = document;
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<SearchHit>> SearchAsync(Guid tenantId, Guid businessId, string query, CancellationToken cancellationToken)
+    {
+        var needle = query.Trim();
+        var hits = _documents.Values
+            .Where(d => d.TenantId == tenantId && d.BusinessId == businessId)
+            .Select(d =>
+            {
+                var haystack = $"{d.Title} {d.Body}";
+                var score = needle.Length == 0 ? 0 : haystack.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Count(word => needle.Contains(word, StringComparison.OrdinalIgnoreCase) || word.Contains(needle, StringComparison.OrdinalIgnoreCase));
+                return new SearchHit(d.Title, d.Url, haystack.Length <= 180 ? haystack : haystack[..180], score);
+            })
+            .Where(h => h.Score > 0)
+            .OrderByDescending(h => h.Score)
+            .Take(20)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<SearchHit>>(hits);
+    }
 }
+

@@ -21,4 +21,6 @@ public interface IVectorSearchProvider
 {
     string ProviderCode { get; }
     bool IsConfigured { get; }
+    Task IndexAsync(SearchDocument document, CancellationToken cancellationToken);
+    Task<IReadOnlyList<SearchHit>> SearchAsync(Guid tenantId, Guid businessId, string query, CancellationToken cancellationToken);
 }

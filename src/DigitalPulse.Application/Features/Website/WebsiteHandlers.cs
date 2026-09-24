@@ -1,3 +1,5 @@
+using System.Net.Http;
+using System.Text.Json;
 using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Application.Features.Identity;
@@ -45,19 +47,65 @@ internal static class WebsiteMap
             observation.ObservedValue,
             observation.Recommendation);
 
-    public static SearchConsoleStatusResponse ConsoleStatus(PlatformConnection? connection)
+    public static async Task<SearchConsoleStatusResponse> ConsoleStatusAsync(
+        PlatformConnection? connection,
+        string? website,
+        IOfficialPlatformGateway gateway,
+        CancellationToken cancellationToken)
     {
         if (connection is null || connection.Status != ConnectionStatus.Connected)
         {
             return new("NotConnected", connection?.GrantKind, "Search Console is not connected. Impressions and queries are not invented.");
         }
 
-        if (string.Equals(connection.GrantKind, "Development", StringComparison.OrdinalIgnoreCase))
+        if (!connection.HasLiveCredential)
         {
-            return new("Hold", connection.GrantKind, "Development grant only. Search Console coverage is not invented.");
+            return new(
+                "Hold",
+                connection.GrantKind,
+                string.Equals(connection.GrantKind, "Development", StringComparison.OrdinalIgnoreCase)
+                    ? "Development grant only. Search Console coverage is not invented."
+                    : "Search Console is connected without a live OAuth token. Coverage is not invented.");
         }
 
-        return new(connection.Status.ToString(), connection.GrantKind, "Live Search Console reads are not implemented in this phase.");
+        if (string.IsNullOrWhiteSpace(website))
+        {
+            return new("Hold", connection.GrantKind, "Add the official website on the identity record before Search Console metrics can be queried.");
+        }
+
+        var site = website.Trim();
+        if (!site.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !site.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            site = "https://" + site;
+        }
+
+        if (!site.EndsWith('/'))
+        {
+            site += "/";
+        }
+
+        var end = DateTime.UtcNow.Date;
+        var start = end.AddDays(-7);
+        var body = JsonSerializer.Serialize(new
+        {
+            startDate = start.ToString("yyyy-MM-dd"),
+            endDate = end.ToString("yyyy-MM-dd"),
+            dimensions = new[] { "query" },
+            rowLimit = 10
+        });
+        var url = $"https://searchconsole.googleapis.com/webmasters/v3/sites/{Uri.EscapeDataString(site)}/searchAnalytics/query";
+        var result = await gateway.SendAsync(HttpMethod.Post, url, connection.AccessToken, body, null, cancellationToken);
+        if (result.Ok)
+        {
+            var snippet = result.Body.Length <= 400 ? result.Body : result.Body[..400] + "…";
+            return new("Observed", connection.GrantKind, snippet);
+        }
+
+        return new(
+            result.StatusCode is 401 or 403 ? "NeedsReauth" : "Hold",
+            connection.GrantKind,
+            $"Official Search Console returned {result.StatusCode}. Impressions were not invented.");
     }
 }
 
@@ -67,23 +115,26 @@ public sealed class GetWebsiteIntelligenceHandler
     private readonly ITenantContext _tenant;
     private readonly ISearchProvider _search;
     private readonly IVectorSearchProvider _vectors;
+    private readonly IOfficialPlatformGateway _gateway;
 
     public GetWebsiteIntelligenceHandler(
         IAppDbContext db,
         ITenantContext tenant,
         ISearchProvider search,
-        IVectorSearchProvider vectors)
+        IVectorSearchProvider vectors,
+        IOfficialPlatformGateway gateway)
     {
         _db = db;
         _tenant = tenant;
         _search = search;
         _vectors = vectors;
+        _gateway = gateway;
     }
 
     public async Task<WebsiteIntelligenceResponse> Handle(Guid businessId, CancellationToken cancellationToken)
     {
         var tenantId = _tenant.RequireTenantId();
-        await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        var business = await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
         var snapshot = await _db.WebsiteSnapshots.AsNoTracking()
             .Where(s => s.BusinessId == businessId)
             .OrderByDescending(s => s.FetchedAtUtc)
@@ -101,7 +152,7 @@ public sealed class GetWebsiteIntelligenceHandler
         return new WebsiteIntelligenceResponse(
             snapshot?.ToResponse(),
             observations.Select(o => o.ToResponse()).ToList(),
-            WebsiteMap.ConsoleStatus(gsc),
+            await WebsiteMap.ConsoleStatusAsync(gsc, business.Website, _gateway, cancellationToken),
             _search.ProviderCode,
             _vectors.IsConfigured);
     }
@@ -114,19 +165,22 @@ public sealed class AnalyzeWebsiteHandler
     private readonly IWebsiteFetcher _fetcher;
     private readonly ISearchProvider _search;
     private readonly IVectorSearchProvider _vectors;
+    private readonly IOfficialPlatformGateway _gateway;
 
     public AnalyzeWebsiteHandler(
         IAppDbContext db,
         ITenantContext tenant,
         IWebsiteFetcher fetcher,
         ISearchProvider search,
-        IVectorSearchProvider vectors)
+        IVectorSearchProvider vectors,
+        IOfficialPlatformGateway gateway)
     {
         _db = db;
         _tenant = tenant;
         _fetcher = fetcher;
         _search = search;
         _vectors = vectors;
+        _gateway = gateway;
     }
 
     public async Task<WebsiteIntelligenceResponse> Handle(Guid businessId, CancellationToken cancellationToken)
@@ -188,15 +242,18 @@ public sealed class AnalyzeWebsiteHandler
 
         if (fetch.Reached && signals is not null)
         {
-            await _search.IndexAsync(
-                new SearchDocument(
-                    tenantId,
-                    businessId,
-                    "Website",
-                    signals.Title ?? business.Name,
-                    signals.Text,
-                    snapshot.Url ?? business.Website),
-                cancellationToken);
+            var document = new SearchDocument(
+                tenantId,
+                businessId,
+                "Website",
+                signals.Title ?? business.Name,
+                signals.Text,
+                snapshot.Url ?? business.Website);
+            await _search.IndexAsync(document, cancellationToken);
+            if (_vectors.IsConfigured)
+            {
+                await _vectors.IndexAsync(document, cancellationToken);
+            }
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -204,7 +261,7 @@ public sealed class AnalyzeWebsiteHandler
         return new WebsiteIntelligenceResponse(
             snapshot.ToResponse(),
             observations.OrderByDescending(o => o.Severity).ThenBy(o => o.Title).Select(o => o.ToResponse()).ToList(),
-            WebsiteMap.ConsoleStatus(gsc),
+            await WebsiteMap.ConsoleStatusAsync(gsc, business.Website, _gateway, cancellationToken),
             _search.ProviderCode,
             _vectors.IsConfigured);
     }
@@ -223,12 +280,14 @@ public sealed class SearchWebsiteHandler
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly ISearchProvider _search;
+    private readonly IVectorSearchProvider _vectors;
 
-    public SearchWebsiteHandler(IAppDbContext db, ITenantContext tenant, ISearchProvider search)
+    public SearchWebsiteHandler(IAppDbContext db, ITenantContext tenant, ISearchProvider search, IVectorSearchProvider vectors)
     {
         _db = db;
         _tenant = tenant;
         _search = search;
+        _vectors = vectors;
     }
 
     public async Task<SiteSearchResponse> Handle(Guid businessId, string? query, CancellationToken cancellationToken)
@@ -240,9 +299,19 @@ public sealed class SearchWebsiteHandler
             throw AppException.Validation("Enter at least two characters to search the indexed website.");
         }
 
-        var hits = await _search.SearchAsync(tenantId, businessId, query.Trim(), cancellationToken);
+        var lexical = await _search.SearchAsync(tenantId, businessId, query.Trim(), cancellationToken);
+        var vector = _vectors.IsConfigured
+            ? await _vectors.SearchAsync(tenantId, businessId, query.Trim(), cancellationToken)
+            : [];
+        var hits = lexical.Concat(vector)
+            .GroupBy(h => h.Url, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(h => h.Score).First())
+            .OrderByDescending(h => h.Score)
+            .Take(20)
+            .ToList();
+        var provider = _vectors.IsConfigured ? $"{_search.ProviderCode}+{_vectors.ProviderCode}" : _search.ProviderCode;
         return new SiteSearchResponse(
-            _search.ProviderCode,
+            provider,
             query.Trim(),
             hits.Select(h => new SiteSearchHitResponse(h.Title, h.Url, h.Snippet, h.Score)).ToList());
     }

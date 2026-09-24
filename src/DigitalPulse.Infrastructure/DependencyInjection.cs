@@ -1,4 +1,5 @@
 using DigitalPulse.Application.Abstractions;
+using DigitalPulse.Infrastructure.Actions;
 using DigitalPulse.Infrastructure.Ai;
 using DigitalPulse.Infrastructure.Auth;
 using DigitalPulse.Infrastructure.Billing;
@@ -6,6 +7,7 @@ using DigitalPulse.Infrastructure.Persistence;
 using DigitalPulse.Infrastructure.Platforms;
 using DigitalPulse.Infrastructure.WhatsApp;
 using DigitalPulse.Infrastructure.Monitoring;
+using DigitalPulse.Infrastructure.Operations;
 using DigitalPulse.Infrastructure.Scanning;
 using DigitalPulse.Infrastructure.Search;
 using DigitalPulse.Infrastructure.Tenancy;
@@ -39,6 +41,12 @@ public static class DependencyInjection
         {
             services.AddSingleton<IBillingGateway, DevelopmentBillingGateway>();
         }
+        services.AddHttpClient("official-platforms", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(25);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("DigitalPulse-Platforms/1.0");
+        });
+        services.AddSingleton<IOfficialPlatformGateway, OfficialPlatformGateway>();
         services.AddSingleton<IPlatformAdapter, GoogleAdapter>();
         services.AddSingleton<IPlatformAdapter, FacebookAdapter>();
         services.AddSingleton<IPlatformAdapter, InstagramAdapter>();
@@ -51,9 +59,9 @@ public static class DependencyInjection
         services.AddSingleton<IPlatformAdapter, SearchConsoleAdapter>();
         services.AddSingleton<IPlatformAdapter, GoogleAdsAdapter>();
         services.AddSingleton<IPlatformAdapterCatalog, PlatformAdapterCatalog>();
-        services.AddSingleton<IPlatformAuthorizationBroker, DevelopmentAuthorizationBroker>();
+        services.AddSingleton<IPlatformAuthorizationBroker, OfficialOAuthBroker>();
         services.AddSingleton<ISearchProvider, InMemorySearchProvider>();
-        services.AddSingleton<IVectorSearchProvider, UnconfiguredVectorSearchProvider>();
+        services.AddSingleton<IVectorSearchProvider, LocalHashVectorSearchProvider>();
         var openAiKey = configuration["Ai:OpenAi:ApiKey"];
         if (!string.IsNullOrWhiteSpace(openAiKey))
         {
@@ -122,9 +130,12 @@ public static class DependencyInjection
             }
         });
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+        services.AddSingleton<IOperationsEnvironment, ConfigurationOperationsEnvironment>();
+        services.AddSingleton<IPackageInventory, FilePackageInventory>();
         if (!configuration.GetValue<bool>("Testing:UseInMemory"))
         {
             services.AddHostedService<MonitoringTicker>();
+            services.AddHostedService<ActionDispatchTicker>();
         }
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -50,6 +50,19 @@ public sealed class WebShellTests
         Assert.DoesNotContain("tenantId", persist, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void Hardening_files_exist_for_local_containers_and_ci()
+    {
+        var root = FindRepoRoot();
+        Assert.True(File.Exists(Path.Combine(root, "Dockerfile")));
+        Assert.True(File.Exists(Path.Combine(root, "docker-compose.yml")));
+        Assert.True(File.Exists(Path.Combine(root, ".github", "workflows", "ci.yml")));
+        var dockerfile = File.ReadAllText(Path.Combine(root, "Dockerfile"));
+        Assert.Contains("DigitalPulse.Api", dockerfile, StringComparison.Ordinal);
+        var ci = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+        Assert.Contains("dotnet test", ci, StringComparison.Ordinal);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

@@ -7,6 +7,7 @@ using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
 using DigitalPulse.Contracts.Agency;
+using DigitalPulse.Contracts.Operations;
 using DigitalPulse.Contracts.Billing;
 using DigitalPulse.Contracts.Businesses;
 using DigitalPulse.Contracts.Connections;
@@ -247,7 +248,7 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
         var assistedBody = await assisted.Content.ReadFromJsonAsync<StartConnectionResponse>();
         Assert.True(assistedBody!.CompleteInPlace);
         Assert.Equal("Connected", assistedBody.Connection.Status);
-        Assert.Equal("Development", assistedBody.Connection.GrantKind);
+        Assert.Equal("Assisted", assistedBody.Connection.GrantKind);
 
         var oauth = await _client.PostAsJsonAsync(
             $"/v1/businesses/{session.BusinessId}/connections",
@@ -330,7 +331,9 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
         second.EnsureSuccessStatusCode();
         var rich = await second.Content.ReadFromJsonAsync<ScanDetailResponse>();
         Assert.Contains(rich!.Findings, f => f.Category == "Policy" && f.ObservedValue!.Contains("GSTIN"));
-        Assert.Contains(rich.Findings, f => f.Title.Contains("snapshot is unavailable", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(rich.Findings, f =>
+            f.Title.Contains("snapshot is unavailable", StringComparison.OrdinalIgnoreCase) ||
+            f.Title.Contains("no snapshot reader yet", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(rich.Findings, f => f.Description.Contains("4.8", StringComparison.Ordinal));
         Assert.DoesNotContain(rich.Findings, f => f.Title.Contains("Google reviews", StringComparison.OrdinalIgnoreCase));
 
@@ -388,7 +391,7 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
         var body = await analyzed.Content.ReadFromJsonAsync<WebsiteIntelligenceResponse>();
         Assert.Equal("Reached", body!.Snapshot!.Status);
         Assert.Equal("InMemory", body.SearchProvider);
-        Assert.False(body.VectorSearchConfigured);
+        Assert.True(body.VectorSearchConfigured);
         Assert.Contains(body.Observations, o => o.Category == "Seo");
         Assert.Contains(body.Observations, o => o.Category == "Aeo");
         Assert.Contains(body.Observations, o => o.Title.Contains("Search Console is not connected", StringComparison.OrdinalIgnoreCase));
@@ -1227,6 +1230,79 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
     }
 
     [Fact]
+    public async Task Operations_stores_tenant_backups_and_held_readiness()
+    {
+        var session = await RegisterAndOnboard("Direct", "Ops Co");
+        UseToken(session.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+
+        var health = await _client.GetAsync("/health");
+        health.EnsureSuccessStatusCode();
+        Assert.Equal("nosniff", health.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.Equal("DENY", health.Headers.GetValues("X-Frame-Options").Single());
+        Assert.Contains("frame-ancestors 'none'", health.Headers.GetValues("Content-Security-Policy").Single());
+        Assert.True(health.Headers.Contains("X-Correlation-Id"));
+        Assert.True(health.Headers.Contains("X-Response-Time-Ms"));
+
+        var ready = await _client.GetFromJsonAsync<ReadyPayload>("/ready");
+        Assert.Equal("ready", ready!.Status);
+        Assert.Contains(ready.Holds, hold => hold.Contains("Key Vault", StringComparison.OrdinalIgnoreCase));
+
+        var captured = await _client.PostAsync("/v1/operations/backups", null);
+        captured.EnsureSuccessStatusCode();
+        var workspace = await captured.Content.ReadFromJsonAsync<OperationsWorkspaceResponse>();
+        var snapshot = Assert.Single(workspace!.Backups);
+        Assert.Equal("Completed", snapshot.Status);
+        Assert.Contains("businesses", snapshot.Manifest);
+        Assert.DoesNotContain("Bearer", snapshot.Manifest, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not invented", snapshot.HoldReason, StringComparison.OrdinalIgnoreCase);
+
+        var restored = await _client.PostAsync($"/v1/operations/backups/{snapshot.Id}/restore", null);
+        restored.EnsureSuccessStatusCode();
+        workspace = await restored.Content.ReadFromJsonAsync<OperationsWorkspaceResponse>();
+        Assert.Contains(workspace!.Restores, r => r.Status == "Verified" && r.SnapshotId == snapshot.Id);
+
+        var failover = await _client.PostAsJsonAsync("/v1/operations/drills", new StartDisasterDrillRequest("Failover"));
+        failover.EnsureSuccessStatusCode();
+        workspace = await failover.Content.ReadFromJsonAsync<OperationsWorkspaceResponse>();
+        Assert.Contains(workspace!.Drills, d => d.Kind == "Failover" && d.Status == "Held");
+
+        var inventory = await _client.PostAsJsonAsync("/v1/operations/scans", new RunInventoryRequest("Dependency"));
+        inventory.EnsureSuccessStatusCode();
+        workspace = await inventory.Content.ReadFromJsonAsync<OperationsWorkspaceResponse>();
+        Assert.Contains(workspace!.Inventories, i => i.Kind == "Dependency" && i.HoldReason.Contains("not invented", StringComparison.OrdinalIgnoreCase));
+
+        var readiness = await _client.PostAsync("/v1/operations/readiness", null);
+        readiness.EnsureSuccessStatusCode();
+        workspace = await readiness.Content.ReadFromJsonAsync<OperationsWorkspaceResponse>();
+        Assert.NotNull(workspace!.Readiness);
+        Assert.NotEqual("Ready", workspace.Readiness!.Status);
+        Assert.Contains(workspace.Readiness.Checks, c => c.Code == "tenant-isolation" && c.Outcome == "Pass");
+        Assert.Contains(workspace.Cost, meter => meter.Meter == "Scans");
+        Assert.False(workspace.KeyVaultConfigured);
+        Assert.False(workspace.AzureBackupConfigured);
+    }
+
+    [Fact]
+    public async Task Operations_backups_stay_isolated_across_tenants()
+    {
+        var alpha = await RegisterAndOnboard("Direct", "Alpha Ops");
+        UseToken(alpha.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var captured = await _client.PostAsync("/v1/operations/backups", null);
+        captured.EnsureSuccessStatusCode();
+        var stolen = Assert.Single((await captured.Content.ReadFromJsonAsync<OperationsWorkspaceResponse>())!.Backups);
+
+        var beta = await RegisterAndOnboard("Direct", "Beta Ops");
+        UseToken(beta.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var steal = await _client.PostAsync($"/v1/operations/backups/{stolen.Id}/restore", null);
+        Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
+        var workspace = await _client.GetFromJsonAsync<OperationsWorkspaceResponse>("/v1/operations");
+        Assert.DoesNotContain(workspace!.Backups, b => b.Id == stolen.Id);
+    }
+
+    [Fact]
     public async Task Client_supplied_tenant_header_is_rejected_when_forged()
     {
         var session = await RegisterAndOnboard("Direct", "Forge Co");
@@ -1261,4 +1337,6 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         _client.DefaultRequestHeaders.Remove("X-Tenant-Id");
     }
+
+    private sealed record ReadyPayload(string Status, string Environment, IReadOnlyList<string> Holds);
 }
