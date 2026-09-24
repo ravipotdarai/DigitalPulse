@@ -1,6 +1,7 @@
 using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Contracts.Onboarding;
+using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Scans;
 using DigitalPulse.Domain.Directories;
@@ -87,6 +88,8 @@ public sealed class GetDashboardHandler
             await _db.DirectoryTasks.CountAsync(t => t.TenantId == tenantId && t.Status != DirectoryTaskStatus.Verified, cancellationToken),
             await _db.DirectoryTasks.CountAsync(t => t.TenantId == tenantId && t.Status == DirectoryTaskStatus.Verified, cancellationToken),
             await _db.Projects.CountAsync(p => p.TenantId == tenantId, cancellationToken),
-            await _db.ContentVariants.CountAsync(v => v.TenantId == tenantId && v.Status == ContentItemStatus.Hold, cancellationToken));
+            await _db.ContentVariants.CountAsync(v => v.TenantId == tenantId && v.Status == ContentItemStatus.Hold, cancellationToken),
+            await _db.AiRuns.CountAsync(r => r.TenantId == tenantId, cancellationToken),
+            await _db.AiRuns.CountAsync(r => r.TenantId == tenantId && r.Status != AiRunStatus.Completed, cancellationToken));
     }
 }

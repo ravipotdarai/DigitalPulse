@@ -1,0 +1,33 @@
+---
+description: Prefer Graphify and Codegraph indexes instead of dumping the repo.
+alwaysApply: true
+---
+
+# Graph indexes (save tokens)
+
+Two local graphs exist. Query them before Grep/Read loops.
+
+## Codegraph (symbols, callers, blast radius)
+
+Index: `.codegraph/` (gitignored). Pass `projectPath` `d:\Projects\DigitalPulse`.
+
+Use `codegraph_explore` first for how X works, where a symbol lives, or impact of an edit. Treat returned source as already read.
+
+If the index is missing or stale after large edits, run `codegraph init -y .` or `codegraph sync .`.
+
+## Graphify (concepts, communities, docs ↔ code)
+
+Outputs in `graphify-out/` (gitignored): `graph.json`, `GRAPH_REPORT.md`, `graph.html`.
+
+For architecture, module relationships, or “what connects X to Y”:
+
+```powershell
+# BFS context
+# follow graphify query in the graphify skill
+```
+
+Rebuild after large waves: `/graphify . --update` (code-only changes skip LLM). Do not re-read the master spec or whole `src/` tree when the graph already answers.
+
+## Do not confuse with product Graphify
+
+DigitalPulse **product** Graphify is `dp.GraphNode` / `dp.GraphEdge` (tenant business context for the AI orchestrator). It is not this repo graph.

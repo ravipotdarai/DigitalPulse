@@ -1,3 +1,4 @@
+using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Businesses;
 using DigitalPulse.Domain.Platforms;
 using DigitalPulse.Domain.Scans;
@@ -190,6 +191,30 @@ public sealed class TenantIsolationTests
         await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
         var visible = await dbA.Projects.Select(p => p.Name).ToListAsync();
         Assert.Equal(["A Project"], visible);
+    }
+
+    [Fact]
+    public async Task Query_filter_hides_other_tenant_knowledge()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var businessA = Business.Create(tenantA, "A Co", null);
+        var businessB = Business.Create(tenantB, "B Co", null);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"iso-ai-{Guid.NewGuid()}")
+            .Options;
+
+        await using (var seed = new AppDbContext(options, tenantContext: null))
+        {
+            seed.Businesses.AddRange(businessA, businessB);
+            seed.KnowledgeEntries.Add(KnowledgeEntry.Create(tenantA, businessA.Id, "A note", "Only A", KnowledgeKind.Note, null));
+            seed.KnowledgeEntries.Add(KnowledgeEntry.Create(tenantB, businessB.Id, "B note", "Only B", KnowledgeKind.Note, null));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
+        var visible = await dbA.KnowledgeEntries.Select(k => k.Title).ToListAsync();
+        Assert.Equal(["A note"], visible);
     }
 
     private sealed class FixedTenantContext : Application.Abstractions.ITenantContext

@@ -101,6 +101,8 @@ export type DashboardResponse = {
   directoryVerifiedCount: number;
   projectCount: number;
   contentHoldCount: number;
+  aiRunCount: number;
+  aiHeldCount: number;
 };
 
 export class ApiError extends Error {
@@ -294,7 +296,14 @@ export const api = {
     request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}/approvals/${approvalId}/decide`, {
       method: "POST",
       body: JSON.stringify({ approve, note })
-    })
+    }),
+  ai: (businessId: string) => request<AiWorkspace>(`/v1/businesses/${businessId}/ai`),
+  addKnowledge: (businessId: string, body: { title: string; body: string; kind: string; sourceUrl: string | null }) =>
+    request<KnowledgeEntry>(`/v1/businesses/${businessId}/ai/knowledge`, { method: "POST", body: JSON.stringify(body) }),
+  syncGraph: (businessId: string) =>
+    request<AiWorkspace>(`/v1/businesses/${businessId}/ai/graph/sync`, { method: "POST" }),
+  runAi: (businessId: string, body: { agent: string; prompt: string }) =>
+    request<AiRun>(`/v1/businesses/${businessId}/ai/runs`, { method: "POST", body: JSON.stringify(body) })
 };
 
 export type PlatformCapabilities = {
@@ -577,4 +586,47 @@ export type ProjectWorkspace = {
   services: { id: string; name: string }[];
   brands: { id: string; name: string }[];
   note: string;
+};
+export type KnowledgeEntry = {
+  id: string;
+  title: string;
+  body: string;
+  kind: string;
+  sourceUrl: string | null;
+  createdAtUtc: string;
+};
+export type GraphNode = { id: string; kind: string; label: string; value: string | null };
+export type GraphEdge = { id: string; fromNodeId: string; toNodeId: string; relation: string };
+export type AiEvaluation = {
+  passed: boolean;
+  hasEvidence: boolean;
+  hasConflict: boolean;
+  hasRestrictedFact: boolean;
+  confidence: string;
+  summary: string;
+};
+export type AiAudit = { stage: string; detail: string; atUtc: string };
+export type AiRun = {
+  id: string;
+  agent: string;
+  prompt: string;
+  status: string;
+  confidence: string;
+  output: string;
+  providerName: string;
+  providerIsLive: boolean;
+  holdReason: string;
+  createdAtUtc: string;
+  evaluation: AiEvaluation | null;
+  audit: AiAudit[];
+};
+export type AiWorkspace = {
+  providerName: string;
+  providerIsLive: boolean;
+  note: string;
+  agents: { code: string; name: string; purpose: string }[];
+  knowledge: KnowledgeEntry[];
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  runs: AiRun[];
 };

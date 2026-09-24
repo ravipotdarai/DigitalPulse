@@ -12,6 +12,7 @@ const COMMANDS = [
   { id: "website", label: "Website and search", to: "/app/website" },
   { id: "social", label: "Social content", to: "/app/social" },
   { id: "directories", label: "Directories — IndiaMART / Justdial", to: "/app/directories" },
+  { id: "ai", label: "AI orchestrator", to: "/app/ai" },
   { id: "workspace", label: "Workspace settings", to: "/app/info" }
 ];
 

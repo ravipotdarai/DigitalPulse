@@ -1,3 +1,4 @@
+using DigitalPulse.Application.Features.Ai;
 using DigitalPulse.Application.Features.Auth;
 using DigitalPulse.Application.Features.Connections;
 using DigitalPulse.Application.Features.Businesses;
@@ -13,6 +14,7 @@ using DigitalPulse.Application.Features.Directories;
 using DigitalPulse.Application.Features.Projects;
 using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Application.Features.Website;
+using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
 using DigitalPulse.Contracts.Billing;
 using DigitalPulse.Contracts.Businesses;
@@ -94,6 +96,10 @@ public static class DependencyInjection
         services.AddScoped<GenerateProjectContentHandler>();
         services.AddScoped<RequestContentApprovalHandler>();
         services.AddScoped<DecideContentApprovalHandler>();
+        services.AddScoped<GetAiWorkspaceHandler>();
+        services.AddScoped<AddKnowledgeHandler>();
+        services.AddScoped<SyncGraphHandler>();
+        services.AddScoped<RunAiHandler>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         return services;
     }
@@ -311,5 +317,25 @@ public sealed class DecideApprovalRequestValidator : AbstractValidator<DecideApp
     public DecideApprovalRequestValidator()
     {
         RuleFor(x => x.Note).NotEmpty().MaximumLength(500);
+    }
+}
+
+public sealed class AddKnowledgeRequestValidator : AbstractValidator<AddKnowledgeRequest>
+{
+    public AddKnowledgeRequestValidator()
+    {
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Body).NotEmpty().MaximumLength(4000);
+        RuleFor(x => x.Kind).NotEmpty();
+        RuleFor(x => x.SourceUrl).MaximumLength(2048);
+    }
+}
+
+public sealed class RunAiRequestValidator : AbstractValidator<RunAiRequest>
+{
+    public RunAiRequestValidator()
+    {
+        RuleFor(x => x.Agent).NotEmpty().MaximumLength(32);
+        RuleFor(x => x.Prompt).NotEmpty().MinimumLength(4).MaximumLength(4000);
     }
 }

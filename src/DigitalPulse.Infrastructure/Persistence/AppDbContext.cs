@@ -1,4 +1,5 @@
 using DigitalPulse.Application.Abstractions;
+using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Businesses;
 using DigitalPulse.Domain.Common;
@@ -60,6 +61,12 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<ContentVariant> ContentVariants => Set<ContentVariant>();
     public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
     public DbSet<ApprovalDecision> ApprovalDecisions => Set<ApprovalDecision>();
+    public DbSet<KnowledgeEntry> KnowledgeEntries => Set<KnowledgeEntry>();
+    public DbSet<GraphNode> GraphNodes => Set<GraphNode>();
+    public DbSet<GraphEdge> GraphEdges => Set<GraphEdge>();
+    public DbSet<AiRun> AiRuns => Set<AiRun>();
+    public DbSet<AiEvaluation> AiEvaluations => Set<AiEvaluation>();
+    public DbSet<AiAuditEvent> AiAuditEvents => Set<AiAuditEvent>();
 
     public Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken) =>
         Connections.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.AuthorizationState == state, cancellationToken);
@@ -100,6 +107,12 @@ public sealed class AppDbContext : DbContext, IAppDbContext
         ApplyTenantFilter<ContentVariant>(modelBuilder);
         ApplyTenantFilter<ApprovalRequest>(modelBuilder);
         ApplyTenantFilter<ApprovalDecision>(modelBuilder);
+        ApplyTenantFilter<KnowledgeEntry>(modelBuilder);
+        ApplyTenantFilter<GraphNode>(modelBuilder);
+        ApplyTenantFilter<GraphEdge>(modelBuilder);
+        ApplyTenantFilter<AiRun>(modelBuilder);
+        ApplyTenantFilter<AiEvaluation>(modelBuilder);
+        ApplyTenantFilter<AiAuditEvent>(modelBuilder);
     }
 
     private void ApplyTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : TenantOwnedEntity =>

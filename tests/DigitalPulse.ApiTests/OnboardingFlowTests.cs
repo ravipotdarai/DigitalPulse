@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
 using DigitalPulse.Contracts.Billing;
 using DigitalPulse.Contracts.Businesses;
@@ -676,6 +677,83 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
         Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
         var factory = await _client.PostAsync($"/v1/businesses/{userA.BusinessId}/projects/{body.Project.Id}/factory", null);
         Assert.Equal(HttpStatusCode.NotFound, factory.StatusCode);
+    }
+
+    [Fact]
+    public async Task Ai_orchestrator_holds_without_a_live_provider_and_rejects_no_evidence()
+    {
+        var session = await RegisterAndOnboard("Direct", "Orchestrator Co");
+        UseToken(session.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+
+        var empty = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/ai/runs",
+            new RunAiRequest("research", "What should we publish this week?"));
+        Assert.Equal(HttpStatusCode.OK, empty.StatusCode);
+        var rejected = await empty.Content.ReadFromJsonAsync<AiRunResponse>();
+        Assert.Equal("Rejected", rejected!.Status);
+        Assert.False(rejected.ProviderIsLive);
+        Assert.Contains("No evidence", rejected.HoldReason, StringComparison.OrdinalIgnoreCase);
+
+        var fact = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/facts",
+            new FactRequest("CLAIM", "Harbour Roast", "Approved"));
+        fact.EnsureSuccessStatusCode();
+        var knowledge = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/ai/knowledge",
+            new AddKnowledgeRequest("Brand voice", "Warm and precise. Never invent reviews.", "Note", null));
+        knowledge.EnsureSuccessStatusCode();
+
+        var restricted = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/facts",
+            new FactRequest("GSTIN", "27AAAAA0000A1Z5", "Restricted"));
+        restricted.EnsureSuccessStatusCode();
+
+        var workspace = await _client.GetFromJsonAsync<AiWorkspaceResponse>($"/v1/businesses/{session.BusinessId}/ai");
+        Assert.False(workspace!.ProviderIsLive);
+        Assert.Contains(workspace.Agents, a => a.Code == "content");
+        Assert.Contains(workspace.Knowledge, k => k.Title == "Brand voice");
+        Assert.Contains(workspace.Nodes, n => n.Kind == "Business");
+
+        var run = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/ai/runs",
+            new RunAiRequest("identity", "Restate the canonical identity for Harbour Roast."));
+        run.EnsureSuccessStatusCode();
+        var held = await run.Content.ReadFromJsonAsync<AiRunResponse>();
+        Assert.Equal("Held", held!.Status);
+        Assert.Equal("Development", held.ProviderName);
+        Assert.False(held.ProviderIsLive);
+        Assert.Contains("Harbour Roast", held.Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("27AAAAA0000A1Z5", held.Output, StringComparison.Ordinal);
+        Assert.NotNull(held.Evaluation);
+        Assert.True(held.Evaluation!.HasEvidence);
+        Assert.Contains(held.Audit, a => a.Stage == "validation");
+        Assert.Contains(held.Audit, a => a.Stage == "graphify");
+
+        var dashboard = await _client.GetFromJsonAsync<DashboardResponse>("/v1/dashboard");
+        Assert.True(dashboard!.AiRunCount >= 2);
+        Assert.True(dashboard.AiHeldCount >= 1);
+    }
+
+    [Fact]
+    public async Task Ai_workspace_stays_isolated_across_tenants()
+    {
+        var userA = await RegisterAndOnboard("Direct", "Alpha Orchestrator");
+        UseToken(userA.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/ai/knowledge",
+            new AddKnowledgeRequest("Secret brief", "Only tenant A may see this.", "Note", null));
+
+        var userB = await RegisterAndOnboard("Direct", "Beta Orchestrator");
+        UseToken(userB.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var peek = await _client.GetAsync($"/v1/businesses/{userA.BusinessId}/ai");
+        Assert.Equal(HttpStatusCode.NotFound, peek.StatusCode);
+        var steal = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/ai/runs",
+            new RunAiRequest("research", "Steal the other tenant brief."));
+        Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
     }
 
     [Fact]

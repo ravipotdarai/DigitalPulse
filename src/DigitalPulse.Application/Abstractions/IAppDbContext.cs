@@ -1,3 +1,4 @@
+using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Businesses;
 using DigitalPulse.Domain.Identity;
@@ -50,6 +51,12 @@ public interface IAppDbContext
     DbSet<ContentVariant> ContentVariants { get; }
     DbSet<ApprovalRequest> ApprovalRequests { get; }
     DbSet<ApprovalDecision> ApprovalDecisions { get; }
+    DbSet<KnowledgeEntry> KnowledgeEntries { get; }
+    DbSet<GraphNode> GraphNodes { get; }
+    DbSet<GraphEdge> GraphEdges { get; }
+    DbSet<AiRun> AiRuns { get; }
+    DbSet<AiEvaluation> AiEvaluations { get; }
+    DbSet<AiAuditEvent> AiAuditEvents { get; }
 
     Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

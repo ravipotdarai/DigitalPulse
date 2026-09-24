@@ -1,4 +1,5 @@
 using DigitalPulse.Application.Abstractions;
+using DigitalPulse.Infrastructure.Ai;
 using DigitalPulse.Infrastructure.Auth;
 using DigitalPulse.Infrastructure.Billing;
 using DigitalPulse.Infrastructure.Persistence;
@@ -42,6 +43,19 @@ public static class DependencyInjection
         services.AddSingleton<IPlatformAuthorizationBroker, DevelopmentAuthorizationBroker>();
         services.AddSingleton<ISearchProvider, InMemorySearchProvider>();
         services.AddSingleton<IVectorSearchProvider, UnconfiguredVectorSearchProvider>();
+        var openAiKey = configuration["Ai:OpenAi:ApiKey"];
+        if (!string.IsNullOrWhiteSpace(openAiKey))
+        {
+            services.AddHttpClient<IAiProvider, OpenAiProvider>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(30);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("DigitalPulse-Ai/1.0");
+            });
+        }
+        else
+        {
+            services.AddSingleton<IAiProvider, DevelopmentAiProvider>();
+        }
         if (configuration.GetValue<bool>("Testing:UseInMemory"))
         {
             services.AddSingleton<IWebsiteProbe, StubWebsiteProbe>();

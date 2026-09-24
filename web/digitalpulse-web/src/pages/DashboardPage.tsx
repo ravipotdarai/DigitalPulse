@@ -149,12 +149,13 @@ export function DashboardPage() {
 
       <section className="cc-ops">
         <Reveal>
-          <SectionTitle kicker="Actions" title="In the queue" action={<Link className="text-link" to="/app/projects">Projects</Link>} />
+          <SectionTitle kicker="Actions" title="In the queue" action={<Link className="text-link" to="/app/ai">Orchestrator</Link>} />
           <Stagger className="watch" as="ul" gap={0.04}>
             <Watch label="Social drafts awaiting approval" value={String(data.socialDraftCount)} tone={data.socialDraftCount ? "warning" : "idle"} />
             <Watch label="Approved posts held from publishing" value={String(data.socialBlockedCount)} tone={data.socialBlockedCount ? "warning" : "idle"} />
             <Watch label="Project variants outside permission scope" value={String(data.contentHoldCount)} tone={data.contentHoldCount ? "warning" : "idle"} />
             <Watch label="Directory playbooks open" value={String(data.directoryOpenCount)} tone={data.directoryOpenCount ? "warning" : "idle"} />
+            <Watch label="AI runs held for review" value={String(data.aiHeldCount)} tone={data.aiHeldCount ? "warning" : "idle"} />
           </Stagger>
         </Reveal>
         <Reveal delay={0.08}>
