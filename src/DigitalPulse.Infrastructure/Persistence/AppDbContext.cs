@@ -1,5 +1,6 @@
 using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Domain.Actions;
+using DigitalPulse.Domain.Agency;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Businesses;
@@ -96,6 +97,12 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<PaymentAttempt> PaymentAttempts => Set<PaymentAttempt>();
     public DbSet<UsageRecord> UsageRecords => Set<UsageRecord>();
     public DbSet<BillingWebhookEvent> BillingWebhookEvents => Set<BillingWebhookEvent>();
+    public DbSet<AgencyClient> AgencyClients => Set<AgencyClient>();
+    public DbSet<WhiteLabelProfile> WhiteLabelProfiles => Set<WhiteLabelProfile>();
+    public DbSet<AgencyWorkflow> AgencyWorkflows => Set<AgencyWorkflow>();
+    public DbSet<AgencyWorkflowStep> AgencyWorkflowSteps => Set<AgencyWorkflowStep>();
+    public DbSet<AgencyReport> AgencyReports => Set<AgencyReport>();
+    public DbSet<AgencyReportLine> AgencyReportLines => Set<AgencyReportLine>();
 
     public Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken) =>
         Connections.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.AuthorizationState == state, cancellationToken);
@@ -165,6 +172,12 @@ public sealed class AppDbContext : DbContext, IAppDbContext
         ApplyTenantFilter<InvoiceLine>(modelBuilder);
         ApplyTenantFilter<PaymentAttempt>(modelBuilder);
         ApplyTenantFilter<UsageRecord>(modelBuilder);
+        ApplyTenantFilter<AgencyClient>(modelBuilder);
+        ApplyTenantFilter<WhiteLabelProfile>(modelBuilder);
+        ApplyTenantFilter<AgencyWorkflow>(modelBuilder);
+        ApplyTenantFilter<AgencyWorkflowStep>(modelBuilder);
+        ApplyTenantFilter<AgencyReport>(modelBuilder);
+        ApplyTenantFilter<AgencyReportLine>(modelBuilder);
     }
 
     private void ApplyTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : TenantOwnedEntity =>

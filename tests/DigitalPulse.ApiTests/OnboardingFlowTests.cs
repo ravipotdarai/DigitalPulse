@@ -6,6 +6,7 @@ using DigitalPulse.Contracts.Monitoring;
 using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
+using DigitalPulse.Contracts.Agency;
 using DigitalPulse.Contracts.Billing;
 using DigitalPulse.Contracts.Businesses;
 using DigitalPulse.Contracts.Connections;
@@ -1109,6 +1110,120 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
         Assert.Equal(HttpStatusCode.BadRequest, steal.StatusCode);
         var workspace = await _client.GetFromJsonAsync<BillingWorkspaceResponse>("/v1/billing");
         Assert.DoesNotContain(workspace!.Invoices, i => i.Id == stolenInvoice.Id);
+    }
+
+    [Fact]
+    public async Task Agency_stores_client_businesses_white_label_and_held_reports()
+    {
+        var session = await RegisterAndOnboard("Agency", "Northwind Agency");
+        UseToken(session.Token);
+        var selected = await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("AGENCY"));
+        selected.EnsureSuccessStatusCode();
+
+        var workspace = await _client.GetFromJsonAsync<AgencyWorkspaceResponse>("/v1/agency");
+        Assert.Equal("Agency", workspace!.TenantType);
+        Assert.True(workspace.WhiteLabelEntitled);
+        Assert.Single(workspace.Clients);
+        Assert.Equal(50, workspace.ClientCap);
+
+        var created = await _client.PostAsJsonAsync(
+            "/v1/agency/clients",
+            new CreateAgencyClientRequest("Harbor Cafe", "https://harbor.example", "Prospect", "Priya", "priya@harbor.example"));
+        created.EnsureSuccessStatusCode();
+        workspace = await created.Content.ReadFromJsonAsync<AgencyWorkspaceResponse>();
+        Assert.Equal(2, workspace!.Clients.Count);
+        var cafe = Assert.Single(workspace.Clients, c => c.Name == "Harbor Cafe");
+        Assert.Equal("Prospect", cafe.Status);
+
+        var branding = await _client.PutAsJsonAsync(
+            "/v1/agency/white-label",
+            new UpdateWhiteLabelRequest("Northwind Desk", "ops@northwind.example", null, "#1A2B3C", null, "desk.northwind.example", true));
+        branding.EnsureSuccessStatusCode();
+        workspace = await branding.Content.ReadFromJsonAsync<AgencyWorkspaceResponse>();
+        Assert.Equal("Northwind Desk", workspace!.WhiteLabel.DisplayName);
+        Assert.Equal("desk.northwind.example", workspace.WhiteLabel.CustomDomain);
+        Assert.Contains("not live", workspace.WhiteLabel.HoldReason, StringComparison.OrdinalIgnoreCase);
+
+        var started = await _client.PostAsJsonAsync(
+            "/v1/agency/workflows",
+            new StartAgencyWorkflowRequest("WhiteLabelReview"));
+        started.EnsureSuccessStatusCode();
+        workspace = await started.Content.ReadFromJsonAsync<AgencyWorkspaceResponse>();
+        var review = Assert.Single(workspace!.Workflows);
+        for (var i = 0; i < 4; i++)
+        {
+            var advanced = await _client.PostAsJsonAsync(
+                $"/v1/agency/workflows/{review.Id}/advance",
+                new AdvanceAgencyWorkflowRequest("Checked the hostname."));
+            advanced.EnsureSuccessStatusCode();
+            workspace = await advanced.Content.ReadFromJsonAsync<AgencyWorkspaceResponse>();
+            if (workspace!.Workflows.Any(w => w.Id == review.Id && w.Status == "Held"))
+            {
+                break;
+            }
+        }
+        Assert.Contains(workspace!.Workflows, w => w.Status == "Held" && w.HoldReason.Contains("not live", StringComparison.OrdinalIgnoreCase));
+
+        var portfolio = await _client.PostAsJsonAsync("/v1/agency/reports", new AssembleAgencyReportRequest("Portfolio"));
+        portfolio.EnsureSuccessStatusCode();
+        workspace = await portfolio.Content.ReadFromJsonAsync<AgencyWorkspaceResponse>();
+        var report = Assert.Single(workspace!.Reports);
+        Assert.Equal("Portfolio", report.Scope);
+        Assert.Contains("client business", report.ObservedFact, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(report.Lines, line => line.Kind == "ObservedFact" && line.BusinessId == cafe.BusinessId);
+        Assert.Contains("held", report.AiInterpretation, StringComparison.OrdinalIgnoreCase);
+
+        var clientReport = await _client.PostAsJsonAsync(
+            "/v1/agency/reports",
+            new AssembleAgencyReportRequest("Client", cafe.Id));
+        clientReport.EnsureSuccessStatusCode();
+        workspace = await clientReport.Content.ReadFromJsonAsync<AgencyWorkspaceResponse>();
+        var scoped = Assert.Single(workspace!.Reports, r => r.Scope == "Client");
+        Assert.Equal(cafe.BusinessId, scoped.BusinessId);
+        Assert.All(scoped.Lines.Where(l => l.BusinessId is not null), line => Assert.Equal(cafe.BusinessId, line.BusinessId));
+    }
+
+    [Fact]
+    public async Task Agency_stays_isolated_and_direct_cannot_open_it()
+    {
+        var agencyA = await RegisterAndOnboard("Agency", "Agency Alpha");
+        UseToken(agencyA.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("AGENCY"));
+        var created = await _client.PostAsJsonAsync(
+            "/v1/agency/clients",
+            new CreateAgencyClientRequest("Alpha Client"));
+        created.EnsureSuccessStatusCode();
+        var alpha = await created.Content.ReadFromJsonAsync<AgencyWorkspaceResponse>();
+        var stolenClient = Assert.Single(alpha!.Clients, c => c.Name == "Alpha Client");
+        var assembled = await _client.PostAsJsonAsync("/v1/agency/reports", new AssembleAgencyReportRequest("Client", stolenClient.Id));
+        assembled.EnsureSuccessStatusCode();
+        alpha = await assembled.Content.ReadFromJsonAsync<AgencyWorkspaceResponse>();
+        var stolenReport = Assert.Single(alpha!.Reports);
+
+        var agencyB = await RegisterAndOnboard("Agency", "Agency Beta");
+        UseToken(agencyB.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("AGENCY"));
+        var stealReport = await _client.PostAsJsonAsync(
+            "/v1/agency/reports",
+            new AssembleAgencyReportRequest("Client", stolenClient.Id));
+        Assert.Equal(HttpStatusCode.NotFound, stealReport.StatusCode);
+        var stealUpdate = await _client.PutAsJsonAsync(
+            $"/v1/agency/clients/{stolenClient.Id}",
+            new UpdateAgencyClientRequest("Paused"));
+        Assert.Equal(HttpStatusCode.NotFound, stealUpdate.StatusCode);
+        var stealDecision = await _client.PostAsJsonAsync(
+            $"/v1/agency/reports/{stolenReport.Id}/decision",
+            new RecordAgencyDecisionRequest("Approve Alpha work."));
+        Assert.Equal(HttpStatusCode.NotFound, stealDecision.StatusCode);
+        var beta = await _client.GetFromJsonAsync<AgencyWorkspaceResponse>("/v1/agency");
+        Assert.DoesNotContain(beta!.Clients, c => c.Id == stolenClient.Id);
+        Assert.DoesNotContain(beta.Reports, r => r.Id == stolenReport.Id);
+
+        var direct = await RegisterAndOnboard("Direct", "Direct Shop");
+        UseToken(direct.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var denied = await _client.GetAsync("/v1/agency");
+        Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using DigitalPulse.Domain.WhatsApp;
 using DigitalPulse.Domain.Monitoring;
+using DigitalPulse.Domain.Agency;
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Actions;
 using DigitalPulse.Domain.Ai;
@@ -321,6 +322,36 @@ public sealed class TenantIsolationTests
         await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
         var visible = await dbA.Invoices.Select(i => i.Number).ToListAsync();
         Assert.Equal(["INV-A"], visible);
+    }
+
+    [Fact]
+    public async Task Query_filter_hides_other_tenant_agency_clients()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var businessA = Business.Create(tenantA, "Client A", null);
+        var businessB = Business.Create(tenantB, "Client B", null);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"iso-agency-{Guid.NewGuid()}")
+            .Options;
+
+        await using (var seed = new AppDbContext(options, tenantContext: null))
+        {
+            seed.Businesses.AddRange(businessA, businessB);
+            seed.AgencyClients.Add(AgencyClient.Enroll(tenantA, businessA.Id));
+            seed.AgencyClients.Add(AgencyClient.Enroll(tenantB, businessB.Id));
+            seed.AgencyReports.Add(AgencyReport.Assemble(
+                tenantA, AgencyReportScope.Portfolio, null, null, "A portfolio", "Only A", "Stay on A", AgencyPolicy.AiInterpretationHold, "Held."));
+            seed.AgencyReports.Add(AgencyReport.Assemble(
+                tenantB, AgencyReportScope.Portfolio, null, null, "B portfolio", "Only B", "Stay on B", AgencyPolicy.AiInterpretationHold, "Held."));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
+        var clients = await dbA.AgencyClients.Select(c => c.BusinessId).ToListAsync();
+        var reports = await dbA.AgencyReports.Select(r => r.Title).ToListAsync();
+        Assert.Equal([businessA.Id], clients);
+        Assert.Equal(["A portfolio"], reports);
     }
 
     private sealed class FixedTenantContext : Application.Abstractions.ITenantContext

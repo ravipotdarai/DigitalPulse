@@ -18,11 +18,13 @@ using DigitalPulse.Application.Features.Website;
 using DigitalPulse.Application.Features.WhatsApp;
 using DigitalPulse.Application.Features.Monitoring;
 using DigitalPulse.Application.Features.Billing;
+using DigitalPulse.Application.Features.Agency;
 using DigitalPulse.Contracts.WhatsApp;
 using DigitalPulse.Contracts.Monitoring;
 using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
+using DigitalPulse.Contracts.Agency;
 using DigitalPulse.Contracts.Billing;
 using DigitalPulse.Contracts.Businesses;
 using DigitalPulse.Contracts.Directories;
@@ -142,6 +144,14 @@ public static class DependencyInjection
         services.AddScoped<CancelSubscriptionHandler>();
         services.AddScoped<ResumeSubscriptionHandler>();
         services.AddScoped<RecordBillingWebhookHandler>();
+        services.AddScoped<GetAgencyWorkspaceHandler>();
+        services.AddScoped<CreateAgencyClientHandler>();
+        services.AddScoped<UpdateAgencyClientHandler>();
+        services.AddScoped<UpdateWhiteLabelHandler>();
+        services.AddScoped<StartAgencyWorkflowHandler>();
+        services.AddScoped<AdvanceAgencyWorkflowHandler>();
+        services.AddScoped<AssembleAgencyReportHandler>();
+        services.AddScoped<RecordAgencyReportDecisionHandler>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         return services;
     }
@@ -460,5 +470,59 @@ public sealed class ChangePlanRequestValidator : AbstractValidator<ChangePlanReq
     public ChangePlanRequestValidator()
     {
         RuleFor(x => x.PlanCode).NotEmpty().MaximumLength(32);
+    }
+}
+
+public sealed class CreateAgencyClientRequestValidator : AbstractValidator<CreateAgencyClientRequest>
+{
+    public CreateAgencyClientRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Website).MaximumLength(2048);
+        RuleFor(x => x.ContactName).MaximumLength(160);
+        RuleFor(x => x.ContactEmail).MaximumLength(256);
+        RuleFor(x => x.Notes).MaximumLength(500);
+        RuleFor(x => x.ExternalRef).MaximumLength(80);
+    }
+}
+
+public sealed class UpdateAgencyClientRequestValidator : AbstractValidator<UpdateAgencyClientRequest>
+{
+    public UpdateAgencyClientRequestValidator()
+    {
+        RuleFor(x => x.Status).NotEmpty().MaximumLength(16);
+        RuleFor(x => x.ContactName).MaximumLength(160);
+        RuleFor(x => x.ContactEmail).MaximumLength(256);
+        RuleFor(x => x.Notes).MaximumLength(500);
+        RuleFor(x => x.ExternalRef).MaximumLength(80);
+    }
+}
+
+public sealed class UpdateWhiteLabelRequestValidator : AbstractValidator<UpdateWhiteLabelRequest>
+{
+    public UpdateWhiteLabelRequestValidator()
+    {
+        RuleFor(x => x.DisplayName).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.SupportEmail).MaximumLength(256);
+        RuleFor(x => x.SupportPhone).MaximumLength(40);
+        RuleFor(x => x.PrimaryColor).MaximumLength(7);
+        RuleFor(x => x.LogoUrl).MaximumLength(2048);
+        RuleFor(x => x.CustomDomain).MaximumLength(253);
+    }
+}
+
+public sealed class StartAgencyWorkflowRequestValidator : AbstractValidator<StartAgencyWorkflowRequest>
+{
+    public StartAgencyWorkflowRequestValidator()
+    {
+        RuleFor(x => x.Kind).NotEmpty().MaximumLength(32);
+    }
+}
+
+public sealed class RecordAgencyDecisionRequestValidator : AbstractValidator<RecordAgencyDecisionRequest>
+{
+    public RecordAgencyDecisionRequestValidator()
+    {
+        RuleFor(x => x.Decision).NotEmpty().MaximumLength(500);
     }
 }

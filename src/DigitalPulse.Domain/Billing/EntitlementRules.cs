@@ -1,3 +1,4 @@
+using DigitalPulse.Domain.Agency;
 using DigitalPulse.Domain.Tenancy;
 
 namespace DigitalPulse.Domain.Billing;
@@ -69,6 +70,11 @@ public static class EntitlementRules
         {
             throw new InvalidOperationException($"Plan {plan.Code} allows {plan.AiGenerationsPerMonth} AI generation(s) this month.");
         }
+    }
+
+    public static void EnsureCanUseWhiteLabel(SubscriptionPlan plan)
+    {
+        AgencyPolicy.EnsureWhiteLabel(plan);
     }
 
     public static void EnsureCanUseWhatsApp(SubscriptionPlan plan)

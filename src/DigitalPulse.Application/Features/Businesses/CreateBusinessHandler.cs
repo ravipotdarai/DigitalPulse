@@ -1,8 +1,10 @@
 using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Contracts.Businesses;
+using DigitalPulse.Domain.Agency;
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Businesses;
+using DigitalPulse.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigitalPulse.Application.Features.Businesses;
@@ -39,6 +41,10 @@ public sealed class CreateBusinessHandler
 
         var business = Business.Create(tenantId, request.Name, request.Website);
         _db.Businesses.Add(business);
+        if (tenant.Type == TenantType.Agency)
+        {
+            _db.AgencyClients.Add(AgencyClient.Enroll(tenantId, business.Id));
+        }
         await _db.SaveChangesAsync(cancellationToken);
         return new BusinessResponse(business.Id, business.TenantId, business.Name, business.Website, business.FoundedYear, business.BrandVoice, business.IndustryCode);
     }

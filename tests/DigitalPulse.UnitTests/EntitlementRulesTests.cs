@@ -83,6 +83,24 @@ public sealed class EntitlementRulesTests
     }
 
     [Fact]
+    public void Agency_plan_caps_clients_and_allows_white_label()
+    {
+        var plan = SubscriptionPlan.Create("AGENCY", "Agency", 29999m, 100, true, 4, maxAgencyClients: 50, whiteLabel: true);
+        EntitlementRules.EnsureCanUseWhiteLabel(plan);
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            EntitlementRules.EnsureCanAddBusiness(TenantType.Agency, plan, 50));
+        Assert.Contains("50 business", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Starter_cannot_use_white_label()
+    {
+        var plan = SubscriptionPlan.Create("STARTER", "Starter", 2999m, 1, false, 1);
+        var ex = Assert.Throws<InvalidOperationException>(() => EntitlementRules.EnsureCanUseWhiteLabel(plan));
+        Assert.Contains("White-label", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Cancelled_subscription_is_not_usable()
     {
         Assert.False(BillingPolicy.IsUsable(SubscriptionStatus.Cancelled));

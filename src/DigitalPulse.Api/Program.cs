@@ -50,6 +50,7 @@ app.MapActionEndpoints();
 app.MapWhatsAppEndpoints();
 app.MapMonitoringEndpoints();
 app.MapBillingEndpoints();
+app.MapAgencyEndpoints();
 app.MapBillingAndOnboardingEndpoints();
 
 if (app.Environment.IsDevelopment())
@@ -79,6 +80,7 @@ if (app.Environment.IsDevelopment())
         await WhatsAppSchemaUpgrader.EnsureAsync(db);
         await MonitoringSchemaUpgrader.EnsureAsync(db);
         await BillingSchemaUpgrader.EnsureAsync(db);
+        await AgencySchemaUpgrader.EnsureAsync(db);
     }
     else
     {

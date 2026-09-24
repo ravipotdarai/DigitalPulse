@@ -8,6 +8,7 @@ import {
   Pulse20Regular,
   Radar20Regular,
   Settings20Regular,
+  PeopleTeam20Regular,
   Chat20Regular,
   Flash20Regular,
   Sparkle20Regular,
@@ -49,6 +50,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "System",
     items: [
+      { to: "/app/agency", label: "Agency", icon: PeopleTeam20Regular },
       { to: "/app/billing", label: "Billing", icon: Settings20Regular },
       { to: "/app/info", label: "Workspace", icon: Settings20Regular }
     ]

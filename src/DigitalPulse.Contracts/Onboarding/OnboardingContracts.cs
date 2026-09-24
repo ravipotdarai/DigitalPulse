@@ -42,7 +42,10 @@ public sealed record DashboardResponse(
     string MonitoringHoldReason,
     string SubscriptionStatus,
     string BillingHoldReason,
-    int HeldInvoiceCount);
+    int HeldInvoiceCount,
+    int AgencyClientCount,
+    bool WhiteLabelEnabled,
+    string AgencyHoldReason);
 
 public sealed record DashboardBusinessResponse(
     Guid Id,

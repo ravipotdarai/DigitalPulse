@@ -185,6 +185,13 @@ export function DashboardPage() {
               value={`${data.subscriptionStatus} · ${data.heldInvoiceCount} held invoice${data.heldInvoiceCount === 1 ? "" : "s"}`}
               tone={data.heldInvoiceCount ? "warning" : "live"}
             />
+            {data.tenantType === "Agency" ? (
+              <Watch
+                label="Agency clients"
+                value={`${data.agencyClientCount} client business${data.agencyClientCount === 1 ? "" : "es"}`}
+                tone={data.agencyClientCount ? "live" : "idle"}
+              />
+            ) : null}
           </Stagger>
         </Reveal>
       </section>

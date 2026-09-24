@@ -15,7 +15,9 @@ public enum ActionKind
     SendWhatsAppTemplate = 8,
     SendWhatsAppSession = 9,
     RunMonitoring = 10,
-    AssembleReport = 11
+    AssembleReport = 11,
+    AssembleAgencyReport = 12,
+    StartAgencyWorkflow = 13
 }
 
 public enum ActionRisk
@@ -70,7 +72,9 @@ public static class ActionKindCatalog
         new(ActionKind.SendWhatsAppTemplate, "send-whatsapp-template", "Send WhatsApp template", ActionRisk.High, true, "Cloud API template send. Opt-in and approval required. Unofficial clients are out of scope."),
         new(ActionKind.SendWhatsAppSession, "send-whatsapp-session", "Send WhatsApp session reply", ActionRisk.High, true, "Cloud API session reply inside the 24-hour window. Never an unofficial send."),
         new(ActionKind.RunMonitoring, "run-monitoring", "Run monitoring", ActionRisk.Low, false, "Records stored health and honest holds. Live provider metrics are not invented."),
-        new(ActionKind.AssembleReport, "assemble-report", "Assemble presence report", ActionRisk.Low, false, "Assembles Observed Fact, Recommendation, AI Interpretation, and Customer Decision from stored observations.")
+        new(ActionKind.AssembleReport, "assemble-report", "Assemble presence report", ActionRisk.Low, false, "Assembles Observed Fact, Recommendation, AI Interpretation, and Customer Decision from stored observations."),
+        new(ActionKind.AssembleAgencyReport, "assemble-agency-report", "Assemble agency report", ActionRisk.Low, false, "Assembles a client or portfolio report from stored work. Live provider metrics are not invented."),
+        new(ActionKind.StartAgencyWorkflow, "start-agency-workflow", "Start agency workflow", ActionRisk.Low, false, "Starts onboarding, review, audit, or white-label review. Custom-domain hosting stays held.")
     ];
 
     public static ActionKindDescriptor Require(string code) =>

@@ -128,6 +128,9 @@ export type DashboardResponse = {
   subscriptionStatus: string;
   billingHoldReason: string;
   heldInvoiceCount: number;
+  agencyClientCount: number;
+  whiteLabelEnabled: boolean;
+  agencyHoldReason: string;
 };
 
 export class ApiError extends Error {
@@ -393,7 +396,41 @@ export const api = {
     request<BillingWorkspace>("/v1/billing/checkout", { method: "POST", body: JSON.stringify(body) }),
   cancelBilling: (body: { immediately: boolean; reason: string | null }) =>
     request<BillingWorkspace>("/v1/billing/cancel", { method: "POST", body: JSON.stringify(body) }),
-  resumeBilling: () => request<BillingWorkspace>("/v1/billing/resume", { method: "POST" })
+  resumeBilling: () => request<BillingWorkspace>("/v1/billing/resume", { method: "POST" }),
+  agency: () => request<AgencyWorkspace>("/v1/agency"),
+  createAgencyClient: (body: {
+    name: string;
+    website?: string | null;
+    status?: string | null;
+    contactName?: string | null;
+    contactEmail?: string | null;
+    notes?: string | null;
+    externalRef?: string | null;
+  }) => request<AgencyWorkspace>("/v1/agency/clients", { method: "POST", body: JSON.stringify(body) }),
+  updateAgencyClient: (clientId: string, body: {
+    status: string;
+    contactName?: string | null;
+    contactEmail?: string | null;
+    notes?: string | null;
+    externalRef?: string | null;
+  }) => request<AgencyWorkspace>(`/v1/agency/clients/${clientId}`, { method: "PUT", body: JSON.stringify(body) }),
+  updateWhiteLabel: (body: {
+    displayName: string;
+    supportEmail?: string | null;
+    supportPhone?: string | null;
+    primaryColor?: string | null;
+    logoUrl?: string | null;
+    customDomain?: string | null;
+    enabled: boolean;
+  }) => request<AgencyWorkspace>("/v1/agency/white-label", { method: "PUT", body: JSON.stringify(body) }),
+  startAgencyWorkflow: (body: { kind: string; clientId?: string | null }) =>
+    request<AgencyWorkspace>("/v1/agency/workflows", { method: "POST", body: JSON.stringify(body) }),
+  advanceAgencyWorkflow: (workflowId: string, body: { note?: string | null; hold?: boolean; holdReason?: string | null }) =>
+    request<AgencyWorkspace>(`/v1/agency/workflows/${workflowId}/advance`, { method: "POST", body: JSON.stringify(body) }),
+  assembleAgencyReport: (body: { scope?: string | null; clientId?: string | null }) =>
+    request<AgencyWorkspace>("/v1/agency/reports", { method: "POST", body: JSON.stringify(body) }),
+  recordAgencyDecision: (reportId: string, body: { decision: string }) =>
+    request<AgencyWorkspace>(`/v1/agency/reports/${reportId}/decision`, { method: "POST", body: JSON.stringify(body) })
 };
 
 export type PlatformCapabilities = {
@@ -900,4 +937,64 @@ export type BillingWorkspace = {
   invoices: { id: string; number: string; status: string; amountInr: number; holdReason: string }[];
   payments: { id: string; status: string; provider: string; detail: string }[];
   webhooks: { id: string; eventType: string; untrusted: boolean; holdReason: string }[];
+};
+export type AgencyClient = {
+  id: string;
+  businessId: string;
+  tenantId: string;
+  name: string;
+  website: string | null;
+  status: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  notes: string | null;
+  externalRef: string | null;
+  locationCount: number;
+  openFindingCount: number;
+  lastScanAtUtc: string | null;
+};
+export type AgencyWorkspace = {
+  tenantName: string;
+  tenantType: string;
+  planName: string;
+  clientCap: number;
+  whiteLabelEntitled: boolean;
+  note: string;
+  whiteLabel: {
+    id: string;
+    displayName: string;
+    supportEmail: string | null;
+    supportPhone: string | null;
+    primaryColor: string;
+    logoUrl: string | null;
+    customDomain: string | null;
+    enabled: boolean;
+    entitled: boolean;
+    holdReason: string;
+  };
+  clients: AgencyClient[];
+  workflows: {
+    id: string;
+    clientId: string | null;
+    businessId: string | null;
+    kind: string;
+    status: string;
+    currentStep: number;
+    currentStepName: string;
+    holdReason: string;
+    steps: { id: string; ordinal: number; name: string; completed: boolean; note: string | null }[];
+  }[];
+  reports: {
+    id: string;
+    scope: string;
+    clientId: string | null;
+    businessId: string | null;
+    title: string;
+    observedFact: string;
+    recommendation: string;
+    aiInterpretation: string;
+    customerDecision: string | null;
+    holdReason: string;
+    lines: { id: string; businessId: string | null; kind: string; body: string }[];
+  }[];
 };

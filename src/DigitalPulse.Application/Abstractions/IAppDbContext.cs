@@ -1,4 +1,5 @@
 using DigitalPulse.Domain.Actions;
+using DigitalPulse.Domain.Agency;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Businesses;
@@ -84,6 +85,12 @@ public interface IAppDbContext
     DbSet<PaymentAttempt> PaymentAttempts { get; }
     DbSet<UsageRecord> UsageRecords { get; }
     DbSet<BillingWebhookEvent> BillingWebhookEvents { get; }
+    DbSet<AgencyClient> AgencyClients { get; }
+    DbSet<WhiteLabelProfile> WhiteLabelProfiles { get; }
+    DbSet<AgencyWorkflow> AgencyWorkflows { get; }
+    DbSet<AgencyWorkflowStep> AgencyWorkflowSteps { get; }
+    DbSet<AgencyReport> AgencyReports { get; }
+    DbSet<AgencyReportLine> AgencyReportLines { get; }
 
     Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

@@ -112,6 +112,15 @@ public sealed class GetDashboardHandler
             ?? "Scheduled monitoring waits for the first run. Live provider metrics stay held.",
             subscription.Status.ToString(),
             subscription.HoldReason,
-            await _db.Invoices.CountAsync(i => i.TenantId == tenantId && i.Status == InvoiceStatus.Held, cancellationToken));
+            await _db.Invoices.CountAsync(i => i.TenantId == tenantId && i.Status == InvoiceStatus.Held, cancellationToken),
+            tenant.Type == DigitalPulse.Domain.Tenancy.TenantType.Agency
+                ? await _db.AgencyClients.CountAsync(c => c.TenantId == tenantId, cancellationToken)
+                : 0,
+            plan.WhiteLabel,
+            tenant.Type == DigitalPulse.Domain.Tenancy.TenantType.Agency
+                ? (await _db.WhiteLabelProfiles.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.TenantId == tenantId, cancellationToken))?.HoldReason
+                  ?? "Agency clients are businesses on this tenant. White-label hosting stays held."
+                : "Agency workspace is available on Agency tenants.");
     }
 }
