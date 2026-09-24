@@ -13,6 +13,7 @@ const COMMANDS = [
   { id: "social", label: "Social content", to: "/app/social" },
   { id: "directories", label: "Directories — IndiaMART / Justdial", to: "/app/directories" },
   { id: "ai", label: "AI orchestrator", to: "/app/ai" },
+  { id: "actions", label: "Action center — Autopilot", to: "/app/actions" },
   { id: "workspace", label: "Workspace settings", to: "/app/info" }
 ];
 

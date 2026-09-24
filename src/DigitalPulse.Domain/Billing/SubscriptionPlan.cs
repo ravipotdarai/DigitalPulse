@@ -10,6 +10,7 @@ public sealed class SubscriptionPlan : Entity
     public int MaxBusinesses { get; private set; }
     public int MaxConnections { get; private set; } = 5;
     public int ScansPerMonth { get; private set; } = 2;
+    public int ActionsPerMonth { get; private set; } = 25;
     public bool AgencyOnly { get; private set; }
     public int SortOrder { get; private set; }
 
@@ -23,7 +24,8 @@ public sealed class SubscriptionPlan : Entity
         bool agencyOnly,
         int sortOrder,
         int maxConnections = 5,
-        int scansPerMonth = 2)
+        int scansPerMonth = 2,
+        int actionsPerMonth = 25)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -31,6 +33,7 @@ public sealed class SubscriptionPlan : Entity
         if (maxBusinesses < 1) throw new ArgumentOutOfRangeException(nameof(maxBusinesses));
         if (maxConnections < 0) throw new ArgumentOutOfRangeException(nameof(maxConnections));
         if (scansPerMonth < 0) throw new ArgumentOutOfRangeException(nameof(scansPerMonth));
+        if (actionsPerMonth < 0) throw new ArgumentOutOfRangeException(nameof(actionsPerMonth));
 
         return new SubscriptionPlan
         {
@@ -40,6 +43,7 @@ public sealed class SubscriptionPlan : Entity
             MaxBusinesses = maxBusinesses,
             MaxConnections = maxConnections,
             ScansPerMonth = scansPerMonth,
+            ActionsPerMonth = actionsPerMonth,
             AgencyOnly = agencyOnly,
             SortOrder = sortOrder
         };

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
 using DigitalPulse.Contracts.Billing;
@@ -754,6 +755,121 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
             $"/v1/businesses/{userA.BusinessId}/ai/runs",
             new RunAiRequest("research", "Steal the other tenant brief."));
         Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
+    }
+
+    [Fact]
+    public async Task Action_engine_requires_approval_holds_live_writes_and_is_idempotent()
+    {
+        var session = await RegisterAndOnboard("Direct", "Action Co");
+        UseToken(session.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+
+        var workspace = await _client.GetFromJsonAsync<ActionWorkspaceResponse>($"/v1/businesses/{session.BusinessId}/actions");
+        Assert.Equal("Assisted", workspace!.Policy.Mode);
+        Assert.Equal(25, workspace.ActionsPerMonth);
+        Assert.Contains(workspace.Kinds, k => k.Code == "publish-social" && k.ExternalWrite);
+        Assert.Contains("never invents", workspace.Note, StringComparison.OrdinalIgnoreCase);
+
+        var first = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/actions",
+            new EnqueueActionRequest("rebuild-graphify", "Rebuild Graphify", null, null));
+        first.EnsureSuccessStatusCode();
+        var pending = await first.Content.ReadFromJsonAsync<WorkActionResponse>();
+        Assert.Equal("PendingApproval", pending!.Status);
+        Assert.False(pending.AutopilotEligible);
+
+        var again = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/actions",
+            new EnqueueActionRequest("rebuild-graphify", "Rebuild Graphify again", null, null));
+        again.EnsureSuccessStatusCode();
+        var same = await again.Content.ReadFromJsonAsync<WorkActionResponse>();
+        Assert.Equal(pending.Id, same!.Id);
+
+        var publish = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/actions",
+            new EnqueueActionRequest("publish-social", "Publish a held post", null, null));
+        publish.EnsureSuccessStatusCode();
+        var heldWrite = await publish.Content.ReadFromJsonAsync<WorkActionResponse>();
+        Assert.Equal("PendingApproval", heldWrite!.Status);
+        Assert.False(heldWrite.AutopilotEligible);
+        Assert.False(heldWrite.LiveWriteAvailable);
+        Assert.Contains("will not invent", heldWrite.HoldReason, StringComparison.OrdinalIgnoreCase);
+
+        var approvedWrite = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/actions/{heldWrite.Id}/approve",
+            new { });
+        approvedWrite.EnsureSuccessStatusCode();
+        var executedWrite = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/actions/{heldWrite.Id}/execute",
+            new { });
+        executedWrite.EnsureSuccessStatusCode();
+        var assisted = await executedWrite.Content.ReadFromJsonAsync<WorkActionResponse>();
+        Assert.Equal("Assisted", assisted!.Status);
+        Assert.NotEmpty(assisted.Attempts);
+        Assert.Contains("draft", assisted.HoldReason, StringComparison.OrdinalIgnoreCase);
+
+        var policy = await _client.PutAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/actions/policy",
+            new UpdateAutomationPolicyRequest("FullAuto", true, 3));
+        policy.EnsureSuccessStatusCode();
+
+        var approved = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/actions/{pending.Id}/approve",
+            new { });
+        approved.EnsureSuccessStatusCode();
+        var executed = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/actions/{pending.Id}/execute",
+            new { });
+        executed.EnsureSuccessStatusCode();
+        var rebuilt = await executed.Content.ReadFromJsonAsync<WorkActionResponse>();
+        Assert.Equal("Executed", rebuilt!.Status);
+        Assert.Contains("Graphify", rebuilt.HoldReason, StringComparison.OrdinalIgnoreCase);
+
+        var verified = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/actions/{pending.Id}/verify",
+            new { });
+        verified.EnsureSuccessStatusCode();
+        var done = await verified.Content.ReadFromJsonAsync<WorkActionResponse>();
+        Assert.Equal("Verified", done!.Status);
+
+        var autopilot = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/actions",
+            new EnqueueActionRequest("monitor-directory", "Watch IndiaMART", null, "INDIAMART"));
+        autopilot.EnsureSuccessStatusCode();
+        var queued = await autopilot.Content.ReadFromJsonAsync<WorkActionResponse>();
+        Assert.True(queued!.Status is "Assisted" or "Executed" or "Queued");
+        Assert.True(queued.AutopilotEligible);
+        Assert.Contains("invent", queued.HoldReason, StringComparison.OrdinalIgnoreCase);
+
+        var dashboard = await _client.GetFromJsonAsync<DashboardResponse>("/v1/dashboard");
+        Assert.True(dashboard!.ActionOpenCount >= 1);
+        Assert.True(dashboard.ActionHeldCount >= 1);
+    }
+
+    [Fact]
+    public async Task Actions_stay_isolated_across_tenants()
+    {
+        var userA = await RegisterAndOnboard("Direct", "Alpha Actions");
+        UseToken(userA.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var created = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/actions",
+            new EnqueueActionRequest("rebuild-graphify", "Secret rebuild", null, null));
+        var body = await created.Content.ReadFromJsonAsync<WorkActionResponse>();
+
+        var userB = await RegisterAndOnboard("Direct", "Beta Actions");
+        UseToken(userB.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var peek = await _client.GetAsync($"/v1/businesses/{userA.BusinessId}/actions");
+        Assert.Equal(HttpStatusCode.NotFound, peek.StatusCode);
+        var steal = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/actions/{body!.Id}/approve",
+            new { });
+        Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
+        var execute = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/actions/{body.Id}/execute",
+            new { });
+        Assert.Equal(HttpStatusCode.NotFound, execute.StatusCode);
     }
 
     [Fact]

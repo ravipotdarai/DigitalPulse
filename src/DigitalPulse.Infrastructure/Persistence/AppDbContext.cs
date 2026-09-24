@@ -1,4 +1,5 @@
 using DigitalPulse.Application.Abstractions;
+using DigitalPulse.Domain.Actions;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Businesses;
@@ -67,6 +68,10 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<AiRun> AiRuns => Set<AiRun>();
     public DbSet<AiEvaluation> AiEvaluations => Set<AiEvaluation>();
     public DbSet<AiAuditEvent> AiAuditEvents => Set<AiAuditEvent>();
+    public DbSet<AutomationPolicy> AutomationPolicies => Set<AutomationPolicy>();
+    public DbSet<WorkAction> WorkActions => Set<WorkAction>();
+    public DbSet<ActionAttempt> ActionAttempts => Set<ActionAttempt>();
+    public DbSet<ActionVerification> ActionVerifications => Set<ActionVerification>();
 
     public Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken) =>
         Connections.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.AuthorizationState == state, cancellationToken);
@@ -113,6 +118,10 @@ public sealed class AppDbContext : DbContext, IAppDbContext
         ApplyTenantFilter<AiRun>(modelBuilder);
         ApplyTenantFilter<AiEvaluation>(modelBuilder);
         ApplyTenantFilter<AiAuditEvent>(modelBuilder);
+        ApplyTenantFilter<AutomationPolicy>(modelBuilder);
+        ApplyTenantFilter<WorkAction>(modelBuilder);
+        ApplyTenantFilter<ActionAttempt>(modelBuilder);
+        ApplyTenantFilter<ActionVerification>(modelBuilder);
     }
 
     private void ApplyTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : TenantOwnedEntity =>

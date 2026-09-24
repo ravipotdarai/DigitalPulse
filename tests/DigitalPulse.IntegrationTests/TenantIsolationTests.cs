@@ -1,3 +1,4 @@
+using DigitalPulse.Domain.Actions;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Businesses;
 using DigitalPulse.Domain.Platforms;
@@ -215,6 +216,32 @@ public sealed class TenantIsolationTests
         await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
         var visible = await dbA.KnowledgeEntries.Select(k => k.Title).ToListAsync();
         Assert.Equal(["A note"], visible);
+    }
+
+    [Fact]
+    public async Task Query_filter_hides_other_tenant_work_actions()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var businessA = Business.Create(tenantA, "A Co", null);
+        var businessB = Business.Create(tenantB, "B Co", null);
+        var kind = ActionKindCatalog.Of(ActionKind.RebuildGraphify);
+        var decision = ActionPolicy.Evaluate(kind.Kind, AutomationMode.Assisted, false, false);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"iso-action-{Guid.NewGuid()}")
+            .Options;
+
+        await using (var seed = new AppDbContext(options, tenantContext: null))
+        {
+            seed.Businesses.AddRange(businessA, businessB);
+            seed.WorkActions.Add(WorkAction.Enqueue(tenantA, businessA.Id, kind, "Rebuild A", "rebuild-graphify:workspace", null, null, false, decision));
+            seed.WorkActions.Add(WorkAction.Enqueue(tenantB, businessB.Id, kind, "Rebuild B", "rebuild-graphify:workspace", null, null, false, decision));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
+        var visible = await dbA.WorkActions.Select(a => a.Title).ToListAsync();
+        Assert.Equal(["Rebuild A"], visible);
     }
 
     private sealed class FixedTenantContext : Application.Abstractions.ITenantContext

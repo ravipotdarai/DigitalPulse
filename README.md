@@ -1,6 +1,6 @@
 # DigitalPulse
 
-AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phases 2–9**, plus a **theme architecture** (Editorial implemented; Executive / Future AI / Minimal fallback tokens).
+AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phases 2–10**, plus a **theme architecture** (Editorial implemented; Executive / Future AI / Minimal fallback tokens).
 
 ## Run locally
 
@@ -27,7 +27,7 @@ Open http://localhost:5173 (API http://localhost:5088).
 
 ## Flow
 
-Landing → Register → Login → Create Tenant → Tenant → Business → Location → Select Plan → Dashboard → Business identity → Connection Center → DigitalPulse Check → Website intelligence → Social → Directories → Projects → AI Orchestrator
+Landing → Register → Login → Create Tenant → Tenant → Business → Location → Select Plan → Dashboard → Business identity → Connection Center → DigitalPulse Check → Website intelligence → Social → Directories → Projects → AI Orchestrator → Action center
 
 Connection Center lists official adapters (Google, Meta, LinkedIn, YouTube, IndiaMART, Justdial, WhatsApp Cloud API, Website, Search Console, Google Ads). Connect issues a **development grant** behind `IPlatformAuthorizationBroker`. Live provider OAuth is not invented. IndiaMART/Justdial are assisted-only. WhatsApp is Cloud API only.
 
@@ -41,7 +41,9 @@ IndiaMART and Justdial are assisted playbooks prepared from canonical identity. 
 
 Projects store engagement records, permission scope, media catalog entries, and a content factory. Variants (including WhatsApp template/session drafts) are assembled from stored project fields. Approval honors Full / Partial / None. Live publishes and AI rewrites are not invented.
 
-The AI orchestrator retrieves Graphify + knowledge, builds a prompt, calls `IAiProvider`, then validates. No evidence → no claim. Conflict → review. Restricted facts never publish. Without `Ai:OpenAi:ApiKey` the development provider holds with an evidence-only brief. Autopilot waits for Phase 10.
+The AI orchestrator retrieves Graphify + knowledge, builds a prompt, calls `IAiProvider`, then validates. No evidence → no claim. Conflict → review. Restricted facts never publish. Without `Ai:OpenAi:ApiKey` the development provider holds with an evidence-only brief.
+
+The action engine queues work through Draft → PendingApproval → Approved → Queued → Executing → Executed → Verified. Failures retry, then escalate. Full Auto only auto-executes low-risk internal work. Publish and directory writes stay assisted unless an official live adapter exists. Autopilot never invents a provider result. Monthly volume follows `SubscriptionPlan.ActionsPerMonth`.
 
 Development authentication is JWT behind `IAuthTokenIssuer` (`DevelopmentJwtTokenIssuer`). Entra External ID is not wired yet.
 

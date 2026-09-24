@@ -1,3 +1,4 @@
+using DigitalPulse.Application.Features.Actions;
 using DigitalPulse.Application.Features.Ai;
 using DigitalPulse.Application.Features.Auth;
 using DigitalPulse.Application.Features.Connections;
@@ -14,6 +15,7 @@ using DigitalPulse.Application.Features.Directories;
 using DigitalPulse.Application.Features.Projects;
 using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Application.Features.Website;
+using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
 using DigitalPulse.Contracts.Billing;
@@ -100,6 +102,13 @@ public static class DependencyInjection
         services.AddScoped<AddKnowledgeHandler>();
         services.AddScoped<SyncGraphHandler>();
         services.AddScoped<RunAiHandler>();
+        services.AddScoped<GetActionWorkspaceHandler>();
+        services.AddScoped<UpdateAutomationPolicyHandler>();
+        services.AddScoped<EnqueueActionHandler>();
+        services.AddScoped<ApproveActionHandler>();
+        services.AddScoped<ExecuteActionHandler>();
+        services.AddScoped<RetryActionHandler>();
+        services.AddScoped<VerifyActionHandler>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         return services;
     }
@@ -328,6 +337,25 @@ public sealed class AddKnowledgeRequestValidator : AbstractValidator<AddKnowledg
         RuleFor(x => x.Body).NotEmpty().MaximumLength(4000);
         RuleFor(x => x.Kind).NotEmpty();
         RuleFor(x => x.SourceUrl).MaximumLength(2048);
+    }
+}
+
+public sealed class UpdateAutomationPolicyRequestValidator : AbstractValidator<UpdateAutomationPolicyRequest>
+{
+    public UpdateAutomationPolicyRequestValidator()
+    {
+        RuleFor(x => x.Mode).NotEmpty();
+        RuleFor(x => x.MaxAttempts).InclusiveBetween(1, 8);
+    }
+}
+
+public sealed class EnqueueActionRequestValidator : AbstractValidator<EnqueueActionRequest>
+{
+    public EnqueueActionRequestValidator()
+    {
+        RuleFor(x => x.Kind).NotEmpty().MaximumLength(40);
+        RuleFor(x => x.Title).NotEmpty().MinimumLength(3).MaximumLength(160);
+        RuleFor(x => x.TargetLabel).MaximumLength(160);
     }
 }
 

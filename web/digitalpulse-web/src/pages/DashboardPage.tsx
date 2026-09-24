@@ -149,8 +149,10 @@ export function DashboardPage() {
 
       <section className="cc-ops">
         <Reveal>
-          <SectionTitle kicker="Actions" title="In the queue" action={<Link className="text-link" to="/app/ai">Orchestrator</Link>} />
+          <SectionTitle kicker="Actions" title="In the queue" action={<Link className="text-link" to="/app/actions">Action center</Link>} />
           <Stagger className="watch" as="ul" gap={0.04}>
+            <Watch label="Open work actions" value={String(data.actionOpenCount)} tone={data.actionOpenCount ? "warning" : "idle"} />
+            <Watch label="Actions held for approval or a live write" value={String(data.actionHeldCount)} tone={data.actionHeldCount ? "warning" : "idle"} />
             <Watch label="Social drafts awaiting approval" value={String(data.socialDraftCount)} tone={data.socialDraftCount ? "warning" : "idle"} />
             <Watch label="Approved posts held from publishing" value={String(data.socialBlockedCount)} tone={data.socialBlockedCount ? "warning" : "idle"} />
             <Watch label="Project variants outside permission scope" value={String(data.contentHoldCount)} tone={data.contentHoldCount ? "warning" : "idle"} />
@@ -290,12 +292,14 @@ function loopStates(data: DashboardResponse, coverage: number, linked: number) {
     Detect: Boolean(data.lastScanAtUtc),
     Create: data.socialDraftCount + data.socialBlockedCount + data.projectCount > 0,
     Approve: data.socialBlockedCount + data.contentHoldCount > 0,
-    Execute: "held",
+    Execute: data.actionHeldCount > 0 ? "held" : data.actionOpenCount > 0,
     Verify: data.directoryVerifiedCount > 0,
     Monitor: "held"
   };
   const notes: Partial<Record<LoopStage, string>> = {
-    Execute: "Waits for live provider writes",
+    Execute: data.actionHeldCount > 0
+      ? "Some actions wait for approval or a live write"
+      : "Internal checks can run. Live publishes stay held.",
     Monitor: "Waits for live provider APIs"
   };
   let nowAssigned = false;

@@ -103,6 +103,8 @@ export type DashboardResponse = {
   contentHoldCount: number;
   aiRunCount: number;
   aiHeldCount: number;
+  actionOpenCount: number;
+  actionHeldCount: number;
 };
 
 export class ApiError extends Error {
@@ -303,7 +305,20 @@ export const api = {
   syncGraph: (businessId: string) =>
     request<AiWorkspace>(`/v1/businesses/${businessId}/ai/graph/sync`, { method: "POST" }),
   runAi: (businessId: string, body: { agent: string; prompt: string }) =>
-    request<AiRun>(`/v1/businesses/${businessId}/ai/runs`, { method: "POST", body: JSON.stringify(body) })
+    request<AiRun>(`/v1/businesses/${businessId}/ai/runs`, { method: "POST", body: JSON.stringify(body) }),
+  actions: (businessId: string) => request<ActionWorkspace>(`/v1/businesses/${businessId}/actions`),
+  updateActionPolicy: (businessId: string, body: { mode: string; allowLowRiskAuto: boolean; maxAttempts: number }) =>
+    request<ActionWorkspace>(`/v1/businesses/${businessId}/actions/policy`, { method: "PUT", body: JSON.stringify(body) }),
+  enqueueAction: (businessId: string, body: { kind: string; title: string; targetId: string | null; targetLabel: string | null }) =>
+    request<WorkAction>(`/v1/businesses/${businessId}/actions`, { method: "POST", body: JSON.stringify(body) }),
+  approveAction: (businessId: string, actionId: string) =>
+    request<WorkAction>(`/v1/businesses/${businessId}/actions/${actionId}/approve`, { method: "POST" }),
+  executeAction: (businessId: string, actionId: string) =>
+    request<WorkAction>(`/v1/businesses/${businessId}/actions/${actionId}/execute`, { method: "POST" }),
+  retryAction: (businessId: string, actionId: string) =>
+    request<WorkAction>(`/v1/businesses/${businessId}/actions/${actionId}/retry`, { method: "POST" }),
+  verifyAction: (businessId: string, actionId: string) =>
+    request<WorkAction>(`/v1/businesses/${businessId}/actions/${actionId}/verify`, { method: "POST" })
 };
 
 export type PlatformCapabilities = {
@@ -629,4 +644,33 @@ export type AiWorkspace = {
   nodes: GraphNode[];
   edges: GraphEdge[];
   runs: AiRun[];
+};
+export type ActionKind = { code: string; name: string; risk: string; externalWrite: boolean; purpose: string };
+export type ActionAttempt = { ordinal: number; outcome: string; detail: string; atUtc: string };
+export type ActionVerification = { status: string; detail: string; atUtc: string };
+export type WorkAction = {
+  id: string;
+  kind: string;
+  status: string;
+  risk: string;
+  title: string;
+  idempotencyKey: string;
+  targetId: string | null;
+  targetLabel: string | null;
+  liveWriteAvailable: boolean;
+  autopilotEligible: boolean;
+  holdReason: string;
+  attemptCount: number;
+  nextRetryAtUtc: string | null;
+  createdAtUtc: string;
+  attempts: ActionAttempt[];
+  verification: ActionVerification | null;
+};
+export type ActionWorkspace = {
+  policy: { mode: string; allowLowRiskAuto: boolean; requireApprovalForHighRisk: boolean; maxAttempts: number };
+  actionsPerMonth: number;
+  actionsUsedThisMonth: number;
+  note: string;
+  kinds: ActionKind[];
+  actions: WorkAction[];
 };

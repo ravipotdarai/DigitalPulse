@@ -30,7 +30,9 @@ public sealed record DashboardResponse(
     int ProjectCount,
     int ContentHoldCount,
     int AiRunCount,
-    int AiHeldCount);
+    int AiHeldCount,
+    int ActionOpenCount,
+    int ActionHeldCount);
 
 public sealed record DashboardBusinessResponse(
     Guid Id,

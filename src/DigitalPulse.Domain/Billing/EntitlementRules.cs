@@ -29,4 +29,12 @@ public static class EntitlementRules
             throw new InvalidOperationException($"Plan {plan.Code} allows {plan.ScansPerMonth} scan(s) this month.");
         }
     }
+
+    public static void EnsureCanRunAction(SubscriptionPlan plan, int actionsThisMonth)
+    {
+        if (actionsThisMonth >= plan.ActionsPerMonth)
+        {
+            throw new InvalidOperationException($"Plan {plan.Code} allows {plan.ActionsPerMonth} action(s) this month.");
+        }
+    }
 }

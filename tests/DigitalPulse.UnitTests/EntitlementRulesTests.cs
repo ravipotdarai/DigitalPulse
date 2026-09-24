@@ -49,4 +49,12 @@ public sealed class EntitlementRulesTests
         var ex = Assert.Throws<InvalidOperationException>(() => EntitlementRules.EnsureCanRunScan(plan, 2));
         Assert.Contains("2 scan", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Starter_rejects_the_twenty_sixth_action_in_the_month()
+    {
+        var plan = SubscriptionPlan.Create("STARTER", "Starter", 2999m, 1, false, 1, 5, 2, 25);
+        var ex = Assert.Throws<InvalidOperationException>(() => EntitlementRules.EnsureCanRunAction(plan, 25));
+        Assert.Contains("25 action", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }
