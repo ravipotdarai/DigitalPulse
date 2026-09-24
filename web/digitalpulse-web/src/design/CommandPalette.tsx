@@ -16,6 +16,7 @@ const COMMANDS = [
   { id: "actions", label: "Action center — Autopilot", to: "/app/actions" },
   { id: "whatsapp", label: "WhatsApp Business Messaging", to: "/app/whatsapp" },
   { id: "monitoring", label: "Monitoring and reports", to: "/app/monitoring" },
+  { id: "billing", label: "Billing and subscription", to: "/app/billing" },
   { id: "workspace", label: "Workspace settings", to: "/app/info" }
 ];
 

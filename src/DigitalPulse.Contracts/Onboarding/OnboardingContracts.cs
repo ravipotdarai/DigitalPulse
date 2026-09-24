@@ -39,7 +39,10 @@ public sealed record DashboardResponse(
     int OpenAlertCount,
     int ReportCount,
     int MonitoringIntervalHours,
-    string MonitoringHoldReason);
+    string MonitoringHoldReason,
+    string SubscriptionStatus,
+    string BillingHoldReason,
+    int HeldInvoiceCount);
 
 public sealed record DashboardBusinessResponse(
     Guid Id,

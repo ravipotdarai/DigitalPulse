@@ -12,10 +12,10 @@ public static class DatabaseSeeder
         if (!await db.Plans.AnyAsync(cancellationToken))
         {
             db.Plans.AddRange(
-                SubscriptionPlan.Create("STARTER", "Starter", 2999m, 1, false, 1, 5, 2, 25, false, 0, 168),
-                SubscriptionPlan.Create("GROWTH", "Growth", 6999m, 3, false, 2, 15, 10, 150, true, 2000, 24),
-                SubscriptionPlan.Create("BUSINESS", "Business", 14999m, 10, false, 3, 50, 30, 750, true, 10000, 6),
-                SubscriptionPlan.Create("AGENCY", "Agency", 29999m, 100, true, 4, 500, 200, 10000, true, 50000, 1));
+                SubscriptionPlan.Create("STARTER", "Starter", 2999m, 1, false, 1, 5, 2, 25, false, 0, 168, 1, 50, 2, 0, 2, false, 29990m),
+                SubscriptionPlan.Create("GROWTH", "Growth", 6999m, 3, false, 2, 15, 10, 150, true, 2000, 24, 5, 250, 5, 0, 10, false, 69990m),
+                SubscriptionPlan.Create("BUSINESS", "Business", 14999m, 10, false, 3, 50, 30, 750, true, 10000, 6, 25, 1000, 15, 0, 50, false, 149990m),
+                SubscriptionPlan.Create("AGENCY", "Agency", 29999m, 100, true, 4, 500, 200, 10000, true, 50000, 1, 250, 10000, 100, 50, 500, true, 299990m));
         }
 
         if (!await db.Tenants.AnyAsync(t => t.Type == TenantType.Platform, cancellationToken))

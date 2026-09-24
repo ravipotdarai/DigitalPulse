@@ -48,7 +48,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "System",
-    items: [{ to: "/app/info", label: "Workspace", icon: Settings20Regular }]
+    items: [
+      { to: "/app/billing", label: "Billing", icon: Settings20Regular },
+      { to: "/app/info", label: "Workspace", icon: Settings20Regular }
+    ]
   }
 ];
 

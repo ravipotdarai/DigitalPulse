@@ -17,6 +17,7 @@ using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Application.Features.Website;
 using DigitalPulse.Application.Features.WhatsApp;
 using DigitalPulse.Application.Features.Monitoring;
+using DigitalPulse.Application.Features.Billing;
 using DigitalPulse.Contracts.WhatsApp;
 using DigitalPulse.Contracts.Monitoring;
 using DigitalPulse.Contracts.Actions;
@@ -135,6 +136,12 @@ public static class DependencyInjection
         services.AddScoped<AddCompetitorHandler>();
         services.AddScoped<AcknowledgeAlertHandler>();
         services.AddScoped<RecordReportDecisionHandler>();
+        services.AddScoped<GetBillingWorkspaceHandler>();
+        services.AddScoped<ChangePlanHandler>();
+        services.AddScoped<CheckoutBillingHandler>();
+        services.AddScoped<CancelSubscriptionHandler>();
+        services.AddScoped<ResumeSubscriptionHandler>();
+        services.AddScoped<RecordBillingWebhookHandler>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         return services;
     }
@@ -437,5 +444,21 @@ public sealed class RecordReportDecisionRequestValidator : AbstractValidator<Rec
     public RecordReportDecisionRequestValidator()
     {
         RuleFor(x => x.Decision).NotEmpty().MaximumLength(500);
+    }
+}
+
+public sealed class CancelSubscriptionRequestValidator : AbstractValidator<CancelSubscriptionRequest>
+{
+    public CancelSubscriptionRequestValidator()
+    {
+        RuleFor(x => x.Reason).MaximumLength(500);
+    }
+}
+
+public sealed class ChangePlanRequestValidator : AbstractValidator<ChangePlanRequest>
+{
+    public ChangePlanRequestValidator()
+    {
+        RuleFor(x => x.PlanCode).NotEmpty().MaximumLength(32);
     }
 }

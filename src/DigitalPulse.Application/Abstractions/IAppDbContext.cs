@@ -79,6 +79,11 @@ public interface IAppDbContext
     DbSet<Competitor> Competitors { get; }
     DbSet<CompetitorObservation> CompetitorObservations { get; }
     DbSet<PresenceReport> PresenceReports { get; }
+    DbSet<Invoice> Invoices { get; }
+    DbSet<InvoiceLine> InvoiceLines { get; }
+    DbSet<PaymentAttempt> PaymentAttempts { get; }
+    DbSet<UsageRecord> UsageRecords { get; }
+    DbSet<BillingWebhookEvent> BillingWebhookEvents { get; }
 
     Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

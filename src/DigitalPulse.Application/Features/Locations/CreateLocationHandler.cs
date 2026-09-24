@@ -1,6 +1,7 @@
 using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Contracts.Businesses;
+using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Businesses;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,6 +24,22 @@ public sealed class CreateLocationHandler
         var business = await _db.Businesses
             .FirstOrDefaultAsync(b => b.Id == businessId && b.TenantId == tenantId, cancellationToken)
             ?? throw AppException.NotFound("Business was not found.");
+
+        var subscription = await _db.Subscriptions
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId && (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trial), cancellationToken);
+        if (subscription is not null)
+        {
+            var plan = await _db.Plans.AsNoTracking().FirstAsync(p => p.Id == subscription.PlanId, cancellationToken);
+            var used = await _db.Locations.CountAsync(l => l.TenantId == tenantId, cancellationToken);
+            try
+            {
+                EntitlementRules.EnsureCanAddLocation(plan, used);
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw AppException.Validation(ex.Message);
+            }
+        }
 
         var location = BusinessLocation.Create(
             tenantId,

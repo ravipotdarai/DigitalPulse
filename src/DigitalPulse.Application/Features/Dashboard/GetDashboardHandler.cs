@@ -109,6 +109,9 @@ public sealed class GetDashboardHandler
                 .Where(s => s.TenantId == tenantId)
                 .OrderByDescending(s => s.UpdatedAtUtc)
                 .FirstOrDefaultAsync(cancellationToken))?.HoldReason
-            ?? "Scheduled monitoring waits for the first run. Live provider metrics stay held.");
+            ?? "Scheduled monitoring waits for the first run. Live provider metrics stay held.",
+            subscription.Status.ToString(),
+            subscription.HoldReason,
+            await _db.Invoices.CountAsync(i => i.TenantId == tenantId && i.Status == InvoiceStatus.Held, cancellationToken));
     }
 }

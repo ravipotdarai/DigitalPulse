@@ -30,6 +30,15 @@ public static class DependencyInjection
         services.AddSingleton<IAuthTokenIssuer>(sp => sp.GetRequiredService<DevelopmentJwtTokenIssuer>());
         services.AddSingleton<IPasswordService, AspNetPasswordService>();
         services.AddScoped<ISubscriptionPlanCatalog, EfSubscriptionPlanCatalog>();
+        if (!string.IsNullOrWhiteSpace(configuration["Billing:Razorpay:KeyId"]) &&
+            !string.IsNullOrWhiteSpace(configuration["Billing:Razorpay:KeySecret"]))
+        {
+            services.AddSingleton<IBillingGateway, RazorpayBillingGateway>();
+        }
+        else
+        {
+            services.AddSingleton<IBillingGateway, DevelopmentBillingGateway>();
+        }
         services.AddSingleton<IPlatformAdapter, GoogleAdapter>();
         services.AddSingleton<IPlatformAdapter, FacebookAdapter>();
         services.AddSingleton<IPlatformAdapter, InstagramAdapter>();

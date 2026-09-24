@@ -180,6 +180,11 @@ export function DashboardPage() {
             />
             <Watch label="Presence reports" value={String(data.reportCount)} tone={data.reportCount ? "live" : "idle"} />
             <Watch label="Plan interval" value={`Every ${data.monitoringIntervalHours}h`} tone="idle" />
+            <Watch
+              label="Subscription"
+              value={`${data.subscriptionStatus} · ${data.heldInvoiceCount} held invoice${data.heldInvoiceCount === 1 ? "" : "s"}`}
+              tone={data.heldInvoiceCount ? "warning" : "live"}
+            />
           </Stagger>
         </Reveal>
       </section>

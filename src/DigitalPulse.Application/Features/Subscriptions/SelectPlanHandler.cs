@@ -1,5 +1,6 @@
 using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Application.Common;
+using DigitalPulse.Application.Features.Billing;
 using DigitalPulse.Contracts.Billing;
 using DigitalPulse.Domain.Billing;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,7 @@ public sealed class SelectPlanHandler
         var tenant = await _db.Tenants.FirstAsync(t => t.Id == tenantId, cancellationToken);
         var plan = await _catalog.GetByCodeAsync(request.PlanCode, cancellationToken)
             ?? throw AppException.NotFound("Subscription plan was not found.");
+        var interval = BillingMaps.ParseInterval(request.Interval);
 
         try
         {
@@ -35,27 +37,24 @@ public sealed class SelectPlanHandler
             throw AppException.Validation(ex.Message);
         }
 
-        var existing = await _db.Subscriptions
-            .FirstOrDefaultAsync(s => s.TenantId == tenantId && s.Status == SubscriptionStatus.Active, cancellationToken);
-
-        if (existing is null)
+        var existing = await BillingStore.CurrentAsync(_db, tenantId, cancellationToken);
+        if (existing is null || !existing.IsUsable)
         {
-            existing = Subscription.Start(tenantId, plan.Id);
+            existing = Subscription.Start(tenantId, plan.Id, interval);
             _db.Subscriptions.Add(existing);
         }
         else
         {
-            existing.ChangePlan(plan.Id);
+            existing.ChangePlan(plan.Id, interval);
         }
 
+        await BillingStore.IssueHeldInvoiceAsync(
+            _db,
+            existing,
+            plan,
+            "Invoice issued on plan selection. Payment stays held until a live billing provider confirms a capture.",
+            cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
-        return new SubscriptionResponse(
-            existing.Id,
-            tenantId,
-            plan.Code,
-            plan.Name,
-            plan.MonthlyPriceInr,
-            plan.MaxBusinesses,
-            existing.Status.ToString());
+        return existing.ToResponse(plan);
     }
 }

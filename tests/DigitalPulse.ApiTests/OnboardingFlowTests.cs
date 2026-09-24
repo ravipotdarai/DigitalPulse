@@ -1050,6 +1050,68 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
     }
 
     [Fact]
+    public async Task Billing_holds_checkout_and_untrusted_webhooks()
+    {
+        var session = await RegisterAndOnboard("Direct", "Billing Co");
+        UseToken(session.Token);
+        var selected = await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("GROWTH"));
+        selected.EnsureSuccessStatusCode();
+        var subscription = await selected.Content.ReadFromJsonAsync<SubscriptionResponse>();
+        Assert.Equal("Active", subscription!.Status);
+        Assert.Contains("held", subscription.HoldReason, StringComparison.OrdinalIgnoreCase);
+
+        var workspace = await _client.GetFromJsonAsync<BillingWorkspaceResponse>("/v1/billing");
+        Assert.False(workspace!.ProviderIsLive);
+        Assert.Equal("Development", workspace.ProviderName);
+        Assert.NotEmpty(workspace.Invoices);
+        Assert.All(workspace.Invoices, invoice => Assert.Equal("Held", invoice.Status));
+        Assert.Contains(workspace.Usage, meter => meter.Kind == "Scans");
+
+        var checkout = await _client.PostAsJsonAsync("/v1/billing/checkout", new CheckoutRequest(null));
+        checkout.EnsureSuccessStatusCode();
+        workspace = await checkout.Content.ReadFromJsonAsync<BillingWorkspaceResponse>();
+        Assert.Contains(workspace!.Payments, p => p.Status == "Held");
+        Assert.DoesNotContain(workspace.Invoices, i => i.Status == "Paid");
+
+        var webhook = await _client.PostAsJsonAsync(
+            "/v1/billing/webhooks",
+            new { eventType = "invoice.paid", payload = "{\"id\":\"ord_dev\"}", signature = "forged" });
+        webhook.EnsureSuccessStatusCode();
+        var ingested = await webhook.Content.ReadFromJsonAsync<BillingWebhookResponse>();
+        Assert.True(ingested!.Untrusted);
+        Assert.False(ingested.SignatureValid);
+        Assert.False(ingested.Processed);
+
+        var cancelled = await _client.PostAsJsonAsync("/v1/billing/cancel", new CancelSubscriptionRequest(true, "Stopping the trial."));
+        cancelled.EnsureSuccessStatusCode();
+        workspace = await cancelled.Content.ReadFromJsonAsync<BillingWorkspaceResponse>();
+        Assert.Equal("Cancelled", workspace!.Subscription!.Status);
+
+        var resumed = await _client.PostAsync("/v1/billing/resume", null);
+        resumed.EnsureSuccessStatusCode();
+        workspace = await resumed.Content.ReadFromJsonAsync<BillingWorkspaceResponse>();
+        Assert.Equal("Active", workspace!.Subscription!.Status);
+    }
+
+    [Fact]
+    public async Task Billing_stays_isolated_across_tenants()
+    {
+        var userA = await RegisterAndOnboard("Direct", "Alpha Billing");
+        UseToken(userA.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var alpha = await _client.GetFromJsonAsync<BillingWorkspaceResponse>("/v1/billing");
+        var stolenInvoice = Assert.Single(alpha!.Invoices);
+
+        var userB = await RegisterAndOnboard("Direct", "Beta Billing");
+        UseToken(userB.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var steal = await _client.PostAsJsonAsync("/v1/billing/checkout", new CheckoutRequest(stolenInvoice.Id));
+        Assert.Equal(HttpStatusCode.BadRequest, steal.StatusCode);
+        var workspace = await _client.GetFromJsonAsync<BillingWorkspaceResponse>("/v1/billing");
+        Assert.DoesNotContain(workspace!.Invoices, i => i.Id == stolenInvoice.Id);
+    }
+
+    [Fact]
     public async Task Client_supplied_tenant_header_is_rejected_when_forged()
     {
         var session = await RegisterAndOnboard("Direct", "Forge Co");

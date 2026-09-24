@@ -2,7 +2,9 @@ using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Application.Features.Identity;
 using DigitalPulse.Contracts.Ai;
+using DigitalPulse.Application.Features.Billing;
 using DigitalPulse.Domain.Ai;
+using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Businesses;
 using DigitalPulse.Domain.Projects;
 using DigitalPulse.Domain.Scans;
@@ -160,6 +162,21 @@ public sealed class RunAiHandler
     {
         var tenantId = _tenant.RequireTenantId();
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        var subscription = await _db.Subscriptions
+            .FirstOrDefaultAsync(s => s.TenantId == tenantId && (s.Status == SubscriptionStatus.Active || s.Status == SubscriptionStatus.Trial), cancellationToken)
+            ?? throw AppException.Validation("Complete plan selection before running the orchestrator.");
+        var plan = await _db.Plans.AsNoTracking().FirstAsync(p => p.Id == subscription.PlanId, cancellationToken);
+        var start = BillingPolicy.PeriodStart();
+        var used = await _db.AiRuns.CountAsync(r => r.TenantId == tenantId && r.CreatedAtUtc >= start, cancellationToken);
+        try
+        {
+            EntitlementRules.EnsureCanRunAi(plan, used);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw AppException.Validation(ex.Message);
+        }
+
         if (string.IsNullOrWhiteSpace(request.Prompt) || request.Prompt.Trim().Length < 4)
         {
             throw AppException.Validation("Ask at least four characters so retrieval has something to match.");
@@ -234,6 +251,7 @@ public sealed class RunAiHandler
         await GraphifySync.RecordDecisionAsync(_db, tenantId, businessId, run, validation, cancellationToken);
         Audit(tenantId, run.Id, "graphify", "Graphify recorded the decision and outcome.");
         Audit(tenantId, run.Id, "audit", "Run stored with evaluation and stage history.");
+        await UsageMeter.RecordAsync(_db, tenantId, UsageKind.AiGeneration, agent.Code, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
         var evaluation = await _db.AiEvaluations.AsNoTracking().FirstAsync(e => e.AiRunId == run.Id, cancellationToken);

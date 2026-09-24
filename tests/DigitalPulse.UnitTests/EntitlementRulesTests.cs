@@ -65,4 +65,29 @@ public sealed class EntitlementRulesTests
         var ex = Assert.Throws<InvalidOperationException>(() => EntitlementRules.EnsureCanUseWhatsApp(plan));
         Assert.Contains("does not include WhatsApp", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Starter_rejects_a_second_location()
+    {
+        var plan = SubscriptionPlan.Create("STARTER", "Starter", 2999m, 1, false, 1);
+        var ex = Assert.Throws<InvalidOperationException>(() => EntitlementRules.EnsureCanAddLocation(plan, 1));
+        Assert.Contains("1 location", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Starter_rejects_the_fifty_first_ai_run()
+    {
+        var plan = SubscriptionPlan.Create("STARTER", "Starter", 2999m, 1, false, 1);
+        var ex = Assert.Throws<InvalidOperationException>(() => EntitlementRules.EnsureCanRunAi(plan, 50));
+        Assert.Contains("50 AI", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Cancelled_subscription_is_not_usable()
+    {
+        Assert.False(BillingPolicy.IsUsable(SubscriptionStatus.Cancelled));
+        Assert.False(BillingPolicy.IsUsable(SubscriptionStatus.PastDue));
+        Assert.True(BillingPolicy.IsUsable(SubscriptionStatus.Active));
+        Assert.True(BillingPolicy.IsUsable(SubscriptionStatus.Trial));
+    }
 }

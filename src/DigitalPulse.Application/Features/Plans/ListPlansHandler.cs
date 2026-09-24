@@ -32,7 +32,26 @@ public sealed class ListPlansHandler
         }
 
         return plans
-            .Select(p => new PlanResponse(p.Id, p.Code, p.Name, p.MonthlyPriceInr, p.MaxBusinesses, p.AgencyOnly))
+            .Select(p => new PlanResponse(
+                p.Id,
+                p.Code,
+                p.Name,
+                p.MonthlyPriceInr,
+                p.AnnualPriceInr,
+                p.MaxBusinesses,
+                p.MaxLocations,
+                p.MaxConnections,
+                p.ScansPerMonth,
+                p.ActionsPerMonth,
+                p.AiGenerationsPerMonth,
+                p.MaxUsers,
+                p.MaxAgencyClients,
+                p.StorageGb,
+                p.WhiteLabel,
+                p.WhatsAppEnabled,
+                p.WhatsAppMessagesPerMonth,
+                p.MonitoringIntervalHours,
+                p.AgencyOnly))
             .ToList();
     }
 }

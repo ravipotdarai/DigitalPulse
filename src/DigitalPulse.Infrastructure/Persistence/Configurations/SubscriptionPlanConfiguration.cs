@@ -13,6 +13,7 @@ public sealed class SubscriptionPlanConfiguration : IEntityTypeConfiguration<Sub
         builder.Property(x => x.Code).HasMaxLength(32).IsRequired();
         builder.Property(x => x.Name).HasMaxLength(80).IsRequired();
         builder.Property(x => x.MonthlyPriceInr).HasColumnType("decimal(19,4)");
+        builder.Property(x => x.AnnualPriceInr).HasColumnType("decimal(19,4)");
         builder.HasIndex(x => x.Code).IsUnique();
     }
 }

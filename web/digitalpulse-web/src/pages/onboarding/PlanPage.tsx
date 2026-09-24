@@ -19,7 +19,7 @@ export function PlanPage() {
 
   return (
     <Wizard title="Select a plan" step="5 / 5">
-      <p className="lead">Prices come from the plan catalog. Payment is not collected in this slice.</p>
+      <p className="lead">Prices and entitlements come from the plan catalog. Checkout stays held until a live billing provider confirms payment.</p>
       <div className="plan-board">
         {query.data.map((plan) => (
           <button

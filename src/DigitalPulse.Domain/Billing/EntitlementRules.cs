@@ -1,16 +1,41 @@
-using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Tenancy;
 
 namespace DigitalPulse.Domain.Billing;
 
 public static class EntitlementRules
 {
+    public static void EnsureUsable(SubscriptionStatus status)
+    {
+        if (!BillingPolicy.IsUsable(status))
+        {
+            throw new InvalidOperationException("Subscription must be Active or Trial to use paid entitlements.");
+        }
+    }
+
     public static void EnsureCanAddBusiness(TenantType tenantType, SubscriptionPlan plan, int currentBusinessCount)
     {
         Subscription.EnsurePlanMatchesTenant(tenantType, plan);
-        if (currentBusinessCount >= plan.MaxBusinesses)
+        var cap = BillingPolicy.BusinessCap(tenantType, plan);
+        if (currentBusinessCount >= cap)
         {
-            throw new InvalidOperationException($"Plan {plan.Code} allows {plan.MaxBusinesses} business(es).");
+            throw new InvalidOperationException($"Plan {plan.Code} allows {cap} business(es).");
+        }
+    }
+
+    public static void EnsureCanAddLocation(SubscriptionPlan plan, int currentLocationCount)
+    {
+        var cap = BillingPolicy.LocationCap(plan);
+        if (currentLocationCount >= cap)
+        {
+            throw new InvalidOperationException($"Plan {plan.Code} allows {cap} location(s).");
+        }
+    }
+
+    public static void EnsureCanAddUser(SubscriptionPlan plan, int currentUserCount)
+    {
+        if (currentUserCount >= plan.MaxUsers)
+        {
+            throw new InvalidOperationException($"Plan {plan.Code} allows {plan.MaxUsers} user(s).");
         }
     }
 
@@ -35,6 +60,14 @@ public static class EntitlementRules
         if (actionsThisMonth >= plan.ActionsPerMonth)
         {
             throw new InvalidOperationException($"Plan {plan.Code} allows {plan.ActionsPerMonth} action(s) this month.");
+        }
+    }
+
+    public static void EnsureCanRunAi(SubscriptionPlan plan, int generationsThisMonth)
+    {
+        if (generationsThisMonth >= plan.AiGenerationsPerMonth)
+        {
+            throw new InvalidOperationException($"Plan {plan.Code} allows {plan.AiGenerationsPerMonth} AI generation(s) this month.");
         }
     }
 

@@ -193,6 +193,7 @@ public sealed class EnqueueActionHandler
             liveWrite,
             decision);
         _db.WorkActions.Add(action);
+        await DigitalPulse.Application.Features.Billing.UsageMeter.RecordAsync(_db, tenantId, DigitalPulse.Domain.Billing.UsageKind.Action, kind.Code, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         if (action.Status == ActionStatus.Queued)

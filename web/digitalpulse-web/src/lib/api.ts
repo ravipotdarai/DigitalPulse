@@ -61,7 +61,20 @@ export type PlanResponse = {
   code: string;
   name: string;
   monthlyPriceInr: number;
+  annualPriceInr: number;
   maxBusinesses: number;
+  maxLocations: number;
+  maxConnections: number;
+  scansPerMonth: number;
+  actionsPerMonth: number;
+  aiGenerationsPerMonth: number;
+  maxUsers: number;
+  maxAgencyClients: number;
+  storageGb: number;
+  whiteLabel: boolean;
+  whatsAppEnabled: boolean;
+  whatsAppMessagesPerMonth: number;
+  monitoringIntervalHours: number;
   agencyOnly: boolean;
 };
 export type OnboardingStatus = {
@@ -112,6 +125,9 @@ export type DashboardResponse = {
   reportCount: number;
   monitoringIntervalHours: number;
   monitoringHoldReason: string;
+  subscriptionStatus: string;
+  billingHoldReason: string;
+  heldInvoiceCount: number;
 };
 
 export class ApiError extends Error {
@@ -369,7 +385,15 @@ export const api = {
   addCompetitor: (businessId: string, body: { name: string; website: string | null; notes: string | null }) =>
     request<MonitoringWorkspace>(`/v1/businesses/${businessId}/monitoring/competitors`, { method: "POST", body: JSON.stringify(body) }),
   acknowledgeAlert: (businessId: string, alertId: string) =>
-    request<MonitoringWorkspace>(`/v1/businesses/${businessId}/monitoring/alerts/${alertId}/acknowledge`, { method: "POST" })
+    request<MonitoringWorkspace>(`/v1/businesses/${businessId}/monitoring/alerts/${alertId}/acknowledge`, { method: "POST" }),
+  billing: () => request<BillingWorkspace>("/v1/billing"),
+  changePlan: (body: { planCode: string; interval: string }) =>
+    request<BillingWorkspace>("/v1/billing/change-plan", { method: "POST", body: JSON.stringify(body) }),
+  checkoutBilling: (body: { invoiceId: string | null }) =>
+    request<BillingWorkspace>("/v1/billing/checkout", { method: "POST", body: JSON.stringify(body) }),
+  cancelBilling: (body: { immediately: boolean; reason: string | null }) =>
+    request<BillingWorkspace>("/v1/billing/cancel", { method: "POST", body: JSON.stringify(body) }),
+  resumeBilling: () => request<BillingWorkspace>("/v1/billing/resume", { method: "POST" })
 };
 
 export type PlatformCapabilities = {
@@ -856,4 +880,24 @@ export type MonitoringWorkspace = {
   alerts: MonitoringAlert[];
   competitors: { id: string; name: string; website: string | null; notes: string | null }[];
   reports: PresenceReport[];
+};
+export type BillingWorkspace = {
+  subscription: {
+    id: string;
+    planCode: string;
+    planName: string;
+    status: string;
+    interval: string;
+    holdReason: string;
+    cancelAtPeriodEnd: boolean;
+  } | null;
+  plan: PlanResponse | null;
+  providerIsLive: boolean;
+  providerName: string;
+  note: string;
+  availablePlans: PlanResponse[];
+  usage: { kind: string; used: number; included: number; note: string }[];
+  invoices: { id: string; number: string; status: string; amountInr: number; holdReason: string }[];
+  payments: { id: string; status: string; provider: string; detail: string }[];
+  webhooks: { id: string; eventType: string; untrusted: boolean; holdReason: string }[];
 };

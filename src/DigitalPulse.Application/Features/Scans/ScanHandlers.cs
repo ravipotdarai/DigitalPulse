@@ -234,6 +234,7 @@ public sealed class RunScanHandler
             }
 
             scan.Complete(ScanQuota.Summarize(findings));
+            await DigitalPulse.Application.Features.Billing.UsageMeter.RecordAsync(_db, tenantId, DigitalPulse.Domain.Billing.UsageKind.Scan, "digitalpulse-check", cancellationToken);
             await _db.SaveChangesAsync(cancellationToken);
             return scan.ToDetail(findings, evidence, plan.ScansPerMonth, used + 1);
         }

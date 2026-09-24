@@ -1,6 +1,6 @@
 # DigitalPulse
 
-AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phases 2–12**, plus a **theme architecture** (Editorial implemented; Executive / Future AI / Minimal fallback tokens).
+AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phases 2–13**, plus a **theme architecture** (Editorial implemented; Executive / Future AI / Minimal fallback tokens).
 
 ## Run locally
 
@@ -27,7 +27,7 @@ Open http://localhost:5173 (API http://localhost:5088).
 
 ## Flow
 
-Landing → Register → Login → Create Tenant → Tenant → Business → Location → Select Plan → Dashboard → Business identity → Connection Center → DigitalPulse Check → Website intelligence → Social → WhatsApp → Directories → Projects → AI Orchestrator → Action center → Monitoring
+Landing → Register → Login → Create Tenant → Tenant → Business → Location → Select Plan → Dashboard → Business identity → Connection Center → DigitalPulse Check → Website intelligence → Social → WhatsApp → Directories → Projects → AI Orchestrator → Action center → Monitoring → Billing
 
 Connection Center lists official adapters (Google, Meta, LinkedIn, YouTube, IndiaMART, Justdial, WhatsApp Cloud API, Website, Search Console, Google Ads). Connect issues a **development grant** behind `IPlatformAuthorizationBroker`. Live provider OAuth is not invented. IndiaMART/Justdial are assisted-only. WhatsApp is Cloud API only.
 
@@ -51,6 +51,6 @@ Monitoring records stored platform health, a safe website probe, identity finger
 
 Development authentication is JWT behind `IAuthTokenIssuer` (`DevelopmentJwtTokenIssuer`). Entra External ID is not wired yet.
 
-Plans are seeded in SQL (`STARTER`, `GROWTH`, `BUSINESS`, `AGENCY`). Payments are not implemented.
+Plans and entitlements are seeded in SQL (`STARTER`, `GROWTH`, `BUSINESS`, `AGENCY`). Usage is metered from stored scans, actions, AI runs, and WhatsApp sends. Checkout and webhooks stay held unless `Billing:Razorpay` keys and a valid signature confirm a capture. DigitalPulse does not invent a paid invoice.
 
 Visual themes live in `web/digitalpulse-web/src/theme`. Components consume CSS tokens from `ThemeProvider`. Theme preference is stored in `localStorage` (`dp.theme` / `dp.theme.user.{userId}`) and is not part of tenant or plan logic. A developer theme switcher is available in `npm run dev`.

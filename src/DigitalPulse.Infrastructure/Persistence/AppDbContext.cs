@@ -91,6 +91,11 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<Competitor> Competitors => Set<Competitor>();
     public DbSet<CompetitorObservation> CompetitorObservations => Set<CompetitorObservation>();
     public DbSet<PresenceReport> PresenceReports => Set<PresenceReport>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
+    public DbSet<PaymentAttempt> PaymentAttempts => Set<PaymentAttempt>();
+    public DbSet<UsageRecord> UsageRecords => Set<UsageRecord>();
+    public DbSet<BillingWebhookEvent> BillingWebhookEvents => Set<BillingWebhookEvent>();
 
     public Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken) =>
         Connections.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.AuthorizationState == state, cancellationToken);
@@ -156,6 +161,10 @@ public sealed class AppDbContext : DbContext, IAppDbContext
         ApplyTenantFilter<Competitor>(modelBuilder);
         ApplyTenantFilter<CompetitorObservation>(modelBuilder);
         ApplyTenantFilter<PresenceReport>(modelBuilder);
+        ApplyTenantFilter<Invoice>(modelBuilder);
+        ApplyTenantFilter<InvoiceLine>(modelBuilder);
+        ApplyTenantFilter<PaymentAttempt>(modelBuilder);
+        ApplyTenantFilter<UsageRecord>(modelBuilder);
     }
 
     private void ApplyTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : TenantOwnedEntity =>

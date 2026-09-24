@@ -1,5 +1,6 @@
 using DigitalPulse.Domain.WhatsApp;
 using DigitalPulse.Domain.Monitoring;
+using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Actions;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Businesses;
@@ -296,6 +297,30 @@ public sealed class TenantIsolationTests
         var alerts = await dbA.MonitoringAlerts.Select(a => a.Title).ToListAsync();
         Assert.Equal([24], schedules);
         Assert.Equal(["A alert"], alerts);
+    }
+
+    [Fact]
+    public async Task Query_filter_hides_other_tenant_invoices()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"iso-bill-{Guid.NewGuid()}")
+            .Options;
+
+        await using (var seed = new AppDbContext(options, tenantContext: null))
+        {
+            var subA = Subscription.Start(tenantA, Guid.NewGuid());
+            var subB = Subscription.Start(tenantB, Guid.NewGuid());
+            seed.Subscriptions.AddRange(subA, subB);
+            seed.Invoices.Add(Invoice.Issue(tenantA, subA.Id, "INV-A", BillingInterval.Monthly, 2999m, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddMonths(1), "A"));
+            seed.Invoices.Add(Invoice.Issue(tenantB, subB.Id, "INV-B", BillingInterval.Monthly, 6999m, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddMonths(1), "B"));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
+        var visible = await dbA.Invoices.Select(i => i.Number).ToListAsync();
+        Assert.Equal(["INV-A"], visible);
     }
 
     private sealed class FixedTenantContext : Application.Abstractions.ITenantContext
