@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ApiError, api, type SiteSearch, type WebsiteIntelligence } from "../lib/api";
 import { PageState } from "../components/PageState";
 import { DataGrid } from "../design/DataGrid";
+import { SignalGlyph } from "../design/Signal";
 
 export function WebsitePage() {
   const businesses = useQuery({ queryKey: ["businesses"], queryFn: api.listBusinesses });
@@ -63,12 +64,12 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
     <section className="command">
       <header>
         <p className="hero-kicker">Website + Search</p>
-        <h1 className="display" style={{ fontSize: "clamp(2rem, 5vw, 3.4rem)", margin: 0 }}>Website intelligence</h1>
-        <p style={{ color: "var(--muted)", maxWidth: "42rem" }}>
+        <h1 className="page-title">Website intelligence</h1>
+        <p className="page-lead">
           On-page SEO and AEO come from a safe homepage fetch. {data.searchProvider} search is tenant-scoped.
           Vector search is {data.vectorSearchConfigured ? "configured" : "not configured"}. Search Console clicks are never invented.
         </p>
-        <div className="id-form-actions" style={{ marginTop: "0.9rem" }}>
+        <div className="id-form-actions spaced">
           <Button appearance="primary" disabled={analyze.isPending} onClick={() => analyze.mutate()}>
             {analyze.isPending ? "Analyzing…" : "Analyze website"}
           </Button>
@@ -81,7 +82,7 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
         <article className="panel">
           <h2>Homepage snapshot</h2>
           {!snapshot ? (
-            <div className="dp-empty" style={{ minHeight: "8rem" }}>
+            <div className="dp-empty dp-empty-sm">
               <strong>No snapshot yet</strong>
               <p>Set the official website on identity, then analyze. Private hosts are blocked.</p>
             </div>
@@ -98,19 +99,19 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
         </article>
         <article className="panel">
           <h2>Search Console</h2>
-          <p style={{ color: "var(--muted)" }}>{data.searchConsole.detail}</p>
+          <p className="ink-muted">{data.searchConsole.detail}</p>
           <div className="row-line"><span>Status</span><span className={`sev ${data.searchConsole.status === "NotConnected" ? "sev-hold" : "sev-warn"}`}>{data.searchConsole.status}</span></div>
           <div className="row-line"><span>Grant</span><span>{data.searchConsole.grantKind ?? "—"}</span></div>
         </article>
         <article className="panel">
           <h2>Site search</h2>
-          <p style={{ color: "var(--muted)" }}>Search only the HTML DigitalPulse fetched for this tenant.</p>
+          <p className="ink-muted">Search only the HTML DigitalPulse fetched for this tenant.</p>
           <div className="id-form-actions">
             <Input value={needle} onChange={(_, next) => setNeedle(next.value)} placeholder="Search indexed copy" aria-label="Search indexed website" />
             <Button appearance="subtle" onClick={() => void runSearch()}>Search</Button>
           </div>
           {search && search.hits.length === 0 ? (
-            <div className="dp-empty" style={{ minHeight: "6rem" }}>
+            <div className="dp-empty dp-empty-xs">
               <strong>No indexed matches</strong>
               <p>Analyze the website first, then search words that appear on the page.</p>
             </div>
@@ -119,7 +120,7 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
             <div className="row-line" key={`${hit.url}-${hit.title}`}>
               <div>
                 <strong>{hit.title}</strong>
-                <p style={{ margin: "0.15rem 0 0", color: "var(--muted)" }}>{hit.snippet}</p>
+                <p className="ink-muted meta-line">{hit.snippet}</p>
               </div>
               <span className="sev sev-hold">{hit.score}</span>
             </div>
@@ -128,12 +129,12 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
       </div>
 
       {!snapshot ? (
-        <div className="dp-empty dp-surface" style={{ minHeight: "14rem" }}>
+        <div className="dp-empty dp-surface dp-empty-lg">
           <strong>No SEO or AEO observations</strong>
           <p>Observations appear after a successful or blocked fetch. Rankings are not estimated.</p>
         </div>
       ) : data.observations.length === 0 ? (
-        <div className="dp-empty dp-surface" style={{ minHeight: "14rem" }}>
+        <div className="dp-empty dp-surface dp-empty-lg">
           <strong>No observations on this snapshot</strong>
           <p>The homepage did not produce on-page SEO, AEO, or Search Console gaps.</p>
         </div>
@@ -146,7 +147,7 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
             id: item.id,
             search: `${item.title} ${item.category} ${item.severity}`.toLowerCase(),
             cells: [
-              <span className={`sev ${item.severity === "High" ? "sev-crit" : item.severity === "Medium" ? "sev-warn" : "sev-hold"}`} key="sev">{item.severity}</span>,
+              <span className="sev-cell" key="sev"><SignalGlyph severity={item.severity} />{item.severity}</span>,
               item.title,
               item.category
             ]
@@ -155,10 +156,10 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
       )}
 
       {data.observations[0] ? (
-        <article className="panel" style={{ marginTop: "1rem" }}>
+        <article className="panel spaced">
           <p className="hero-kicker">{data.observations[0].category}</p>
           <h2>{data.observations[0].title}</h2>
-          <p style={{ color: "var(--muted)" }}>{data.observations[0].detail}</p>
+          <p className="ink-muted">{data.observations[0].detail}</p>
           <div className="row-line"><span>Expected</span><span>{data.observations[0].expectedValue ?? "—"}</span></div>
           <div className="row-line"><span>Observed</span><span>{data.observations[0].observedValue ?? "—"}</span></div>
           <div className="row-line"><span>Recommendation</span><span>{data.observations[0].recommendation}</span></div>

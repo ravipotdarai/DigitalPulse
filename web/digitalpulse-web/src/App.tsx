@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { MOTION, useMotionTiming } from "./design/motion";
 import { AppShell } from "./components/AppShell";
 import { PublicChrome } from "./components/PublicChrome";
 import { getStoredToken } from "./lib/api";
@@ -24,7 +25,8 @@ import { LocationPage } from "./pages/onboarding/LocationPage";
 import { PlanPage } from "./pages/onboarding/PlanPage";
 import { TenantReviewPage } from "./pages/onboarding/TenantReviewPage";
 import { useSession } from "./state/session";
-import { ThemeProvider, useTheme } from "./theme";
+import { Backdrop } from "./design/Backdrop";
+import { ThemeProvider } from "./theme";
 
 const queryClient = new QueryClient();
 
@@ -48,18 +50,17 @@ function Frame({ children }: { children: React.ReactNode }) {
 
 function AnimatedRoutes() {
   const location = useLocation();
-  const reduce = useReducedMotion();
-  const { tokens } = useTheme();
-  const duration = reduce ? 0 : Number.parseFloat(tokens.motion.duration) / 1000;
+  const { reduce, enter, fast, ease } = useMotionTiming();
 
   return (
     <AnimatePresence mode="wait">
       <motion.div
         key={location.pathname}
-        initial={reduce ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={reduce ? undefined : { opacity: 0 }}
-        transition={{ duration }}
+        className="route-view"
+        initial={reduce ? false : { opacity: 0, y: MOTION.distance.sm }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={reduce ? undefined : { opacity: 0, y: -MOTION.distance.xs, transition: { duration: fast, ease } }}
+        transition={{ duration: enter, ease }}
       >
         <Routes location={location}>
           <Route path="/" element={<GuestOnly><LandingPage /></GuestOnly>} />
@@ -93,6 +94,7 @@ function ThemedShell() {
 
   return (
     <ThemeProvider userId={userId}>
+      <Backdrop />
       <div className="grain" aria-hidden="true" />
       <Frame>
         <AnimatedRoutes />

@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUi } from "../state/ui";
+import { Overlay, Stagger, StaggerItem } from "./motion";
 
 const COMMANDS = [
-  { id: "command", label: "Open command center", to: "/app" },
-  { id: "identity", label: "Open business identity", to: "/app/identity" },
-  { id: "workspace", label: "Update workspace info", to: "/app/info" },
-  { id: "connections", label: "Connection center", to: "/app/connections" },
-  { id: "findings", label: "Findings", to: "/app/findings" },
-  { id: "website", label: "Website intelligence", to: "/app/website" },
+  { id: "command", label: "Overview — command center", to: "/app" },
+  { id: "findings", label: "Signals — DigitalPulse Check", to: "/app/findings" },
+  { id: "identity", label: "Business identity", to: "/app/identity" },
+  { id: "connections", label: "Connections ecosystem", to: "/app/connections" },
+  { id: "projects", label: "Projects and content factory", to: "/app/projects" },
+  { id: "website", label: "Website and search", to: "/app/website" },
   { id: "social", label: "Social content", to: "/app/social" },
-  { id: "directories", label: "IndiaMART / Justdial", to: "/app/directories" }
+  { id: "directories", label: "Directories — IndiaMART / Justdial", to: "/app/directories" },
+  { id: "workspace", label: "Workspace settings", to: "/app/info" }
 ];
 
 export function CommandPalette() {
@@ -31,36 +33,41 @@ export function CommandPalette() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, setCommand]);
 
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
   const items = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return COMMANDS.filter((item) => item.label.toLowerCase().includes(needle));
   }, [query]);
 
-  if (!open) return null;
-
   return (
-    <div className="veil" role="dialog" aria-label="Command" onClick={() => setCommand(false)}>
-      <div className="command-box" onClick={(event) => event.stopPropagation()}>
+    <Overlay open={open} onClose={() => setCommand(false)} label="Command">
+      <div className="command-box">
         <input
           autoFocus
           placeholder="Jump to a surface"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        {items.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => {
-              navigate(item.to);
-              setCommand(false);
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
+        <Stagger>
+          {items.map((item) => (
+            <StaggerItem key={item.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  navigate(item.to);
+                  setCommand(false);
+                }}
+              >
+                {item.label}
+              </button>
+            </StaggerItem>
+          ))}
+        </Stagger>
         {items.length === 0 ? <p className="dp-empty">No matches</p> : null}
       </div>
-    </div>
+    </Overlay>
   );
 }

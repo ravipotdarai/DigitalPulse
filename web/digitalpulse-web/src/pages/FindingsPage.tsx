@@ -1,9 +1,18 @@
 import { Button } from "@fluentui/react-components";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ApiError, api, type Finding, type ScanCenter, type ScanDetail } from "../lib/api";
 import { PageState } from "../components/PageState";
-import { DataGrid } from "../design/DataGrid";
+import { AIBrief } from "../design/AIBrief";
+import { MOTION, Stagger, StaggerItem, useMotionTiming } from "../design/motion";
+import { Meter, PageHeader, SectionTitle } from "../design/PageHeader";
+import { relativeTime, severityRank } from "../design/platforms";
+import { SignalGlyph, SignalRow } from "../design/Signal";
+
+type SeverityFilter = "all" | "high" | "medium" | "low";
+type StatusFilter = "active" | "all" | "Resolved";
 
 export function FindingsPage() {
   const businesses = useQuery({ queryKey: ["businesses"], queryFn: api.listBusinesses });
@@ -14,188 +23,279 @@ export function FindingsPage() {
     enabled: Boolean(businessId)
   });
 
-  if (businesses.isLoading) return <PageState mode="loading" title="Opening DigitalPulse Check" />;
+  if (businesses.isLoading) return <PageState mode="loading" title="Opening signals" />;
   if (businesses.isError) return <PageState mode="error" title="Businesses unavailable" />;
   if (!businessId) return <PageState mode="empty" title="No business yet" detail="Finish onboarding before running a check." />;
-  if (query.isLoading) return <PageState mode="loading" title="Loading scans" />;
-  if (query.isError || !query.data) return <PageState mode="error" title="Findings unavailable" />;
+  if (query.isLoading) return <PageState mode="loading" title="Loading signals" />;
+  if (query.isError || !query.data) return <PageState mode="error" title="Signals unavailable" />;
 
-  return <CheckWorkspace businessId={businessId} center={query.data} />;
+  return <SignalsWorkspace businessId={businessId} center={query.data} />;
 }
 
-function CheckWorkspace({ businessId, center }: { businessId: string; center: ScanCenter }) {
+function SignalsWorkspace({ businessId, center }: { businessId: string; center: ScanCenter }) {
   const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const { reduce, base } = useMotionTiming();
   const [error, setError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(center.latest?.findings[0]?.id ?? null);
   const [scanId, setScanId] = useState<string | null>(center.latest?.id ?? null);
+  const [severity, setSeverity] = useState<SeverityFilter>("all");
+  const [status, setStatusFilter] = useState<StatusFilter>("active");
+  const [updating, setUpdating] = useState<string | null>(null);
 
   const selectedScan = useQuery({
     queryKey: ["scan", businessId, scanId],
     queryFn: () => api.scan(businessId, scanId!),
     enabled: Boolean(scanId) && scanId !== center.latest?.id
   });
-
-  const detail: ScanDetail | null = scanId && scanId !== center.latest?.id
-    ? selectedScan.data ?? null
-    : center.latest;
-
-  const findings = detail?.findings ?? [];
-  const selected = useMemo(
-    () => findings.find((item) => item.id === selectedId) ?? findings[0] ?? null,
-    [findings, selectedId]
+  const detail: ScanDetail | null = scanId && scanId !== center.latest?.id ? selectedScan.data ?? null : center.latest;
+  const all = useMemo(
+    () => [...(detail?.findings ?? [])].sort((a, b) => severityRank(b.severity) - severityRank(a.severity)),
+    [detail]
   );
+
+  const counts = {
+    all: all.length,
+    high: all.filter((f) => severityRank(f.severity) >= 3).length,
+    medium: all.filter((f) => severityRank(f.severity) === 2).length,
+    low: all.filter((f) => severityRank(f.severity) <= 1).length
+  };
+
+  const visible = all.filter((finding) => {
+    const rank = severityRank(finding.severity);
+    const severityOk =
+      severity === "all" || (severity === "high" && rank >= 3) || (severity === "medium" && rank === 2) || (severity === "low" && rank <= 1);
+    const statusOk = status === "all" || (status === "active" ? finding.status !== "Resolved" : finding.status === "Resolved");
+    return severityOk && statusOk;
+  });
+
+  const selectedId = params.get("signal");
+  const selected = visible.find((item) => item.id === selectedId) ?? visible[0] ?? null;
+  const selectedIndex = selected ? visible.indexOf(selected) + 1 : 0;
+
+  function select(id: string) {
+    const next = new URLSearchParams(params);
+    next.set("signal", id);
+    setParams(next, { replace: true });
+  }
 
   const run = useMutation({
     mutationFn: () => api.runScan(businessId),
     onSuccess: async (scan) => {
       setError(null);
       setScanId(scan.id);
-      setSelectedId(scan.findings[0]?.id ?? null);
+      if (scan.findings[0]) select(scan.findings[0].id);
       await queryClient.invalidateQueries({ queryKey: ["scans"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (err) => setError(err instanceof ApiError ? err.title : "DigitalPulse Check could not start.")
   });
 
-  async function setStatus(finding: Finding, status: string) {
+  async function setStatus(finding: Finding, next: string) {
     setError(null);
+    setUpdating(next);
     try {
-      await api.updateFinding(businessId, finding.id, status);
+      await api.updateFinding(businessId, finding.id, next);
       await queryClient.invalidateQueries({ queryKey: ["scans"] });
       await queryClient.invalidateQueries({ queryKey: ["scan"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     } catch (err) {
-      setError(err instanceof ApiError ? err.title : "Could not update the finding.");
+      setError(err instanceof ApiError ? err.title : "Could not update the signal.");
+    } finally {
+      setUpdating(null);
     }
   }
 
   const remaining = Math.max(0, center.scansPerMonth - center.scansUsedThisMonth);
 
   return (
-    <section className="command">
-      <header>
-        <p className="hero-kicker">DigitalPulse Check</p>
-        <h1 className="display" style={{ fontSize: "clamp(2rem, 5vw, 3.4rem)", margin: 0 }}>Findings</h1>
-        <p style={{ color: "var(--muted)", maxWidth: "40rem" }}>
-          Each check compares the canonical identity to the official website and to authorized connections.
-          Development grants do not invent live Google or Meta listings. {center.scansUsedThisMonth} / {center.scansPerMonth} scans used this month.
-        </p>
-        <div className="id-form-actions" style={{ marginTop: "0.9rem" }}>
+    <div className="page-view">
+      <PageHeader
+        kicker="DigitalPulse Check"
+        title="Signals"
+        lead="Each check compares the canonical identity to the official website and to authorized connections. A signal exists only when evidence does. Development grants never invent live Google or Meta listings."
+        actions={
           <Button appearance="primary" disabled={run.isPending || remaining === 0} onClick={() => run.mutate()}>
-            {run.isPending ? "Running check…" : remaining === 0 ? "Monthly scan limit reached" : "Run DigitalPulse Check"}
+            {run.isPending ? "Checking the presence…" : remaining === 0 ? "Monthly check limit reached" : "Run DigitalPulse Check"}
           </Button>
-        </div>
+        }
+        aside={<Meter label="Checks this month" value={center.scansUsedThisMonth} max={center.scansPerMonth} />}
+      >
+        {run.isPending ? <div className="scanning" role="progressbar" aria-label="DigitalPulse Check running" /> : null}
         {error ? <p className="note-err" role="alert">{error}</p> : null}
-      </header>
+      </PageHeader>
 
       {center.scans.length === 0 ? (
-        <div className="dp-empty dp-surface" style={{ minHeight: "18rem" }}>
-          <strong>No scan has run</strong>
-          <p>Run DigitalPulse Check after identity and connections are in place. Findings stay empty until evidence exists.</p>
-        </div>
+        <p className="empty-line">
+          <strong>No check has run</strong>
+          Run DigitalPulse Check after identity and connections are in place. Signals stay empty until evidence exists.
+        </p>
       ) : (
-        <div className="workspace-split">
-          <aside className="panel">
-            <h2>Scans</h2>
+        <>
+          <ol className="scan-rail" aria-label="Check history">
             {center.scans.map((scan) => (
-              <button
-                key={scan.id}
-                type="button"
-                className="row-line"
-                style={{ width: "100%", textAlign: "left", background: scan.id === (detail?.id ?? center.latest?.id) ? "var(--signal-soft)" : "transparent", border: 0, cursor: "pointer" }}
-                onClick={() => {
-                  setScanId(scan.id);
-                  setSelectedId(null);
-                }}
-              >
-                <span>
-                  <strong>{scan.status}</strong>
-                  <p style={{ margin: 0, color: "var(--muted)" }}>{scan.summary ?? "In progress"}</p>
-                </span>
-                <span className={`sev ${scan.criticalCount ? "sev-crit" : scan.openCount ? "sev-warn" : "sev-ok"}`}>
-                  {scan.findingCount}
-                </span>
-              </button>
+              <li key={scan.id}>
+                <button
+                  type="button"
+                  aria-pressed={scan.id === (detail?.id ?? center.latest?.id)}
+                  onClick={() => setScanId(scan.id)}
+                >
+                  <strong className="num">{scan.findingCount}</strong>
+                  <small>{scan.criticalCount ? `${scan.criticalCount} critical · ` : ""}{relativeTime(scan.completedAtUtc ?? scan.startedAtUtc)}</small>
+                </button>
+              </li>
             ))}
-          </aside>
+          </ol>
 
-          <div>
-            {selectedScan.isLoading && scanId !== center.latest?.id ? (
-              <PageState mode="loading" title="Opening scan" />
-            ) : selectedScan.isError && scanId !== center.latest?.id ? (
-              <PageState mode="error" title="Scan unavailable" />
-            ) : findings.length === 0 ? (
-              <div className="dp-empty dp-surface" style={{ minHeight: "16rem" }}>
-                <strong>No findings on this scan</strong>
-                <p>Identity, website, and authorized platforms did not produce evidence-backed issues.</p>
-              </div>
-            ) : (
-              <>
-                <DataGrid
-                  noun="finding"
-                  empty="Run DigitalPulse Check to produce findings."
-                  selectedId={selected?.id}
-                  onRow={setSelectedId}
-                  columns={["Severity", "Finding", "Category", "Status"]}
-                  rows={findings.map((item) => ({
-                    id: item.id,
-                    search: `${item.title} ${item.category} ${item.severity} ${item.status}`.toLowerCase(),
-                    cells: [
-                      <span className={`sev ${severityTone(item.severity)}`} key="sev">{item.severity}</span>,
-                      item.title,
-                      item.category,
-                      item.status
-                    ]
-                  }))}
-                />
-
-                {selected ? (
-                  <article className="panel" style={{ marginTop: "1rem" }}>
-                    <p className="hero-kicker">{selected.category} · {selected.automationState}</p>
-                    <h2>{selected.title}</h2>
-                    <p style={{ color: "var(--muted)" }}>{selected.description}</p>
-                    <div className="row-line"><span>Expected</span><span>{selected.expectedValue ?? "—"}</span></div>
-                    <div className="row-line"><span>Observed</span><span>{selected.observedValue ?? "—"}</span></div>
-                    <div className="row-line"><span>Recommendation</span><span>{selected.recommendation}</span></div>
-                    <div className="row-line"><span>Suggested action</span><span>{selected.suggestedAction}</span></div>
-                    <div className="row-line"><span>Verify</span><span>{selected.verificationMethod}</span></div>
-                    <h3 style={{ marginTop: "1rem" }}>Evidence</h3>
-                    {selected.evidence.length === 0 ? (
-                      <p style={{ color: "var(--muted)" }}>This finding is missing evidence and should not have been stored.</p>
-                    ) : selected.evidence.map((item) => (
-                      <div className="row-line" key={item.id}>
-                        <div>
-                          <strong>{item.label}</strong>
-                          <p style={{ margin: "0.15rem 0 0", color: "var(--muted)" }}>{item.value}</p>
-                        </div>
-                        <span className="sev sev-hold">{item.source}</span>
-                      </div>
+          {selectedScan.isLoading && scanId !== center.latest?.id ? (
+            <PageState mode="loading" title="Opening check" />
+          ) : selectedScan.isError && scanId !== center.latest?.id ? (
+            <PageState mode="error" title="Check unavailable" />
+          ) : (
+            <div className="sig">
+              <section aria-label="Signal list">
+                <div className="sig-filters" role="group" aria-label="Severity">
+                  <Chip on={severity === "all"} onClick={() => setSeverity("all")} label="All" count={counts.all} />
+                  <Chip on={severity === "high"} onClick={() => setSeverity("high")} label="High" count={counts.high} />
+                  <Chip on={severity === "medium"} onClick={() => setSeverity("medium")} label="Medium" count={counts.medium} />
+                  <Chip on={severity === "low"} onClick={() => setSeverity("low")} label="Low" count={counts.low} />
+                </div>
+                <div className="sig-filters" role="group" aria-label="Status">
+                  <Chip on={status === "active"} onClick={() => setStatusFilter("active")} label="Unresolved" />
+                  <Chip on={status === "Resolved"} onClick={() => setStatusFilter("Resolved")} label="Resolved" />
+                  <Chip on={status === "all"} onClick={() => setStatusFilter("all")} label="Everything" />
+                </div>
+                {visible.length === 0 ? (
+                  <p className="empty-line">
+                    <strong>{all.length === 0 ? "No signals on this check" : "Nothing matches"}</strong>
+                    {all.length === 0
+                      ? "Identity, website, and authorized platforms did not produce evidence-backed issues."
+                      : "Change the filters to see other signals."}
+                  </p>
+                ) : (
+                  <Stagger key={`${detail?.id}-${severity}-${status}`} className="signal-list">
+                    {visible.map((finding, index) => (
+                      <StaggerItem key={finding.id}>
+                        <SignalRow
+                          index={index + 1}
+                          severity={finding.severity}
+                          title={finding.title}
+                          meta={`${finding.category} · ${finding.evidence.length} evidence`}
+                          status={finding.status}
+                          selected={finding.id === selected?.id}
+                          onSelect={() => select(finding.id)}
+                        />
+                      </StaggerItem>
                     ))}
-                    <div className="id-form-actions" style={{ marginTop: "0.9rem" }}>
-                      {selected.status !== "Acknowledged" ? (
-                        <Button appearance="subtle" onClick={() => void setStatus(selected, "Acknowledged")}>Acknowledge</Button>
-                      ) : null}
-                      {selected.status !== "Resolved" ? (
-                        <Button appearance="subtle" onClick={() => void setStatus(selected, "Resolved")}>Resolve</Button>
-                      ) : null}
-                      {selected.status !== "Open" ? (
-                        <Button appearance="subtle" onClick={() => void setStatus(selected, "Open")}>Reopen</Button>
-                      ) : null}
-                    </div>
-                  </article>
+                  </Stagger>
+                )}
+              </section>
+
+              <AnimatePresence mode="wait">
+                {selected ? (
+                  <motion.article
+                    key={selected.id}
+                    className="sig-case"
+                    aria-label={`Signal ${selectedIndex}: ${selected.title}`}
+                    initial={reduce ? false : { opacity: 0, y: MOTION.distance.sm }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduce ? undefined : { opacity: 0, y: -MOTION.distance.xs }}
+                    transition={{ duration: base }}
+                  >
+                    <header className="sig-case-head">
+                      <p className="sig-case-num">
+                        <SignalGlyph severity={selected.severity} />
+                        Signal <b>{String(selectedIndex).padStart(2, "0")}</b> · {selected.category} · {selected.severity}
+                      </p>
+                      <h2>{selected.title}</h2>
+                      <p className="sig-case-lead">{selected.description}</p>
+                    </header>
+
+                    {selected.expectedValue || selected.observedValue ? (
+                      <div className="sig-compare" aria-label="Expected versus observed">
+                        <div className="sig-source">
+                          <span>Identity record</span>
+                          <strong>{selected.expectedValue ?? "Not recorded"}</strong>
+                        </div>
+                        <div className={selected.expectedValue === selected.observedValue ? "sig-conflict is-match" : "sig-conflict"} aria-hidden="true">
+                          <svg viewBox="0 0 40 10"><path d="M0 5 H40" /></svg>
+                          {selected.expectedValue === selected.observedValue ? "match" : "conflict"}
+                        </div>
+                        <div className={selected.expectedValue === selected.observedValue ? "sig-source is-observed is-match" : "sig-source is-observed"}>
+                          <span>Observed</span>
+                          <strong>{selected.observedValue ?? "Not found"}</strong>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <AIBrief
+                      title="Analysis"
+                      steps={[
+                        { label: "Why it matters", value: selected.description },
+                        { label: "Recommendation", value: selected.recommendation },
+                        { label: "Action", value: selected.suggestedAction },
+                        { label: "Verify", value: selected.verificationMethod },
+                        {
+                          label: "Result",
+                          value: `${selected.status} · ${selected.automationState}`,
+                          tone: selected.status === "Resolved" ? "live" : selected.status === "Acknowledged" ? "warning" : "idle"
+                        }
+                      ]}
+                      provenance="Assembled from the check's stored evidence and rules. No language model generated this text."
+                      footer={
+                        <>
+                          {selected.status !== "Acknowledged" ? (
+                            <Button appearance="subtle" disabled={updating !== null} onClick={() => void setStatus(selected, "Acknowledged")}>
+                              {updating === "Acknowledged" ? "Saving…" : "Acknowledge"}
+                            </Button>
+                          ) : null}
+                          {selected.status !== "Resolved" ? (
+                            <Button appearance="primary" disabled={updating !== null} onClick={() => void setStatus(selected, "Resolved")}>
+                              {updating === "Resolved" ? "Saving…" : "Mark resolved"}
+                            </Button>
+                          ) : null}
+                          {selected.status !== "Open" ? (
+                            <Button appearance="subtle" disabled={updating !== null} onClick={() => void setStatus(selected, "Open")}>
+                              {updating === "Open" ? "Saving…" : "Reopen"}
+                            </Button>
+                          ) : null}
+                        </>
+                      }
+                    />
+
+                    <section>
+                      <SectionTitle kicker={`${selected.evidence.length} item${selected.evidence.length === 1 ? "" : "s"}`} title="Evidence" />
+                      {selected.evidence.length === 0 ? (
+                        <p className="empty-line">This signal has no evidence and should not have been stored.</p>
+                      ) : (
+                        <div className="sig-evidence">
+                          {selected.evidence.map((item) => (
+                            <div key={item.id}>
+                              <span>
+                                <strong>{item.label}</strong>
+                                <p>{item.value}</p>
+                              </span>
+                              <em>{item.source}</em>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  </motion.article>
                 ) : null}
-              </>
-            )}
-          </div>
-        </div>
+              </AnimatePresence>
+            </div>
+          )}
+        </>
       )}
-    </section>
+    </div>
   );
 }
 
-function severityTone(severity: string) {
-  if (severity === "Critical" || severity === "High") return "sev-crit";
-  if (severity === "Medium") return "sev-warn";
-  if (severity === "Low") return "sev-hold";
-  return "sev-ok";
+function Chip({ on, onClick, label, count }: { on: boolean; onClick: () => void; label: string; count?: number }) {
+  return (
+    <button type="button" className="chip" aria-pressed={on} onClick={onClick}>
+      {label}
+      {count !== undefined ? <b>{count}</b> : null}
+    </button>
+  );
 }

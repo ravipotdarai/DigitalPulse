@@ -12,36 +12,38 @@ export const editorialTheme: ThemeTokens = {
   },
   colors: {
     dark: {
-      void: "#0b0907",
-      ink: "#f3ecdf",
-      muted: "#b4a894",
-      panel: "#14110d",
-      raise: "#1c1813",
-      line: "rgba(243, 236, 223, 0.1)",
-      lineStrong: "rgba(243, 236, 223, 0.16)",
-      signal: "#d4b483",
-      signalSoft: "rgba(212, 180, 131, 0.14)",
-      ok: "#8fbf9a",
-      warn: "#e0c07a",
-      crit: "#e08a7a",
-      info: "#9bb4c9",
-      hold: "#8d8578"
+      void: "#060911",
+      ink: "#eef2f8",
+      muted: "#9ba7bd",
+      panel: "#0c1221",
+      raise: "#121a2e",
+      line: "rgba(160, 185, 235, 0.10)",
+      lineStrong: "rgba(160, 185, 235, 0.18)",
+      signal: "#3ddbd9",
+      signalSoft: "rgba(61, 219, 217, 0.13)",
+      live: "#4ade9a",
+      ok: "#4ade9a",
+      warn: "#ffb547",
+      crit: "#ff5f6d",
+      info: "#7aa2ff",
+      hold: "#6b7890"
     },
     light: {
-      void: "#f4efe6",
-      ink: "#1c1712",
-      muted: "#6b6256",
-      panel: "#fffaf2",
+      void: "#f4f6fa",
+      ink: "#0b1220",
+      muted: "#566179",
+      panel: "#ffffff",
       raise: "#ffffff",
-      line: "rgba(28, 23, 18, 0.1)",
-      lineStrong: "rgba(28, 23, 18, 0.16)",
-      signal: "#8b5a2b",
-      signalSoft: "rgba(139, 90, 43, 0.1)",
-      ok: "#2f6b4a",
-      warn: "#8a6a16",
-      crit: "#a33b32",
-      info: "#3b5c7a",
-      hold: "#6f675c"
+      line: "rgba(11, 18, 32, 0.08)",
+      lineStrong: "rgba(11, 18, 32, 0.15)",
+      signal: "#0b8f8d",
+      signalSoft: "rgba(11, 143, 141, 0.1)",
+      live: "#12925a",
+      ok: "#12925a",
+      warn: "#b86e00",
+      crit: "#d42f45",
+      info: "#2f5fd0",
+      hold: "#7a8499"
     }
   },
   type: {
@@ -49,8 +51,8 @@ export const editorialTheme: ThemeTokens = {
     displaySize: "clamp(3.4rem, 9vw, 7.2rem)",
     displayTracking: "-0.045em",
     displayLeading: "0.9",
-    kickerSize: "0.7rem",
-    kickerTracking: "0.28em",
+    kickerSize: "0.76rem",
+    kickerTracking: "0.22em",
     pageTitleSize: "clamp(2rem, 5vw, 3.6rem)"
   },
   space: {
@@ -79,6 +81,6 @@ export const editorialTheme: ThemeTokens = {
     navWidth: "15rem",
     density: "1.15",
     heroMinHeight: "calc(100dvh - 4.5rem)",
-    grainOpacity: "0.1"
+    grainOpacity: "0.05"
   }
 };

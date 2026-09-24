@@ -57,6 +57,7 @@ export type ColorSet = {
   lineStrong: string;
   signal: string;
   signalSoft: string;
+  live: string;
   ok: string;
   warn: string;
   crit: string;

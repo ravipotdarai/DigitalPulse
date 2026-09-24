@@ -1,29 +1,39 @@
-import { Button } from "@fluentui/react-components";
+import { Dismiss20Regular } from "@fluentui/react-icons";
 import { useUi } from "../state/ui";
+import { AIBrief } from "./AIBrief";
+import { DrawerFrame } from "./motion";
 
 export function AssistantDrawer({ insights }: { insights: { title: string; why: string; action?: string }[] }) {
   const open = useUi((s) => s.assistantOpen);
   const setAssistant = useUi((s) => s.setAssistant);
-  if (!open) return null;
   return (
-    <aside className="drawer" aria-label="AI insights">
-      <div className="flex items-center justify-between gap-3">
-        <p className="hero-kicker" style={{ margin: 0 }}>Insights</p>
-        <Button appearance="subtle" onClick={() => setAssistant(false)}>Close</Button>
+    <DrawerFrame open={open} label="DigitalPulse brief">
+      <div className="drawer-head">
+        <p className="hero-kicker kicker-flush">DigitalPulse brief</p>
+        <button type="button" className="icon-btn" aria-label="Close brief" onClick={() => setAssistant(false)}>
+          <Dismiss20Regular />
+        </button>
       </div>
-      <h2 className="display" style={{ fontSize: "1.8rem", margin: 0 }}>What the record shows</h2>
-      <p style={{ color: "var(--muted)", margin: 0 }}>
-        These are generated from the current business record. They are not model output and they do not claim platform access.
-      </p>
+      <h2 className="page-title drawer-title">What the record shows</h2>
       {insights.length === 0 ? (
-        <div className="dp-empty"><strong>Identity is complete enough</strong><p>Add platforms when Connection Center ships.</p></div>
-      ) : insights.map((item) => (
-        <article key={item.title} className="panel">
-          <h3>{item.title}</h3>
-          <p style={{ color: "var(--muted)", margin: 0 }}>{item.why}</p>
-          {item.action ? <p className="sev sev-warn" style={{ marginTop: "0.6rem" }}>{item.action}</p> : null}
-        </article>
-      ))}
-    </aside>
+        <p className="empty-line">
+          <strong>The identity record is complete enough</strong>
+          Run DigitalPulse Check for evidence from the website and authorized platforms.
+        </p>
+      ) : (
+        insights.map((item) => (
+          <AIBrief
+            key={item.title}
+            title={item.title}
+            steps={[
+              { label: "Observed", value: item.title, tone: "warning" },
+              { label: "Why it matters", value: item.why },
+              ...(item.action ? [{ label: "Recommendation" as const, value: item.action }] : [])
+            ]}
+            provenance="Derived from the business record. No language model generated this text."
+          />
+        ))
+      )}
+    </DrawerFrame>
   );
 }

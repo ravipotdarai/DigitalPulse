@@ -1,4 +1,5 @@
 import { Dropdown, Input, Label, Option, Textarea } from "@fluentui/react-components";
+import { StatusBanner } from "./motion";
 
 export function Field({
   label,
@@ -32,7 +33,7 @@ export function Field({
         autoComplete={type === "password" ? "current-password" : type === "email" ? "email" : undefined}
         onChange={onChange ? (_, data) => onChange(data.value) : undefined}
       />
-      {hint ? <small style={{ color: "var(--muted)" }}>{hint}</small> : null}
+      {hint ? <small className="ink-muted">{hint}</small> : null}
     </label>
   );
 }
@@ -53,7 +54,7 @@ export function SelectField({
     <label className="dp-field">
       <span>{label}</span>
       <Dropdown
-        style={{ minWidth: "100%" }}
+        className="field-full"
         value={selected?.label ?? "Choose"}
         selectedOptions={value ? [value] : []}
         onOptionSelect={(_, data) => onChange(data.optionValue ?? "")}
@@ -84,7 +85,5 @@ export function AreaField({
 }
 
 export function Note({ error, ok, okText = "Saved." }: { error: string | null; ok: boolean; okText?: string }) {
-  if (error) return <p className="note-err" role="alert">{error}</p>;
-  if (ok) return <p className="note-ok">{okText}</p>;
-  return null;
+  return <StatusBanner error={error} ok={ok} okText={okText} />;
 }

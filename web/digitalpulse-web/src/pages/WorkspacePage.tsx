@@ -1,4 +1,4 @@
-import { Button, Input, Label } from "@fluentui/react-components";
+import { Button, Input } from "@fluentui/react-components";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -28,8 +28,8 @@ export function WorkspacePage() {
     <main className="command">
       <div>
         <p className="hero-kicker">Workspace</p>
-        <h1 className="display" style={{ fontSize: "clamp(2rem, 5vw, 3.2rem)", margin: 0 }}>Update info</h1>
-        <p style={{ color: "var(--muted)" }}>Change the details captured during onboarding. This does not restart the flow.</p>
+        <h1 className="page-title">Update info</h1>
+        <p className="page-lead">Change the details captured during onboarding. This does not restart the flow.</p>
       </div>
       <ProfileForm displayName={profile?.displayName ?? ""} email={profile?.email ?? ""} />
       <TenantForm name={tenantQuery.data.name} type={tenantQuery.data.type} />
@@ -51,8 +51,8 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 function Status({ error, ok }: { error: string | null; ok: boolean }) {
-  if (error) return <p className="text-sm" style={{ color: "var(--signal)" }}>{error}</p>;
-  if (ok) return <p className="text-sm" style={{ color: "var(--muted)" }}>Saved.</p>;
+  if (error) return <p className="text-sm note-err" role="alert">{error}</p>;
+  if (ok) return <p className="text-sm note-ok">Saved.</p>;
   return null;
 }
 
@@ -81,10 +81,12 @@ function ProfileForm({ displayName, email }: { displayName: string; email: strin
 
   return (
     <Card title="Your profile">
-      <form className="grid gap-4" onSubmit={onSubmit}>
-        <label className="grid gap-2"><Label>Name</Label><Input name="displayName" defaultValue={displayName} required /></label>
-        <label className="grid gap-2"><Label>Email</Label><Input value={email} disabled /></label>
-        <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save profile"}</Button>
+      <form className="form-stack" onSubmit={onSubmit}>
+        <label className="dp-field"><span>Name</span><Input name="displayName" defaultValue={displayName} required /></label>
+        <label className="dp-field"><span>Email</span><Input value={email} disabled /></label>
+        <div className="id-form-actions">
+          <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save profile"}</Button>
+        </div>
         <Status error={error} ok={mutation.isSuccess && !error} />
       </form>
     </Card>
@@ -111,10 +113,12 @@ function TenantForm({ name, type }: { name: string; type: string }) {
 
   return (
     <Card title="Tenant">
-      <form className="grid gap-4" onSubmit={onSubmit}>
-        <label className="grid gap-2"><Label>Workspace name</Label><Input name="name" defaultValue={name} required /></label>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>Type: {type}</p>
-        <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save tenant"}</Button>
+      <form className="form-stack" onSubmit={onSubmit}>
+        <label className="dp-field"><span>Workspace name</span><Input name="name" defaultValue={name} required /></label>
+        <p className="ink-muted">Type: {type}</p>
+        <div className="id-form-actions">
+          <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save tenant"}</Button>
+        </div>
         <Status error={error} ok={mutation.isSuccess && !error} />
       </form>
     </Card>
@@ -146,10 +150,10 @@ function BusinessForm({ business }: { business: BusinessResponse }) {
 
   return (
     <Card title="Business">
-      <form className="grid gap-4" onSubmit={onSubmit}>
-        <label className="grid gap-2"><Label>Business name</Label><Input name="name" defaultValue={business.name} required /></label>
-        <label className="grid gap-2"><Label>Website</Label><Input name="website" defaultValue={business.website ?? ""} /></label>
-        <div className="flex flex-wrap gap-2">
+      <form className="form-stack" onSubmit={onSubmit}>
+        <label className="dp-field"><span>Business name</span><Input name="name" defaultValue={business.name} required /></label>
+        <label className="dp-field"><span>Website</span><Input name="website" defaultValue={business.website ?? ""} /></label>
+        <div className="id-form-actions">
           <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save business"}</Button>
           <Button appearance="subtle" type="button" onClick={() => navigate(`/app/businesses/${business.id}`)}>Open identity</Button>
         </div>
@@ -187,18 +191,18 @@ function LocationForm({ businessId, location }: { businessId: string; location: 
 
   return (
     <Card title="Location">
-      <form className="grid gap-4" onSubmit={onSubmit}>
-        <label className="grid gap-2"><Label>Location name</Label><Input name="name" defaultValue={location.name} required /></label>
-        <label className="grid gap-2"><Label>Address</Label><Input name="addressLine" defaultValue={location.addressLine ?? ""} /></label>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2"><Label>City</Label><Input name="city" defaultValue={location.city ?? ""} /></label>
-          <label className="grid gap-2"><Label>Region</Label><Input name="region" defaultValue={location.region ?? ""} /></label>
+      <form className="form-stack" onSubmit={onSubmit}>
+        <label className="dp-field"><span>Location name</span><Input name="name" defaultValue={location.name} required /></label>
+        <label className="dp-field"><span>Address</span><Input name="addressLine" defaultValue={location.addressLine ?? ""} /></label>
+        <div className="form-grid">
+          <label className="dp-field"><span>City</span><Input name="city" defaultValue={location.city ?? ""} /></label>
+          <label className="dp-field"><span>Region</span><Input name="region" defaultValue={location.region ?? ""} /></label>
+          <label className="dp-field"><span>Postal code</span><Input name="postalCode" defaultValue={location.postalCode ?? ""} /></label>
+          <label className="dp-field"><span>Country</span><Input name="countryCode" defaultValue={location.countryCode} maxLength={2} /></label>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-2"><Label>Postal code</Label><Input name="postalCode" defaultValue={location.postalCode ?? ""} /></label>
-          <label className="grid gap-2"><Label>Country</Label><Input name="countryCode" defaultValue={location.countryCode} maxLength={2} /></label>
+        <div className="id-form-actions">
+          <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save location"}</Button>
         </div>
-        <Button appearance="primary" type="submit" disabled={mutation.isPending}>{mutation.isPending ? "Saving…" : "Save location"}</Button>
         <Status error={error} ok={mutation.isSuccess && !error} />
       </form>
     </Card>

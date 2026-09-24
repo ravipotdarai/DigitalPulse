@@ -1,12 +1,12 @@
 import type { ThemeTokens } from "../types";
 import { editorialTheme } from "./editorial";
 
-/** Fallback — current Pulse OS orange on void, for later Future AI work. */
+/** Future AI — near-black with an electric lime signal. Fallback layout until its own pass. */
 export const futureAiTheme: ThemeTokens = {
   ...editorialTheme,
   id: "future-ai",
   label: "Future AI",
-  summary: "Signal-led fallback. A dedicated Future AI language comes later.",
+  summary: "Near-black with an electric lime signal.",
   fonts: {
     display: '"Syne", ui-sans-serif, sans-serif',
     sans: '"Outfit", ui-sans-serif, sans-serif',
@@ -14,42 +14,45 @@ export const futureAiTheme: ThemeTokens = {
   },
   colors: {
     dark: {
-      void: "#07080b",
-      ink: "#ece7de",
-      muted: "#9aa093",
-      panel: "#10131a",
-      raise: "#171b24",
-      line: "rgba(236, 231, 222, 0.08)",
-      lineStrong: "rgba(236, 231, 222, 0.14)",
-      signal: "#e46a2e",
-      signalSoft: "rgba(228, 106, 46, 0.16)",
-      ok: "#4ecf97",
-      warn: "#e8c15a",
-      crit: "#f07171",
-      info: "#7aa7e8",
-      hold: "#8b8478"
+      void: "#05060a",
+      ink: "#f3f5ff",
+      muted: "#a3abc4",
+      panel: "#0b0e18",
+      raise: "#121729",
+      line: "rgba(200, 210, 255, 0.10)",
+      lineStrong: "rgba(200, 210, 255, 0.18)",
+      signal: "#c4f25c",
+      signalSoft: "rgba(196, 242, 92, 0.13)",
+      live: "#3ee0c5",
+      ok: "#3ee0c5",
+      warn: "#ffc857",
+      crit: "#ff5d73",
+      info: "#6fb1ff",
+      hold: "#737c97"
     },
     light: {
-      void: "#f3efe6",
-      ink: "#0e1118",
-      muted: "#5c6158",
-      panel: "#fffdf8",
+      void: "#f5f7fb",
+      ink: "#0a0d18",
+      muted: "#525b72",
+      panel: "#ffffff",
       raise: "#ffffff",
-      line: "rgba(14, 17, 24, 0.1)",
-      lineStrong: "rgba(14, 17, 24, 0.16)",
-      signal: "#c45c26",
-      signalSoft: "rgba(196, 92, 38, 0.12)",
-      ok: "#247a56",
-      warn: "#9a6d14",
-      crit: "#b4232c",
-      info: "#2c5d9e",
-      hold: "#6a6256"
+      line: "rgba(10, 13, 24, 0.08)",
+      lineStrong: "rgba(10, 13, 24, 0.15)",
+      signal: "#4a7a00",
+      signalSoft: "rgba(74, 122, 0, 0.1)",
+      live: "#0b8a76",
+      ok: "#0b8a76",
+      warn: "#a86b00",
+      crit: "#cc2a45",
+      info: "#2458c7",
+      hold: "#747c92"
     }
   },
   type: {
     ...editorialTheme.type,
-    displaySize: "clamp(3.1rem, 8vw, 6.4rem)"
+    displaySize: "clamp(3.1rem, 8vw, 6.4rem)",
+    displayTracking: "-0.035em"
   },
-  radius: { 1: "4px", 2: "8px" },
-  layout: { ...editorialTheme.layout, grainOpacity: "0.12", density: "1" }
+  radius: { 1: "6px", 2: "12px" },
+  layout: { ...editorialTheme.layout, grainOpacity: "0.04", density: "1" }
 };

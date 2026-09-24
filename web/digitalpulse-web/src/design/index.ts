@@ -5,3 +5,17 @@ export { Field } from "./Field";
 export { OnboardingFrame, Wizard } from "./OnboardingFrame";
 export { CommandPalette } from "./CommandPalette";
 export { AssistantDrawer } from "./AssistantDrawer";
+export {
+  MOTION,
+  PageEnter,
+  Reveal,
+  Stagger,
+  StaggerItem,
+  Overlay,
+  DrawerFrame,
+  StatusBanner,
+  Skeleton,
+  useMotionTiming,
+  pageTransition,
+  panelTransition
+} from "./motion";

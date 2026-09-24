@@ -34,7 +34,7 @@ export function DataGrid({
       ) : visible.length === 0 ? (
         <div className="dp-empty"><strong>No matches</strong><p>Nothing matches “{query}”.</p></div>
       ) : (
-        <div style={{ overflow: "auto", flex: 1 }}>
+        <div className="dp-grid-scroll">
           <table>
             <thead>
               <tr>

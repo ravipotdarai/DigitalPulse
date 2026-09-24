@@ -61,8 +61,8 @@ function DirectoryWorkspaceView({ businessId, data }: { businessId: string; data
     <section className="command">
       <header>
         <p className="hero-kicker">IndiaMART / Justdial</p>
-        <h1 className="display" style={{ fontSize: "clamp(2rem, 5vw, 3.4rem)", margin: 0 }}>Directories</h1>
-        <p style={{ color: "var(--muted)", maxWidth: "42rem" }}>{data.note}</p>
+        <h1 className="page-title">Directories</h1>
+        <p className="page-lead">{data.note}</p>
         {error ? <p className="note-err" role="alert">{error}</p> : null}
         {success ? <p className="note-ok">{success}</p> : null}
       </header>
@@ -75,7 +75,7 @@ function DirectoryWorkspaceView({ businessId, data }: { businessId: string; data
             <div className="row-line"><span>Connection</span><span className={`sev ${provider.connectionStatus === "Connected" ? "sev-ok" : "sev-hold"}`}>{provider.connectionStatus ?? "Not enabled"}</span></div>
             <div className="row-line"><span>Official read</span><span className="sev sev-hold">{provider.readStatus}</span></div>
             <div className="row-line"><span>Official write</span><span className="sev sev-hold">Assisted</span></div>
-            <p style={{ color: "var(--muted)" }}>{provider.readDetail}</p>
+            <p className="ink-muted">{provider.readDetail}</p>
             <div className="id-form-actions">
               <Button appearance="primary" disabled={prepare.isPending} onClick={() => prepare.mutate(provider.capabilities.platformCode)}>
                 Prepare playbook
@@ -89,7 +89,7 @@ function DirectoryWorkspaceView({ businessId, data }: { businessId: string; data
       </div>
 
       {data.tasks.length === 0 ? (
-        <div className="dp-empty dp-surface" style={{ minHeight: "14rem" }}>
+        <div className="dp-empty dp-surface dp-empty-lg">
           <strong>No assisted tasks</strong>
           <p>Enable IndiaMART or Justdial in Connection Center, then prepare a playbook from identity.</p>
         </div>
@@ -101,13 +101,13 @@ function DirectoryWorkspaceView({ businessId, data }: { businessId: string; data
               <button
                 key={task.id}
                 type="button"
-                className="row-line"
-                style={{ width: "100%", textAlign: "left", background: task.id === selected?.id ? "var(--signal-soft)" : "transparent", border: 0, cursor: "pointer" }}
+                className={task.id === selected?.id ? "row-line row-button is-on" : "row-line row-button"}
+                aria-pressed={task.id === selected?.id}
                 onClick={() => setSelectedId(task.id)}
               >
                 <span>
                   <strong>{task.platformCode}</strong>
-                  <p style={{ margin: 0, color: "var(--muted)" }}>{task.status}</p>
+                  <p className="ink-muted flush">{task.status}</p>
                 </span>
                 <span className={`sev ${task.status === "Verified" ? "sev-ok" : "sev-warn"}`}>{task.steps.filter((s) => s.completedAtUtc).length}/{task.steps.length}</span>
               </button>
@@ -141,13 +141,13 @@ function TaskDetail({
       <div className="row-line"><span>Website</span><span>{task.preparedWebsite ?? "—"}</span></div>
       <div className="row-line"><span>Category</span><span>{task.preparedCategory ?? "—"}</span></div>
       <div className="row-line"><span>Services</span><span>{task.preparedServices ?? "—"}</span></div>
-      {task.monitorDetail ? <p style={{ color: "var(--muted)" }}>{task.monitorDetail}</p> : null}
-      <h3 style={{ marginTop: "1rem" }}>Assisted steps</h3>
+      {task.monitorDetail ? <p className="ink-muted">{task.monitorDetail}</p> : null}
+      <h3 className="spaced">Assisted steps</h3>
       {task.steps.map((step) => (
         <div className="row-line" key={step.id}>
           <div>
             <strong>{step.ordinal}. {step.title}</strong>
-            <p style={{ margin: "0.15rem 0 0", color: "var(--muted)" }}>{step.detail}</p>
+            <p className="ink-muted meta-line">{step.detail}</p>
           </div>
           {step.completedAtUtc ? (
             <span className="sev sev-ok">Done</span>

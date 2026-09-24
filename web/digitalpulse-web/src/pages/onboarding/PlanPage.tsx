@@ -43,11 +43,11 @@ export function PlanPage() {
             <span className="hero-kicker">{plan.code === recommended ? "Recommended" : plan.agencyOnly ? "Agency" : "Direct"}</span>
             <strong>{plan.name}</strong>
             <em>₹{plan.monthlyPriceInr.toLocaleString("en-IN")} / month</em>
-            <p style={{ color: "var(--muted)", margin: 0 }}>
+            <p className="ink-muted flush">
               {plan.maxBusinesses} business{plan.maxBusinesses === 1 ? "" : "es"}
               {plan.agencyOnly ? " · agencies" : ""}
             </p>
-            {busy === plan.code ? <p className="mono" style={{ fontSize: "0.75rem" }}>Saving…</p> : null}
+            {busy === plan.code ? <p className="mono meta-line" role="status">Saving…</p> : null}
           </button>
         ))}
       </div>

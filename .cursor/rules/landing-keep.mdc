@@ -1,0 +1,14 @@
+---
+description: Landing page elements the owner approved; keep them through redesigns
+globs: web/digitalpulse-web/src/pages/LandingPage.tsx,web/digitalpulse-web/src/design/PlatformEcosystem.tsx,web/digitalpulse-web/src/design/LoopTrack.tsx
+alwaysApply: false
+---
+
+# Approved landing elements — do not remove
+
+The owner explicitly approved these. Restyle them if needed, but never delete or replace them:
+
+1. **Hero ecosystem** — "Your business" at the centre with social/platform nodes orbiting it (`PlatformEcosystem`). It must stay interactive: hover/focus shows a platform card, click previews authorizing, links animate, the scene follows the cursor.
+2. **"The core loop — Eight steps. Repeated, for every platform."** section with the `LoopTrack` and the four story steps (Connect → Understand → Detect → Create → Approve → Execute → Verify → Monitor).
+
+Keep the hero headline/lead content and presentation unless the owner asks otherwise.

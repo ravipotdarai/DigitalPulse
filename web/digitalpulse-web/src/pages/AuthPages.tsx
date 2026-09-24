@@ -5,6 +5,8 @@ import { ApiError, api } from "../lib/api";
 import { useSession } from "../state/session";
 import { Field, Note } from "../design/Field";
 import { PageState } from "../components/PageState";
+import { MOTION, useMotionTiming } from "../design/motion";
+import { motion } from "framer-motion";
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -107,19 +109,30 @@ export function ForgotPasswordPage() {
 }
 
 function AuthSplit({ title, stage, children }: { title: string; stage: string; children: React.ReactNode }) {
+  const { reduce, enter, ease } = useMotionTiming();
   return (
     <main className="auth-split">
-      <section className="auth-stage">
+      <motion.section
+        className="auth-stage"
+        initial={reduce ? false : { opacity: 0, x: -MOTION.distance.lg }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: enter, ease }}
+      >
         <p className="chapter-num">Access</p>
         <p className="hero-kicker">Presence OS</p>
         <h2 className="display">{title}</h2>
         <p className="ink-muted stage-copy">{stage}</p>
-      </section>
-      <section className="auth-panel">
+      </motion.section>
+      <motion.section
+        className="auth-panel"
+        initial={reduce ? false : { opacity: 0, y: MOTION.distance.md }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: enter, delay: reduce ? 0 : 0.08, ease }}
+      >
         <h1 className="display display-page">{title}</h1>
         <p className="ink-muted auth-stage-mobile">{stage}</p>
         {children}
-      </section>
+      </motion.section>
     </main>
   );
 }

@@ -70,9 +70,9 @@ function SocialWorkspaceView({ businessId, data }: { businessId: string; data: S
     <section className="command">
       <header>
         <p className="hero-kicker">Google / Meta / Social</p>
-        <h1 className="display" style={{ fontSize: "clamp(2rem, 5vw, 3.4rem)", margin: 0 }}>Social content</h1>
-        <p style={{ color: "var(--muted)", maxWidth: "42rem" }}>{data.note}</p>
-        <div className="id-form-actions" style={{ marginTop: "0.9rem" }}>
+        <h1 className="page-title">Social content</h1>
+        <p className="page-lead">{data.note}</p>
+        <div className="id-form-actions spaced">
           <Button appearance="subtle" onClick={() => void run(() => api.refreshSocialMetrics(businessId), "Metric hold-states refreshed. No live counts were invented.")}>
             Refresh metrics
           </Button>
@@ -89,16 +89,16 @@ function SocialWorkspaceView({ businessId, data }: { businessId: string; data: S
             <div className="row-line"><span>Connection</span><span className={`sev ${channel.connectionStatus === "Connected" ? "sev-ok" : "sev-hold"}`}>{channel.connectionStatus ?? "Not connected"}</span></div>
             <div className="row-line"><span>Publish</span><span className="sev sev-hold">{channel.canPublish ? "Capability listed" : "Assisted only"}</span></div>
             <div className="row-line"><span>Metrics</span><span className={`sev ${channel.metricStatus === "Hold" ? "sev-warn" : "sev-hold"}`}>{channel.metricStatus ?? "Not captured"}</span></div>
-            {channel.metricDetail ? <p style={{ color: "var(--muted)", margin: "0.4rem 0 0" }}>{channel.metricDetail}</p> : null}
+            {channel.metricDetail ? <p className="ink-muted meta-line">{channel.metricDetail}</p> : null}
           </article>
         ))}
       </div>
 
       <div className="workspace-split">
-        <aside className="panel">
+        <aside className="panel draft-form">
           <h2>New draft</h2>
           <p className="hero-kicker">Channel</p>
-          <div className="id-form-actions" style={{ flexWrap: "wrap" }}>
+          <div className="draft-channels" role="group" aria-label="Channel">
             {data.channels.map((channel) => (
               <Button
                 key={channel.platformCode}
@@ -115,7 +115,7 @@ function SocialWorkspaceView({ businessId, data }: { businessId: string; data: S
         </aside>
         <div>
           {data.items.length === 0 ? (
-            <div className="dp-empty dp-surface" style={{ minHeight: "16rem" }}>
+            <div className="dp-empty dp-surface dp-empty-lg">
               <strong>No social drafts</strong>
               <p>Create a Google, Facebook, Instagram, LinkedIn, or YouTube draft. WhatsApp is not listed here.</p>
             </div>
@@ -134,10 +134,10 @@ function SocialWorkspaceView({ businessId, data }: { businessId: string; data: S
             />
           )}
           {selected ? (
-            <article className="panel" style={{ marginTop: "1rem" }}>
+            <article className="panel spaced">
               <p className="hero-kicker">{selected.kind} · {selected.status}</p>
               <h2>{selected.title}</h2>
-              <p style={{ color: "var(--muted)" }}>{selected.body}</p>
+              <p className="ink-muted">{selected.body}</p>
               {selected.verificationDetail ? <p>{selected.verificationDetail}</p> : null}
               <div className="id-form-actions">
                 {selected.status !== "Approved" ? (

@@ -10,6 +10,7 @@ const cssVarMap: Record<string, string> = {
   lineStrong: "--line-strong",
   signal: "--signal",
   signalSoft: "--signal-soft",
+  live: "--live",
   ok: "--ok",
   warn: "--warn",
   crit: "--crit",

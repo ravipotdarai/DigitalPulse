@@ -91,7 +91,7 @@ function IdentityWorkspace({ data }: { data: BusinessIdentity }) {
           ))}
         </nav>
       </header>
-      <p style={{ color: "var(--muted)", margin: 0 }}>{current.hint}</p>
+      <p className="ink-muted flush">{current.hint}</p>
       <AnimatePresence mode="wait">
         <motion.div key={section} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
           {section === "profile" ? <ProfileCard data={data} /> : null}
@@ -200,8 +200,8 @@ function ProfileCard({ data }: { data: BusinessIdentity }) {
   }
 
   return (
-    <form className="panel wizard-form" onSubmit={onSubmit}>
-      <div className="band-2 band">
+    <form className="panel id-settings" onSubmit={onSubmit}>
+      <div className="form-grid">
         <Field label="Business name" value={name} onChange={setName} required />
         <Field label="Website" value={website} onChange={setWebsite} hint="Used to compare listings later." />
         <LedgerSelect
@@ -211,7 +211,7 @@ function ProfileCard({ data }: { data: BusinessIdentity }) {
           options={[{ value: "", label: "Select industry" }, ...data.industries.map((item) => ({ value: item.code, label: item.name }))]}
         />
         <Field label="Founded year" value={foundedYear} onChange={setFoundedYear} type="number" />
-        <div style={{ gridColumn: "1 / -1" }}>
+        <div className="span-all">
           <AreaField label="Brand voice" value={brandVoice} onChange={setBrandVoice} />
         </div>
       </div>

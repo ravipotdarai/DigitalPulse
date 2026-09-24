@@ -1,0 +1,198 @@
+/* DigitalPulse motion system — GPU-friendly, token-driven, reduced-motion safe. */
+
+:root {
+  --dp-dur-instant: 120ms;
+  --dp-rise: 10px;
+  --dp-stagger: 55ms;
+}
+
+@keyframes dpPageIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dpShimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(220%); }
+}
+
+@keyframes dpStatusIn {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes dpScrimIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.route-view { min-height: 48vh; }
+
+.page-view,
+.cc,
+.conn,
+.workspace,
+.command,
+.wizard {
+  animation: dpPageIn var(--dp-dur-slow) var(--dp-ease) both;
+}
+
+/* Buttons and chrome */
+.fui-Button:hover { transform: translateY(-1px); }
+.fui-Button:active { transform: translateY(1px); }
+
+.icon-btn {
+  transition:
+    background var(--dp-dur-fast) var(--dp-ease),
+    color var(--dp-dur-fast) var(--dp-ease),
+    transform var(--dp-dur-fast) var(--dp-ease) !important;
+}
+.icon-btn:hover { transform: translateY(-1px); }
+.icon-btn:active { transform: translateY(1px); }
+
+.search-hit,
+.business-hit {
+  transition: box-shadow var(--dp-dur) var(--dp-ease), background var(--dp-dur-fast) var(--dp-ease), transform var(--dp-dur-fast) var(--dp-ease);
+}
+.search-hit:hover,
+.business-hit:hover { transform: translateY(-1px); }
+
+.os-nav-link {
+  transition:
+    color var(--dp-dur-fast) var(--dp-ease),
+    background var(--dp-dur-fast) var(--dp-ease),
+    transform var(--dp-dur-fast) var(--dp-ease);
+}
+.os-nav-link:hover { transform: translateX(2px); }
+.os-nav-link.is-on { transform: none; }
+
+.os-scrim { animation: dpScrimIn var(--dp-dur) var(--dp-ease) both; }
+
+.fui-MenuPopover,
+.fui-Dropdown__listbox {
+  animation: dpRise var(--dp-dur) var(--dp-ease) both !important;
+}
+
+/* Cards, rows, lists */
+.panel,
+.plan-card,
+.cc-figure,
+.signal-row,
+.watch li,
+.conn-list button,
+.story-step,
+.dp-grid tbody tr {
+  transition:
+    background var(--dp-dur-fast) var(--dp-ease),
+    box-shadow var(--dp-dur) var(--dp-ease),
+    transform var(--dp-dur-fast) var(--dp-ease),
+    border-color var(--dp-dur-fast) var(--dp-ease);
+}
+
+.panel:hover,
+.plan-card:hover,
+.cc-figure:hover {
+  transform: translateY(-2px);
+}
+.draft-form:hover { transform: none; }
+
+.signal-row:hover,
+.conn-list button:hover,
+.watch li:hover,
+.dp-grid tbody tr:hover {
+  background: color-mix(in srgb, var(--dp-text-primary) 3.5%, transparent);
+}
+
+.command-box button {
+  transition: background var(--dp-dur-fast) var(--dp-ease), transform var(--dp-dur-fast) var(--dp-ease);
+}
+.command-box button:hover { transform: translateX(3px); }
+
+/* Overlays — Framer owns enter; keep CSS as fallback when JS is off */
+.veil { animation: none; }
+.command-box { animation: none; }
+.drawer { animation: none; }
+
+/* Status */
+.note-ok,
+.note-err {
+  animation: dpStatusIn var(--dp-dur) var(--dp-ease) both;
+}
+
+.state { animation: dpPageIn var(--dp-dur-slow) var(--dp-ease) both; }
+
+/* Skeletons */
+.sk-page {
+  display: grid;
+  gap: 0.75rem;
+  width: min(42rem, 100%);
+  margin: 0 auto;
+  text-align: left;
+}
+.sk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.85rem;
+  margin-top: 1.25rem;
+}
+.sk {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-2);
+  background: color-mix(in srgb, var(--dp-text-primary) 7%, var(--dp-surface));
+}
+.sk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--dp-text-primary) 10%, transparent),
+    transparent
+  );
+  animation: dpShimmer 1.15s var(--dp-ease) infinite;
+}
+.sk-kicker { width: 7.5rem; height: 0.7rem; }
+.sk-title { width: min(22rem, 90%); height: 2.2rem; }
+.sk-line { height: 0.85rem; }
+.sk-card { height: 5.5rem; }
+
+.loop-stage {
+  animation: dpRise 0.5s var(--dp-ease) both;
+  animation-delay: calc(var(--i, 0) * var(--dp-stagger));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-view,
+  .cc,
+  .conn,
+  .workspace,
+  .command,
+  .wizard,
+  .state,
+  .loop-stage,
+  .note-ok,
+  .note-err,
+  .os-scrim,
+  .fui-MenuPopover,
+  .fui-Dropdown__listbox,
+  .sk::after {
+    animation: none !important;
+  }
+
+  .fui-Button:hover,
+  .icon-btn:hover,
+  .search-hit:hover,
+  .business-hit:hover,
+  .os-nav-link:hover,
+  .panel:hover,
+  .plan-card:hover,
+  .cc-figure:hover,
+  .command-box button:hover {
+    transform: none !important;
+  }
+
+  .sk::after { display: none; }
+}

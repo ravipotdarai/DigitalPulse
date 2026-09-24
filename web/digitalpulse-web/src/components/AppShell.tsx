@@ -1,25 +1,29 @@
-import { Button } from "@fluentui/react-components";
-import { WeatherMoon20Regular, WeatherSunny20Regular } from "@fluentui/react-icons";
+import { Menu, MenuItem, MenuList, MenuPopover, MenuTrigger, MenuDivider } from "@fluentui/react-components";
+import {
+  Alert20Regular,
+  Dismiss20Regular,
+  Navigation20Regular,
+  PanelLeftContract20Regular,
+  PanelLeftExpand20Regular,
+  PersonCircle20Regular,
+  Search20Regular,
+  SignOut20Regular,
+  Sparkle20Regular,
+  WeatherMoon20Regular,
+  WeatherSunny20Regular
+} from "@fluentui/react-icons";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { AssistantDrawer } from "../design/AssistantDrawer";
 import { CommandPalette } from "../design/CommandPalette";
+import { DrawerFrame } from "../design/motion";
+import { linkState } from "../design/platforms";
 import { useSession } from "../state/session";
 import { useUi } from "../state/ui";
 import { ThemeSwitcher, useTheme } from "../theme";
-
-const NAV = [
-  { to: "/app", label: "Command", end: true },
-  { to: "/app/identity", label: "Identity" },
-  { to: "/app/connections", label: "Connections" },
-  { to: "/app/findings", label: "Findings" },
-  { to: "/app/website", label: "Website" },
-  { to: "/app/social", label: "Social" },
-  { to: "/app/directories", label: "Directories" },
-  { to: "/app/projects", label: "Projects" },
-  { to: "/app/info", label: "Workspace" }
-];
+import { NAV_GROUPS, activeNavItem } from "./navigation";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { scheme, setScheme } = useTheme();
@@ -29,6 +33,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const navOpen = useUi((s) => s.navOpen);
   const setNav = useUi((s) => s.setNav);
+  const collapsed = useUi((s) => s.navCollapsed);
+  const setCollapsed = useUi((s) => s.setNavCollapsed);
   const setCommand = useUi((s) => s.setCommand);
   const setAssistant = useUi((s) => s.setAssistant);
   const setNotice = useUi((s) => s.setNotice);
@@ -45,87 +51,152 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     queryFn: () => api.connections(firstId!),
     enabled: Boolean(firstId)
   });
-  const linked = connections.data?.connections ?? [];
-  const healthLabel = linked.some((item) => item.status === "NeedsReauth")
-    ? "Reauth"
-    : linked.some((item) => item.status === "Connected")
-      ? "Granted"
-      : "Offline";
 
+  useEffect(() => setNav(false), [pathname, setNav]);
+
+  const states = (connections.data?.connections ?? []).map(linkState);
+  const pulse = states.includes("failing")
+    ? { tone: "failing", label: "Link failing" }
+    : states.includes("warning")
+      ? { tone: "warning", label: "Needs reauth" }
+      : states.includes("live")
+        ? { tone: "live", label: `${states.filter((s) => s === "live").length} linked` }
+        : { tone: "idle", label: "No links" };
+  const current = activeNavItem(pathname);
   const insights = buildInsights(identity.data);
 
   return (
-    <div className="os">
+    <div className={collapsed ? "os is-collapsed" : "os"}>
+      <a className="skip-link" href="#dp-main">Skip to content</a>
+      {navOpen ? <button type="button" className="os-scrim" aria-label="Close navigation" onClick={() => setNav(false)} /> : null}
       <aside className={navOpen ? "os-nav is-open" : "os-nav"} aria-label="Product">
-        <Link to="/app" className="mark os-mark"><i /><span>DigitalPulse</span></Link>
-        {NAV.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) => (isActive || (item.to === "/app/identity" && pathname.includes("/businesses/")) ? "is-on" : undefined)}
-            onClick={() => setNav(false)}
+        <div className="os-nav-top">
+          <Link to="/app" className="mark os-mark" aria-label="DigitalPulse overview"><i /><span>DigitalPulse</span></Link>
+          <button type="button" className="icon-btn os-nav-close" aria-label="Close navigation" onClick={() => setNav(false)}>
+            <Dismiss20Regular />
+          </button>
+        </div>
+        <nav className="os-nav-groups">
+          {NAV_GROUPS.map((group) => (
+            <div className="os-nav-group" key={group.label}>
+              <p className="os-nav-label">{group.label}</p>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const on = current.to === item.to;
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    className={on ? "os-nav-link is-on" : "os-nav-link"}
+                    aria-current={on ? "page" : undefined}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <Icon aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+        <div className="os-nav-foot">
+          <div className="os-tenant">
+            <span className="os-tenant-name">{profile?.tenantName ?? "Workspace"}</span>
+            <span className="os-tenant-type">{profile?.tenantType ?? ""}</span>
+          </div>
+          <button
+            type="button"
+            className="icon-btn os-collapse"
+            aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+            aria-pressed={collapsed}
+            onClick={() => setCollapsed(!collapsed)}
           >
-            {item.label}
-          </NavLink>
-        ))}
-        <div className="os-tenant ink-muted">
-          {profile?.tenantName ?? "Workspace"}
-          <br />
-          {profile?.tenantType ?? ""}
+            {collapsed ? <PanelLeftExpand20Regular /> : <PanelLeftContract20Regular />}
+          </button>
         </div>
       </aside>
 
       <header className="os-head">
-        <Button appearance="subtle" className="os-menu" onClick={() => setNav(!navOpen)} aria-label="Open navigation">Menu</Button>
+        <button type="button" className="icon-btn os-menu" aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNav(true)}>
+          <Navigation20Regular />
+        </button>
+        <p className="os-crumb" aria-live="polite">{current.label}</p>
         <button type="button" className="search-hit" onClick={() => setCommand(true)}>
-          <span>Search the OS</span>
+          <Search20Regular aria-hidden="true" />
+          <span>Search DigitalPulse</span>
           <kbd>Ctrl K</kbd>
         </button>
-        <span className="health-pill" title="Development grants only. Production provider APIs are not configured.">
-          <i className={healthLabel === "Granted" ? "is-ok" : healthLabel === "Reauth" ? "is-warn" : undefined} />
-          {healthLabel}
+        <span className={`pulse-chip is-${pulse.tone}`} title="Connection state across authorized platforms. Development grants only.">
+          <i aria-hidden="true" />
+          {pulse.label}
         </span>
-        <select
-          aria-label="Business"
-          className="search-hit business-hit"
-          value={businesses.data?.[0]?.id ?? ""}
-          onChange={(event) => navigate(`/app/businesses/${event.target.value}`)}
-        >
-          {(businesses.data ?? []).map((business) => (
-            <option key={business.id} value={business.id}>{business.name}</option>
-          ))}
-          {!businesses.data?.length ? <option value="">No business</option> : null}
-        </select>
-        <Button appearance="subtle" onClick={() => setAssistant(true)}>Insights</Button>
-        <Button appearance="subtle" onClick={() => setNotice(!noticeOpen)}>Signals</Button>
+        {(businesses.data?.length ?? 0) > 1 ? (
+          <select
+            aria-label="Business"
+            className="business-hit"
+            value={firstId ?? ""}
+            onChange={(event) => navigate(`/app/businesses/${event.target.value}`)}
+          >
+            {(businesses.data ?? []).map((business) => (
+              <option key={business.id} value={business.id}>{business.name}</option>
+            ))}
+          </select>
+        ) : (
+          <span className="business-name">{businesses.data?.[0]?.name ?? "No business"}</span>
+        )}
+        <button type="button" className="icon-btn" aria-label="Open AI brief" onClick={() => setAssistant(true)}>
+          <Sparkle20Regular />
+        </button>
+        <button type="button" className="icon-btn" aria-label="Open signals" aria-pressed={noticeOpen} onClick={() => setNotice(!noticeOpen)}>
+          <Alert20Regular />
+        </button>
+        <Menu>
+          <MenuTrigger disableButtonEnhancement>
+            <button type="button" className="icon-btn" aria-label="Account and display">
+              <PersonCircle20Regular />
+            </button>
+          </MenuTrigger>
+          <MenuPopover>
+            <MenuList>
+              <MenuItem disabled>{profile?.displayName ?? profile?.email ?? "Account"}</MenuItem>
+              <MenuItem
+                icon={scheme === "dark" ? <WeatherSunny20Regular /> : <WeatherMoon20Regular />}
+                onClick={() => setScheme(scheme === "dark" ? "light" : "dark")}
+              >
+                {scheme === "dark" ? "Light scheme" : "Dark scheme"}
+              </MenuItem>
+              <MenuDivider />
+              <MenuItem
+                icon={<SignOut20Regular />}
+                onClick={async () => {
+                  await api.logout().catch(() => undefined);
+                  clear();
+                  navigate("/");
+                }}
+              >
+                Sign out
+              </MenuItem>
+            </MenuList>
+          </MenuPopover>
+        </Menu>
         <ThemeSwitcher />
-        <Button
-          appearance="subtle"
-          icon={scheme === "dark" ? <WeatherSunny20Regular /> : <WeatherMoon20Regular />}
-          onClick={() => setScheme(scheme === "dark" ? "light" : "dark")}
-          aria-label={scheme === "dark" ? "Switch to light scheme" : "Switch to dark scheme"}
-        />
-        <Button appearance="subtle" onClick={async () => { await api.logout().catch(() => undefined); clear(); navigate("/"); }}>
-          Sign out
-        </Button>
       </header>
 
-      <main className="os-main">{children}</main>
+      <main className="os-main" id="dp-main">{children}</main>
       <CommandPalette />
       <AssistantDrawer insights={insights} />
-      {noticeOpen ? (
-        <aside className="drawer" aria-label="Signals">
-          <div className="flex items-center justify-between">
-            <p className="hero-kicker kicker-flush">Signals</p>
-            <Button appearance="subtle" onClick={() => setNotice(false)}>Close</Button>
-          </div>
-          <div className="dp-empty">
-            <strong>No signals yet</strong>
-            <p>Monitoring starts after platforms are connected and authorized.</p>
-          </div>
-        </aside>
-      ) : null}
+      <DrawerFrame open={noticeOpen} label="Signals">
+        <div className="drawer-head">
+          <p className="hero-kicker kicker-flush">Signals</p>
+          <button type="button" className="icon-btn" aria-label="Close signals" onClick={() => setNotice(false)}><Dismiss20Regular /></button>
+        </div>
+        <div className="dp-empty">
+          <strong>Live monitoring is not running</strong>
+          <p>Signals from DigitalPulse Check live on the Signals page. Continuous monitoring starts once provider APIs are live.</p>
+        </div>
+        <Link className="text-link" to="/app/findings" onClick={() => setNotice(false)}>Open signals</Link>
+      </DrawerFrame>
     </div>
   );
 }
