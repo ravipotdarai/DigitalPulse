@@ -47,6 +47,7 @@ app.MapDirectoryEndpoints();
 app.MapProjectEndpoints();
 app.MapAiEndpoints();
 app.MapActionEndpoints();
+app.MapWhatsAppEndpoints();
 app.MapBillingAndOnboardingEndpoints();
 
 if (app.Environment.IsDevelopment())
@@ -73,6 +74,7 @@ if (app.Environment.IsDevelopment())
         await ProjectSchemaUpgrader.EnsureAsync(db);
         await AiSchemaUpgrader.EnsureAsync(db);
         await ActionSchemaUpgrader.EnsureAsync(db);
+        await WhatsAppSchemaUpgrader.EnsureAsync(db);
     }
     else
     {

@@ -57,4 +57,12 @@ public sealed class EntitlementRulesTests
         var ex = Assert.Throws<InvalidOperationException>(() => EntitlementRules.EnsureCanRunAction(plan, 25));
         Assert.Contains("25 action", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Starter_cannot_use_whatsapp()
+    {
+        var plan = SubscriptionPlan.Create("STARTER", "Starter", 2999m, 1, false, 1, 5, 2, 25, false, 0);
+        var ex = Assert.Throws<InvalidOperationException>(() => EntitlementRules.EnsureCanUseWhatsApp(plan));
+        Assert.Contains("does not include WhatsApp", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }

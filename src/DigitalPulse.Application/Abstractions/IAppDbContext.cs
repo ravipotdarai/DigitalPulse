@@ -10,6 +10,7 @@ using DigitalPulse.Domain.Directories;
 using DigitalPulse.Domain.Projects;
 using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
+using DigitalPulse.Domain.WhatsApp;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigitalPulse.Application.Abstractions;
@@ -62,6 +63,14 @@ public interface IAppDbContext
     DbSet<WorkAction> WorkActions { get; }
     DbSet<ActionAttempt> ActionAttempts { get; }
     DbSet<ActionVerification> ActionVerifications { get; }
+    DbSet<WhatsAppAccount> WhatsAppAccounts { get; }
+    DbSet<WhatsAppContact> WhatsAppContacts { get; }
+    DbSet<WhatsAppTemplate> WhatsAppTemplates { get; }
+    DbSet<WhatsAppCampaign> WhatsAppCampaigns { get; }
+    DbSet<WhatsAppConversation> WhatsAppConversations { get; }
+    DbSet<WhatsAppMessage> WhatsAppMessages { get; }
+    DbSet<WhatsAppMessageAttempt> WhatsAppMessageAttempts { get; }
+    DbSet<WhatsAppWebhookEvent> WhatsAppWebhookEvents { get; }
 
     Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

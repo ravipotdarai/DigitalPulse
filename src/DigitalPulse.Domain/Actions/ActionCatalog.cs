@@ -11,7 +11,9 @@ public enum ActionKind
     RefreshSocialMetrics = 4,
     MonitorDirectory = 5,
     PublishSocial = 6,
-    VerifyDirectory = 7
+    VerifyDirectory = 7,
+    SendWhatsAppTemplate = 8,
+    SendWhatsAppSession = 9
 }
 
 public enum ActionRisk
@@ -62,7 +64,9 @@ public static class ActionKindCatalog
         new(ActionKind.RefreshSocialMetrics, "refresh-social-metrics", "Refresh social metrics", ActionRisk.Medium, false, "Asks the adapter for metrics. Development grants stay unavailable."),
         new(ActionKind.MonitorDirectory, "monitor-directory", "Monitor directory", ActionRisk.Low, false, "Assisted directory watch. Official reads are not invented."),
         new(ActionKind.PublishSocial, "publish-social", "Publish social", ActionRisk.High, true, "External write. Holds unless a live publish adapter exists."),
-        new(ActionKind.VerifyDirectory, "verify-directory", "Verify directory", ActionRisk.High, true, "Operator-confirmed directory verification. Not an unofficial write.")
+        new(ActionKind.VerifyDirectory, "verify-directory", "Verify directory", ActionRisk.High, true, "Operator-confirmed directory verification. Not an unofficial write."),
+        new(ActionKind.SendWhatsAppTemplate, "send-whatsapp-template", "Send WhatsApp template", ActionRisk.High, true, "Cloud API template send. Opt-in and approval required. Unofficial clients are out of scope."),
+        new(ActionKind.SendWhatsAppSession, "send-whatsapp-session", "Send WhatsApp session reply", ActionRisk.High, true, "Cloud API session reply inside the 24-hour window. Never an unofficial send.")
     ];
 
     public static ActionKindDescriptor Require(string code) =>

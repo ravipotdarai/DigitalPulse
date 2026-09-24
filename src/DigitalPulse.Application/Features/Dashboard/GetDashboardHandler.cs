@@ -1,6 +1,7 @@
 using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Contracts.Onboarding;
+using DigitalPulse.Domain.WhatsApp;
 using DigitalPulse.Domain.Actions;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Billing;
@@ -93,6 +94,8 @@ public sealed class GetDashboardHandler
             await _db.AiRuns.CountAsync(r => r.TenantId == tenantId, cancellationToken),
             await _db.AiRuns.CountAsync(r => r.TenantId == tenantId && r.Status != AiRunStatus.Completed, cancellationToken),
             await _db.WorkActions.CountAsync(a => a.TenantId == tenantId && a.Status != ActionStatus.Verified && a.Status != ActionStatus.Escalated, cancellationToken),
-            await _db.WorkActions.CountAsync(a => a.TenantId == tenantId && (a.Status == ActionStatus.Assisted || a.Status == ActionStatus.Failed || a.Status == ActionStatus.PendingApproval), cancellationToken));
+            await _db.WorkActions.CountAsync(a => a.TenantId == tenantId && (a.Status == ActionStatus.Assisted || a.Status == ActionStatus.Failed || a.Status == ActionStatus.PendingApproval), cancellationToken),
+            await _db.WhatsAppContacts.CountAsync(c => c.TenantId == tenantId && c.Consent == WhatsAppConsentStatus.OptedIn, cancellationToken),
+            await _db.WhatsAppMessages.CountAsync(m => m.TenantId == tenantId && (m.Status == WhatsAppMessageStatus.Held || m.Status == WhatsAppMessageStatus.Failed), cancellationToken));
     }
 }

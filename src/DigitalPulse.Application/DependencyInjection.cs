@@ -15,6 +15,8 @@ using DigitalPulse.Application.Features.Directories;
 using DigitalPulse.Application.Features.Projects;
 using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Application.Features.Website;
+using DigitalPulse.Application.Features.WhatsApp;
+using DigitalPulse.Contracts.WhatsApp;
 using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
@@ -109,6 +111,22 @@ public static class DependencyInjection
         services.AddScoped<ExecuteActionHandler>();
         services.AddScoped<RetryActionHandler>();
         services.AddScoped<VerifyActionHandler>();
+        services.AddScoped<GetWhatsAppWorkspaceHandler>();
+        services.AddScoped<ConnectWhatsAppHandler>();
+        services.AddScoped<VerifyWhatsAppPhoneHandler>();
+        services.AddScoped<ImportWhatsAppContactsHandler>();
+        services.AddScoped<SetWhatsAppConsentHandler>();
+        services.AddScoped<CreateWhatsAppTemplateHandler>();
+        services.AddScoped<ApproveWhatsAppTemplateHandler>();
+        services.AddScoped<CreateWhatsAppCampaignHandler>();
+        services.AddScoped<ApproveWhatsAppCampaignHandler>();
+        services.AddScoped<ScheduleWhatsAppCampaignHandler>();
+        services.AddScoped<DraftWhatsAppMessageHandler>();
+        services.AddScoped<DraftWhatsAppAiHandler>();
+        services.AddScoped<ApproveWhatsAppMessageHandler>();
+        services.AddScoped<SendWhatsAppMessageHandler>();
+        services.AddScoped<RecordWhatsAppInboundHandler>();
+        services.AddScoped<ReplyWhatsAppHandler>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         return services;
     }
@@ -365,5 +383,33 @@ public sealed class RunAiRequestValidator : AbstractValidator<RunAiRequest>
     {
         RuleFor(x => x.Agent).NotEmpty().MaximumLength(32);
         RuleFor(x => x.Prompt).NotEmpty().MinimumLength(4).MaximumLength(4000);
+    }
+}
+
+public sealed class ConnectWhatsAppRequestValidator : AbstractValidator<ConnectWhatsAppRequest>
+{
+    public ConnectWhatsAppRequestValidator()
+    {
+        RuleFor(x => x.DisplayName).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.PhoneNumber).NotEmpty().MaximumLength(32);
+    }
+}
+
+public sealed class CreateWhatsAppTemplateRequestValidator : AbstractValidator<CreateWhatsAppTemplateRequest>
+{
+    public CreateWhatsAppTemplateRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(80);
+        RuleFor(x => x.Body).NotEmpty().MinimumLength(3).MaximumLength(1024);
+    }
+}
+
+public sealed class DraftWhatsAppMessageRequestValidator : AbstractValidator<DraftWhatsAppMessageRequest>
+{
+    public DraftWhatsAppMessageRequestValidator()
+    {
+        RuleFor(x => x.ContactId).NotEmpty();
+        RuleFor(x => x.Kind).NotEmpty();
+        RuleFor(x => x.Body).NotEmpty().MinimumLength(3).MaximumLength(4000);
     }
 }

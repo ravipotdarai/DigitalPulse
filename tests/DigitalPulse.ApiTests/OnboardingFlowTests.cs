@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using DigitalPulse.Contracts.WhatsApp;
 using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Ai;
 using DigitalPulse.Contracts.Auth;
@@ -870,6 +871,112 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
             $"/v1/businesses/{userA.BusinessId}/actions/{body.Id}/execute",
             new { });
         Assert.Equal(HttpStatusCode.NotFound, execute.StatusCode);
+    }
+
+    [Fact]
+    public async Task Starter_plan_cannot_connect_whatsapp()
+    {
+        var session = await RegisterAndOnboard("Direct", "Starter WhatsApp");
+        UseToken(session.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var connect = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/whatsapp/connect",
+            new ConnectWhatsAppRequest("Starter Cafe", "+912200000000"));
+        Assert.Equal(HttpStatusCode.BadRequest, connect.StatusCode);
+    }
+
+    [Fact]
+    public async Task WhatsApp_holds_sends_without_cloud_api_and_enforces_consent()
+    {
+        var session = await RegisterAndOnboard("Direct", "WhatsApp Co");
+        UseToken(session.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("GROWTH"));
+        await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/customers",
+            new CustomerRequest("Priya Shah", "+912211110001", null, null));
+
+        var connected = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/whatsapp/connect",
+            new ConnectWhatsAppRequest("Harbour Roast", "+912200000111"));
+        connected.EnsureSuccessStatusCode();
+        var workspace = await connected.Content.ReadFromJsonAsync<WhatsAppWorkspaceResponse>();
+        Assert.True(workspace!.PlanEnabled);
+        Assert.False(workspace.Account!.CloudApiIsLive);
+        Assert.Equal(2000, workspace.MessagesPerMonth);
+
+        var imported = await _client.PostAsync($"/v1/businesses/{session.BusinessId}/whatsapp/contacts/import", null);
+        imported.EnsureSuccessStatusCode();
+        workspace = await imported.Content.ReadFromJsonAsync<WhatsAppWorkspaceResponse>();
+        var contact = Assert.Single(workspace!.Contacts);
+        Assert.Equal("Unknown", contact.Consent);
+
+        var template = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/whatsapp/templates",
+            new CreateWhatsAppTemplateRequest("utility_update", "en", "UTILITY", "Your order is ready at the counter."));
+        template.EnsureSuccessStatusCode();
+        var saved = await template.Content.ReadFromJsonAsync<WhatsAppTemplateResponse>();
+        await _client.PostAsJsonAsync($"/v1/businesses/{session.BusinessId}/whatsapp/templates/{saved!.Id}/approve", new { });
+
+        var blocked = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/whatsapp/messages",
+            new DraftWhatsAppMessageRequest(contact.Id, "Template", "Your order is ready at the counter.", saved.Id));
+        blocked.EnsureSuccessStatusCode();
+        var draft = await blocked.Content.ReadFromJsonAsync<WhatsAppMessageResponse>();
+        await _client.PostAsJsonAsync($"/v1/businesses/{session.BusinessId}/whatsapp/messages/{draft!.Id}/approve", new { });
+        var sendBlocked = await _client.PostAsJsonAsync($"/v1/businesses/{session.BusinessId}/whatsapp/messages/{draft.Id}/send", new { });
+        sendBlocked.EnsureSuccessStatusCode();
+        var failed = await sendBlocked.Content.ReadFromJsonAsync<WhatsAppMessageResponse>();
+        Assert.Equal("Failed", failed!.Status);
+        Assert.Contains("opt-in", failed.HoldReason, StringComparison.OrdinalIgnoreCase);
+
+        await _client.PostAsync($"/v1/businesses/{session.BusinessId}/whatsapp/contacts/{contact.Id}/opt-in", null);
+        var sendHeld = await _client.PostAsJsonAsync($"/v1/businesses/{session.BusinessId}/whatsapp/messages/{draft.Id}/send", new { });
+        sendHeld.EnsureSuccessStatusCode();
+        var held = await sendHeld.Content.ReadFromJsonAsync<WhatsAppMessageResponse>();
+        Assert.Equal("Held", held!.Status);
+        Assert.Contains("not configured", held.HoldReason, StringComparison.OrdinalIgnoreCase);
+        Assert.NotEmpty(held.Attempts);
+
+        var inbound = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/whatsapp/inbound",
+            new RecordWhatsAppInboundRequest(contact.Id, "Can I collect after 6?"));
+        inbound.EnsureSuccessStatusCode();
+        var afterInbound = await inbound.Content.ReadFromJsonAsync<WhatsAppWorkspaceResponse>();
+        Assert.Contains(afterInbound!.Contacts, c => c.WindowOpen);
+        Assert.Contains(afterInbound.Messages, m => m.Kind == "Inbound" && m.Untrusted);
+
+        var sessionReply = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/whatsapp/conversations/{afterInbound.Conversations[0].Id}/reply",
+            new ReplyWhatsAppRequest("Yes, the counter stays open until 7."));
+        sessionReply.EnsureSuccessStatusCode();
+        var reply = await sessionReply.Content.ReadFromJsonAsync<WhatsAppMessageResponse>();
+        Assert.Equal("Held", reply!.Status);
+        Assert.Equal("Session", reply.Kind);
+
+        var dashboard = await _client.GetFromJsonAsync<DashboardResponse>("/v1/dashboard");
+        Assert.True(dashboard!.WhatsAppOptInCount >= 1);
+        Assert.True(dashboard.WhatsAppHeldCount >= 1);
+    }
+
+    [Fact]
+    public async Task WhatsApp_stays_isolated_across_tenants()
+    {
+        var userA = await RegisterAndOnboard("Direct", "Alpha WhatsApp");
+        UseToken(userA.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("GROWTH"));
+        await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/whatsapp/connect",
+            new ConnectWhatsAppRequest("Alpha", "+912200000222"));
+
+        var userB = await RegisterAndOnboard("Direct", "Beta WhatsApp");
+        UseToken(userB.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("GROWTH"));
+        var peek = await _client.GetAsync($"/v1/businesses/{userA.BusinessId}/whatsapp");
+        Assert.Equal(HttpStatusCode.NotFound, peek.StatusCode);
+        var steal = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/whatsapp/connect",
+            new ConnectWhatsAppRequest("Stolen", "+912200000333"));
+        Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
     }
 
     [Fact]

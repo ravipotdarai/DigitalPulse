@@ -11,6 +11,8 @@ public sealed class SubscriptionPlan : Entity
     public int MaxConnections { get; private set; } = 5;
     public int ScansPerMonth { get; private set; } = 2;
     public int ActionsPerMonth { get; private set; } = 25;
+    public bool WhatsAppEnabled { get; private set; }
+    public int WhatsAppMessagesPerMonth { get; private set; }
     public bool AgencyOnly { get; private set; }
     public int SortOrder { get; private set; }
 
@@ -25,7 +27,9 @@ public sealed class SubscriptionPlan : Entity
         int sortOrder,
         int maxConnections = 5,
         int scansPerMonth = 2,
-        int actionsPerMonth = 25)
+        int actionsPerMonth = 25,
+        bool whatsAppEnabled = false,
+        int whatsAppMessagesPerMonth = 0)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -34,6 +38,7 @@ public sealed class SubscriptionPlan : Entity
         if (maxConnections < 0) throw new ArgumentOutOfRangeException(nameof(maxConnections));
         if (scansPerMonth < 0) throw new ArgumentOutOfRangeException(nameof(scansPerMonth));
         if (actionsPerMonth < 0) throw new ArgumentOutOfRangeException(nameof(actionsPerMonth));
+        if (whatsAppMessagesPerMonth < 0) throw new ArgumentOutOfRangeException(nameof(whatsAppMessagesPerMonth));
 
         return new SubscriptionPlan
         {
@@ -44,6 +49,8 @@ public sealed class SubscriptionPlan : Entity
             MaxConnections = maxConnections,
             ScansPerMonth = scansPerMonth,
             ActionsPerMonth = actionsPerMonth,
+            WhatsAppEnabled = whatsAppEnabled,
+            WhatsAppMessagesPerMonth = whatsAppMessagesPerMonth,
             AgencyOnly = agencyOnly,
             SortOrder = sortOrder
         };

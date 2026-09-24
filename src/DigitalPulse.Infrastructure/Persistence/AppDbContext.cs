@@ -12,6 +12,7 @@ using DigitalPulse.Domain.Directories;
 using DigitalPulse.Domain.Projects;
 using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
+using DigitalPulse.Domain.WhatsApp;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigitalPulse.Infrastructure.Persistence;
@@ -72,6 +73,14 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<WorkAction> WorkActions => Set<WorkAction>();
     public DbSet<ActionAttempt> ActionAttempts => Set<ActionAttempt>();
     public DbSet<ActionVerification> ActionVerifications => Set<ActionVerification>();
+    public DbSet<WhatsAppAccount> WhatsAppAccounts => Set<WhatsAppAccount>();
+    public DbSet<WhatsAppContact> WhatsAppContacts => Set<WhatsAppContact>();
+    public DbSet<WhatsAppTemplate> WhatsAppTemplates => Set<WhatsAppTemplate>();
+    public DbSet<WhatsAppCampaign> WhatsAppCampaigns => Set<WhatsAppCampaign>();
+    public DbSet<WhatsAppConversation> WhatsAppConversations => Set<WhatsAppConversation>();
+    public DbSet<WhatsAppMessage> WhatsAppMessages => Set<WhatsAppMessage>();
+    public DbSet<WhatsAppMessageAttempt> WhatsAppMessageAttempts => Set<WhatsAppMessageAttempt>();
+    public DbSet<WhatsAppWebhookEvent> WhatsAppWebhookEvents => Set<WhatsAppWebhookEvent>();
 
     public Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken) =>
         Connections.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.AuthorizationState == state, cancellationToken);
@@ -122,6 +131,14 @@ public sealed class AppDbContext : DbContext, IAppDbContext
         ApplyTenantFilter<WorkAction>(modelBuilder);
         ApplyTenantFilter<ActionAttempt>(modelBuilder);
         ApplyTenantFilter<ActionVerification>(modelBuilder);
+        ApplyTenantFilter<WhatsAppAccount>(modelBuilder);
+        ApplyTenantFilter<WhatsAppContact>(modelBuilder);
+        ApplyTenantFilter<WhatsAppTemplate>(modelBuilder);
+        ApplyTenantFilter<WhatsAppCampaign>(modelBuilder);
+        ApplyTenantFilter<WhatsAppConversation>(modelBuilder);
+        ApplyTenantFilter<WhatsAppMessage>(modelBuilder);
+        ApplyTenantFilter<WhatsAppMessageAttempt>(modelBuilder);
+        ApplyTenantFilter<WhatsAppWebhookEvent>(modelBuilder);
     }
 
     private void ApplyTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : TenantOwnedEntity =>

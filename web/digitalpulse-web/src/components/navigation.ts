@@ -8,6 +8,7 @@ import {
   Pulse20Regular,
   Radar20Regular,
   Settings20Regular,
+  Chat20Regular,
   Flash20Regular,
   Sparkle20Regular
 } from "@fluentui/react-icons";
@@ -39,6 +40,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/app/website", label: "Website & search", icon: Globe20Regular },
       { to: "/app/social", label: "Social", icon: Megaphone20Regular },
+      { to: "/app/whatsapp", label: "WhatsApp", icon: Chat20Regular },
       { to: "/app/directories", label: "Directories", icon: BuildingShop20Regular }
     ]
   },

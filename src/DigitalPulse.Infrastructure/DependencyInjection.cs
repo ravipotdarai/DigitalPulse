@@ -4,6 +4,7 @@ using DigitalPulse.Infrastructure.Auth;
 using DigitalPulse.Infrastructure.Billing;
 using DigitalPulse.Infrastructure.Persistence;
 using DigitalPulse.Infrastructure.Platforms;
+using DigitalPulse.Infrastructure.WhatsApp;
 using DigitalPulse.Infrastructure.Scanning;
 using DigitalPulse.Infrastructure.Search;
 using DigitalPulse.Infrastructure.Tenancy;
@@ -55,6 +56,20 @@ public static class DependencyInjection
         else
         {
             services.AddSingleton<IAiProvider, DevelopmentAiProvider>();
+        }
+        var whatsAppToken = configuration["WhatsApp:CloudApi:AccessToken"];
+        if (!string.IsNullOrWhiteSpace(whatsAppToken))
+        {
+            services.AddHttpClient<IWhatsAppCloudApi, LiveWhatsAppCloudApi>(client =>
+            {
+                client.BaseAddress = new Uri(configuration["WhatsApp:CloudApi:BaseUrl"] ?? "https://graph.facebook.com/v21.0/");
+                client.Timeout = TimeSpan.FromSeconds(20);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("DigitalPulse-WhatsApp/1.0");
+            });
+        }
+        else
+        {
+            services.AddSingleton<IWhatsAppCloudApi, DevelopmentWhatsAppCloudApi>();
         }
         if (configuration.GetValue<bool>("Testing:UseInMemory"))
         {

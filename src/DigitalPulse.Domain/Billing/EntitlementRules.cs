@@ -37,4 +37,21 @@ public static class EntitlementRules
             throw new InvalidOperationException($"Plan {plan.Code} allows {plan.ActionsPerMonth} action(s) this month.");
         }
     }
+
+    public static void EnsureCanUseWhatsApp(SubscriptionPlan plan)
+    {
+        if (!plan.WhatsAppEnabled)
+        {
+            throw new InvalidOperationException($"Plan {plan.Code} does not include WhatsApp Business Messaging.");
+        }
+    }
+
+    public static void EnsureCanSendWhatsApp(SubscriptionPlan plan, int messagesThisMonth)
+    {
+        EnsureCanUseWhatsApp(plan);
+        if (messagesThisMonth >= plan.WhatsAppMessagesPerMonth)
+        {
+            throw new InvalidOperationException($"Plan {plan.Code} allows {plan.WhatsAppMessagesPerMonth} WhatsApp message(s) this month.");
+        }
+    }
 }

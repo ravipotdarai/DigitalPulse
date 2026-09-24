@@ -105,6 +105,8 @@ export type DashboardResponse = {
   aiHeldCount: number;
   actionOpenCount: number;
   actionHeldCount: number;
+  whatsAppOptInCount: number;
+  whatsAppHeldCount: number;
 };
 
 export class ApiError extends Error {
@@ -318,7 +320,40 @@ export const api = {
   retryAction: (businessId: string, actionId: string) =>
     request<WorkAction>(`/v1/businesses/${businessId}/actions/${actionId}/retry`, { method: "POST" }),
   verifyAction: (businessId: string, actionId: string) =>
-    request<WorkAction>(`/v1/businesses/${businessId}/actions/${actionId}/verify`, { method: "POST" })
+    request<WorkAction>(`/v1/businesses/${businessId}/actions/${actionId}/verify`, { method: "POST" }),
+  whatsapp: (businessId: string) => request<WhatsAppWorkspace>(`/v1/businesses/${businessId}/whatsapp`),
+  connectWhatsApp: (businessId: string, body: { displayName: string; phoneNumber: string }) =>
+    request<WhatsAppWorkspace>(`/v1/businesses/${businessId}/whatsapp/connect`, { method: "POST", body: JSON.stringify(body) }),
+  verifyWhatsAppPhone: (businessId: string) =>
+    request<WhatsAppWorkspace>(`/v1/businesses/${businessId}/whatsapp/phone/verify`, { method: "POST" }),
+  importWhatsAppContacts: (businessId: string) =>
+    request<WhatsAppWorkspace>(`/v1/businesses/${businessId}/whatsapp/contacts/import`, { method: "POST" }),
+  optInWhatsApp: (businessId: string, contactId: string) =>
+    request<WhatsAppWorkspace>(`/v1/businesses/${businessId}/whatsapp/contacts/${contactId}/opt-in`, { method: "POST" }),
+  optOutWhatsApp: (businessId: string, contactId: string) =>
+    request<WhatsAppWorkspace>(`/v1/businesses/${businessId}/whatsapp/contacts/${contactId}/opt-out`, { method: "POST" }),
+  createWhatsAppTemplate: (businessId: string, body: { name: string; language: string; category: string; body: string }) =>
+    request<WhatsAppTemplate>(`/v1/businesses/${businessId}/whatsapp/templates`, { method: "POST", body: JSON.stringify(body) }),
+  approveWhatsAppTemplate: (businessId: string, templateId: string) =>
+    request<WhatsAppTemplate>(`/v1/businesses/${businessId}/whatsapp/templates/${templateId}/approve`, { method: "POST" }),
+  createWhatsAppCampaign: (businessId: string, body: { name: string; templateId: string }) =>
+    request<WhatsAppCampaign>(`/v1/businesses/${businessId}/whatsapp/campaigns`, { method: "POST", body: JSON.stringify(body) }),
+  approveWhatsAppCampaign: (businessId: string, campaignId: string) =>
+    request<WhatsAppCampaign>(`/v1/businesses/${businessId}/whatsapp/campaigns/${campaignId}/approve`, { method: "POST" }),
+  scheduleWhatsAppCampaign: (businessId: string, campaignId: string, scheduledAtUtc: string) =>
+    request<WhatsAppCampaign>(`/v1/businesses/${businessId}/whatsapp/campaigns/${campaignId}/schedule`, { method: "POST", body: JSON.stringify({ scheduledAtUtc }) }),
+  draftWhatsApp: (businessId: string, body: { contactId: string; kind: string; body: string; templateId: string | null }) =>
+    request<WhatsAppMessage>(`/v1/businesses/${businessId}/whatsapp/messages`, { method: "POST", body: JSON.stringify(body) }),
+  draftWhatsAppAi: (businessId: string, body: { contactId: string; kind: string; prompt: string; templateId: string | null }) =>
+    request<WhatsAppMessage>(`/v1/businesses/${businessId}/whatsapp/messages/draft-ai`, { method: "POST", body: JSON.stringify(body) }),
+  approveWhatsAppMessage: (businessId: string, messageId: string) =>
+    request<WhatsAppMessage>(`/v1/businesses/${businessId}/whatsapp/messages/${messageId}/approve`, { method: "POST" }),
+  sendWhatsAppMessage: (businessId: string, messageId: string) =>
+    request<WhatsAppMessage>(`/v1/businesses/${businessId}/whatsapp/messages/${messageId}/send`, { method: "POST" }),
+  recordWhatsAppInbound: (businessId: string, body: { contactId: string; body: string }) =>
+    request<WhatsAppWorkspace>(`/v1/businesses/${businessId}/whatsapp/inbound`, { method: "POST", body: JSON.stringify(body) }),
+  replyWhatsApp: (businessId: string, conversationId: string, body: string) =>
+    request<WhatsAppMessage>(`/v1/businesses/${businessId}/whatsapp/conversations/${conversationId}/reply`, { method: "POST", body: JSON.stringify({ body }) })
 };
 
 export type PlatformCapabilities = {
@@ -673,4 +708,79 @@ export type ActionWorkspace = {
   note: string;
   kinds: ActionKind[];
   actions: WorkAction[];
+};
+export type WhatsAppAccount = {
+  id: string;
+  displayName: string;
+  phoneNumber: string;
+  status: string;
+  phoneStatus: string;
+  connected: boolean;
+  phoneVerified: boolean;
+  holdReason: string;
+  wabaId: string | null;
+  lastHealthAtUtc: string | null;
+  lastHealthDetail: string | null;
+  cloudApiIsLive: boolean;
+  cloudApiName: string;
+};
+export type WhatsAppContact = {
+  id: string;
+  displayName: string;
+  mobile: string;
+  consent: string;
+  optedInAtUtc: string | null;
+  optedOutAtUtc: string | null;
+  lastInboundAtUtc: string | null;
+  windowOpen: boolean;
+  customerId: string | null;
+};
+export type WhatsAppTemplate = {
+  id: string;
+  name: string;
+  language: string;
+  category: string;
+  body: string;
+  status: string;
+  holdReason: string;
+};
+export type WhatsAppCampaign = {
+  id: string;
+  templateId: string;
+  name: string;
+  status: string;
+  scheduledAtUtc: string | null;
+  holdReason: string;
+  audienceCount: number;
+  sendCount: number;
+  heldCount: number;
+  failedCount: number;
+};
+export type WhatsAppMessage = {
+  id: string;
+  contactId: string;
+  conversationId: string | null;
+  campaignId: string | null;
+  templateId: string | null;
+  kind: string;
+  status: string;
+  body: string;
+  holdReason: string;
+  untrusted: boolean;
+  providerMessageId: string | null;
+  createdAtUtc: string;
+  attempts: { ordinal: number; outcome: string; detail: string; atUtc: string }[];
+};
+export type WhatsAppWorkspace = {
+  planEnabled: boolean;
+  messagesPerMonth: number;
+  messagesUsedThisMonth: number;
+  note: string;
+  account: WhatsAppAccount | null;
+  analytics: { optedIn: number; optedOut: number; templatesApproved: number; campaigns: number; messagesHeld: number; messagesFailed: number; inboundUntrusted: number; deliveryNote: string };
+  contacts: WhatsAppContact[];
+  templates: WhatsAppTemplate[];
+  campaigns: WhatsAppCampaign[];
+  conversations: { id: string; contactId: string; windowOpen: boolean; messages: WhatsAppMessage[] }[];
+  messages: WhatsAppMessage[];
 };

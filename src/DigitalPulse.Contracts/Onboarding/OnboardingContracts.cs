@@ -32,7 +32,9 @@ public sealed record DashboardResponse(
     int AiRunCount,
     int AiHeldCount,
     int ActionOpenCount,
-    int ActionHeldCount);
+    int ActionHeldCount,
+    int WhatsAppOptInCount,
+    int WhatsAppHeldCount);
 
 public sealed record DashboardBusinessResponse(
     Guid Id,

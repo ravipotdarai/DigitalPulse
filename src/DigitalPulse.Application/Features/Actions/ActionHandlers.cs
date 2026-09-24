@@ -6,6 +6,7 @@ using DigitalPulse.Application.Features.Identity;
 using DigitalPulse.Application.Features.Scans;
 using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Application.Features.Website;
+using DigitalPulse.Application.Features.WhatsApp;
 using DigitalPulse.Contracts.Actions;
 using DigitalPulse.Contracts.Directories;
 using DigitalPulse.Domain.Actions;
@@ -262,6 +263,7 @@ public sealed class ExecuteActionHandler
     private readonly PublishSocialContentHandler _publish;
     private readonly MonitorDirectoryHandler _monitor;
     private readonly VerifyDirectoryTaskHandler _verify;
+    private readonly SendWhatsAppMessageHandler _whatsApp;
 
     public ExecuteActionHandler(
         IAppDbContext db,
@@ -272,7 +274,8 @@ public sealed class ExecuteActionHandler
         RefreshSocialMetricsHandler metrics,
         PublishSocialContentHandler publish,
         MonitorDirectoryHandler monitor,
-        VerifyDirectoryTaskHandler verify)
+        VerifyDirectoryTaskHandler verify,
+        SendWhatsAppMessageHandler whatsApp)
     {
         _db = db;
         _tenant = tenant;
@@ -283,6 +286,7 @@ public sealed class ExecuteActionHandler
         _publish = publish;
         _monitor = monitor;
         _verify = verify;
+        _whatsApp = whatsApp;
     }
 
     public async Task<WorkActionResponse> Handle(Guid businessId, Guid actionId, CancellationToken cancellationToken)
@@ -365,6 +369,15 @@ public sealed class ExecuteActionHandler
                 return (true, "Directory verification is operator-confirmed. DigitalPulse did not write to the directory.");
             case ActionKind.RunAi:
                 return (true, "Ask the orchestrator with a prompt. The action engine does not invent a model completion.");
+            case ActionKind.SendWhatsAppTemplate:
+            case ActionKind.SendWhatsAppSession:
+                if (action.TargetId is null)
+                {
+                    return (true, "Choose an approved WhatsApp message before the Cloud API send.");
+                }
+
+                var sent = await _whatsApp.Handle(businessId, action.TargetId.Value, cancellationToken);
+                return (true, sent.HoldReason);
             default:
                 return (true, "Unknown action kind stayed held.");
         }

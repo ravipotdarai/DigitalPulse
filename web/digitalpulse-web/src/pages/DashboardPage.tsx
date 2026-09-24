@@ -158,6 +158,8 @@ export function DashboardPage() {
             <Watch label="Project variants outside permission scope" value={String(data.contentHoldCount)} tone={data.contentHoldCount ? "warning" : "idle"} />
             <Watch label="Directory playbooks open" value={String(data.directoryOpenCount)} tone={data.directoryOpenCount ? "warning" : "idle"} />
             <Watch label="AI runs held for review" value={String(data.aiHeldCount)} tone={data.aiHeldCount ? "warning" : "idle"} />
+            <Watch label="WhatsApp opt-ins" value={String(data.whatsAppOptInCount)} tone={data.whatsAppOptInCount ? "live" : "idle"} />
+            <Watch label="WhatsApp messages held" value={String(data.whatsAppHeldCount)} tone={data.whatsAppHeldCount ? "warning" : "idle"} />
           </Stagger>
         </Reveal>
         <Reveal delay={0.08}>

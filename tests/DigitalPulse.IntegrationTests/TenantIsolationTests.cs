@@ -1,3 +1,4 @@
+using DigitalPulse.Domain.WhatsApp;
 using DigitalPulse.Domain.Actions;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Businesses;
@@ -242,6 +243,30 @@ public sealed class TenantIsolationTests
         await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
         var visible = await dbA.WorkActions.Select(a => a.Title).ToListAsync();
         Assert.Equal(["Rebuild A"], visible);
+    }
+
+    [Fact]
+    public async Task Query_filter_hides_other_tenant_whatsapp_contacts()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var businessA = Business.Create(tenantA, "A Co", null);
+        var businessB = Business.Create(tenantB, "B Co", null);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"iso-wa-{Guid.NewGuid()}")
+            .Options;
+
+        await using (var seed = new AppDbContext(options, tenantContext: null))
+        {
+            seed.Businesses.AddRange(businessA, businessB);
+            seed.WhatsAppContacts.Add(WhatsAppContact.Import(tenantA, businessA.Id, null, null, "A Customer", "+910000000001"));
+            seed.WhatsAppContacts.Add(WhatsAppContact.Import(tenantB, businessB.Id, null, null, "B Customer", "+910000000002"));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
+        var visible = await dbA.WhatsAppContacts.Select(c => c.DisplayName).ToListAsync();
+        Assert.Equal(["A Customer"], visible);
     }
 
     private sealed class FixedTenantContext : Application.Abstractions.ITenantContext
