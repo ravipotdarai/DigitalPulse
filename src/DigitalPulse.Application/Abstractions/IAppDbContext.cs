@@ -5,6 +5,7 @@ using DigitalPulse.Domain.Platforms;
 using DigitalPulse.Domain.Scans;
 using DigitalPulse.Domain.Tenancy;
 using DigitalPulse.Domain.Directories;
+using DigitalPulse.Domain.Projects;
 using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
 using Microsoft.EntityFrameworkCore;
@@ -40,6 +41,15 @@ public interface IAppDbContext
     DbSet<SocialMetricSnapshot> SocialMetrics { get; }
     DbSet<DirectoryTask> DirectoryTasks { get; }
     DbSet<DirectoryStep> DirectorySteps { get; }
+    DbSet<Project> Projects { get; }
+    DbSet<ProjectServiceLink> ProjectServices { get; }
+    DbSet<ProjectBrandLink> ProjectBrands { get; }
+    DbSet<MediaAsset> MediaAssets { get; }
+    DbSet<ProjectMedia> ProjectMedia { get; }
+    DbSet<ContentItem> ContentItems { get; }
+    DbSet<ContentVariant> ContentVariants { get; }
+    DbSet<ApprovalRequest> ApprovalRequests { get; }
+    DbSet<ApprovalDecision> ApprovalDecisions { get; }
 
     Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

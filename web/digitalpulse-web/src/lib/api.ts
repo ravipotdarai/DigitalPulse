@@ -99,6 +99,8 @@ export type DashboardResponse = {
   socialBlockedCount: number;
   directoryOpenCount: number;
   directoryVerifiedCount: number;
+  projectCount: number;
+  contentHoldCount: number;
 };
 
 export class ApiError extends Error {
@@ -270,7 +272,29 @@ export const api = {
   verifyDirectory: (businessId: string, taskId: string, note: string) =>
     request<DirectoryTask>(`/v1/businesses/${businessId}/directories/tasks/${taskId}/verify`, { method: "POST", body: JSON.stringify({ note }) }),
   monitorDirectory: (businessId: string, platformCode: string) =>
-    request<DirectoryWorkspace>(`/v1/businesses/${businessId}/directories/${platformCode}/monitor`, { method: "POST" })
+    request<DirectoryWorkspace>(`/v1/businesses/${businessId}/directories/${platformCode}/monitor`, { method: "POST" }),
+  projects: (businessId: string) => request<ProjectWorkspace>(`/v1/businesses/${businessId}/projects`),
+  project: (businessId: string, projectId: string) =>
+    request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}`),
+  createProject: (businessId: string, body: CreateProjectBody) =>
+    request<ProjectDetail>(`/v1/businesses/${businessId}/projects`, { method: "POST", body: JSON.stringify(body) }),
+  updateProject: (businessId: string, projectId: string, body: UpdateProjectBody) =>
+    request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}`, { method: "PUT", body: JSON.stringify(body) }),
+  linkProjectService: (businessId: string, projectId: string, id: string) =>
+    request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}/services`, { method: "POST", body: JSON.stringify({ id }) }),
+  linkProjectBrand: (businessId: string, projectId: string, id: string) =>
+    request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}/brands`, { method: "POST", body: JSON.stringify({ id }) }),
+  registerProjectMedia: (businessId: string, projectId: string, body: { label: string; kind: string; sourceUrl: string | null }) =>
+    request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}/media`, { method: "POST", body: JSON.stringify(body) }),
+  generateProjectContent: (businessId: string, projectId: string) =>
+    request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}/factory`, { method: "POST" }),
+  requestProjectApproval: (businessId: string, projectId: string, contentId: string) =>
+    request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}/content/${contentId}/approvals`, { method: "POST" }),
+  decideProjectApproval: (businessId: string, projectId: string, approvalId: string, approve: boolean, note: string) =>
+    request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}/approvals/${approvalId}/decide`, {
+      method: "POST",
+      body: JSON.stringify({ approve, note })
+    })
 };
 
 export type PlatformCapabilities = {
@@ -484,5 +508,73 @@ export type DirectoryTask = {
 export type DirectoryWorkspace = {
   providers: DirectoryProvider[];
   tasks: DirectoryTask[];
+  note: string;
+};
+export type CreateProjectBody = {
+  name: string;
+  clientName: string | null;
+  industry: string | null;
+  location: string | null;
+  description: string | null;
+  outcomes: string | null;
+  startedOn: string | null;
+  completedOn: string | null;
+  permissionScope: string;
+  confidentiality: string;
+};
+export type UpdateProjectBody = CreateProjectBody & { publicationStatus: string };
+export type ProjectSummary = {
+  id: string;
+  businessId: string;
+  name: string;
+  clientName: string | null;
+  permissionScope: string;
+  confidentiality: string;
+  publicationStatus: string;
+  updatedAtUtc: string;
+};
+export type ContentVariant = {
+  id: string;
+  kind: string;
+  title: string;
+  body: string;
+  status: string;
+  publicationHold: string;
+};
+export type ProjectApproval = {
+  id: string;
+  contentItemId: string;
+  reason: string;
+  open: boolean;
+  decision: string | null;
+  decisionNote: string | null;
+};
+export type ProjectContentPack = {
+  id: string;
+  projectId: string;
+  title: string;
+  status: string;
+  sourceNote: string;
+  variants: ContentVariant[];
+  approvals: ProjectApproval[];
+};
+export type ProjectDetail = {
+  project: ProjectSummary;
+  description: string | null;
+  outcomes: string | null;
+  industry: string | null;
+  location: string | null;
+  startedOn: string | null;
+  completedOn: string | null;
+  services: string[];
+  brands: string[];
+  media: { id: string; label: string; kind: string; sourceUrl: string | null; note: string }[];
+  packs: ProjectContentPack[];
+  note: string;
+};
+export type ProjectWorkspace = {
+  projects: ProjectSummary[];
+  services: { id: string; name: string }[];
+  brands: { id: string; name: string }[];
   note: string;
 };

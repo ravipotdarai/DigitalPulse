@@ -119,6 +119,7 @@ export function DashboardPage() {
           <div className="row-line"><span>Website</span><span className={`sev ${data.lastWebsiteAtUtc ? "sev-ok" : "sev-hold"}`}>{data.lastWebsiteAtUtc ? `${data.websiteObservationCount} observations` : "Not analyzed"}</span></div>
           <div className="row-line"><span>Search</span><span className="sev sev-hold">{data.searchProvider}</span></div>
           <div className="row-line"><span>Directories</span><span className={`sev ${data.directoryVerifiedCount ? "sev-ok" : "sev-hold"}`}>{data.directoryVerifiedCount} verified · {data.directoryOpenCount} open</span></div>
+          <div className="row-line"><span>Projects</span><span className={`sev ${data.projectCount ? "sev-ok" : "sev-hold"}`}>{data.projectCount} · {data.contentHoldCount} holds</span></div>
         </article>
       </div>
 

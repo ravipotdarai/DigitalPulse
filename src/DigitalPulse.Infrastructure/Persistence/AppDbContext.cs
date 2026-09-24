@@ -7,6 +7,7 @@ using DigitalPulse.Domain.Platforms;
 using DigitalPulse.Domain.Scans;
 using DigitalPulse.Domain.Tenancy;
 using DigitalPulse.Domain.Directories;
+using DigitalPulse.Domain.Projects;
 using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
 using Microsoft.EntityFrameworkCore;
@@ -50,6 +51,15 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<SocialMetricSnapshot> SocialMetrics => Set<SocialMetricSnapshot>();
     public DbSet<DirectoryTask> DirectoryTasks => Set<DirectoryTask>();
     public DbSet<DirectoryStep> DirectorySteps => Set<DirectoryStep>();
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProjectServiceLink> ProjectServices => Set<ProjectServiceLink>();
+    public DbSet<ProjectBrandLink> ProjectBrands => Set<ProjectBrandLink>();
+    public DbSet<MediaAsset> MediaAssets => Set<MediaAsset>();
+    public DbSet<ProjectMedia> ProjectMedia => Set<ProjectMedia>();
+    public DbSet<ContentItem> ContentItems => Set<ContentItem>();
+    public DbSet<ContentVariant> ContentVariants => Set<ContentVariant>();
+    public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
+    public DbSet<ApprovalDecision> ApprovalDecisions => Set<ApprovalDecision>();
 
     public Task<PlatformConnection?> FindConnectionByStateAsync(string state, CancellationToken cancellationToken) =>
         Connections.IgnoreQueryFilters().FirstOrDefaultAsync(c => c.AuthorizationState == state, cancellationToken);
@@ -81,6 +91,15 @@ public sealed class AppDbContext : DbContext, IAppDbContext
         ApplyTenantFilter<SocialMetricSnapshot>(modelBuilder);
         ApplyTenantFilter<DirectoryTask>(modelBuilder);
         ApplyTenantFilter<DirectoryStep>(modelBuilder);
+        ApplyTenantFilter<Project>(modelBuilder);
+        ApplyTenantFilter<ProjectServiceLink>(modelBuilder);
+        ApplyTenantFilter<ProjectBrandLink>(modelBuilder);
+        ApplyTenantFilter<MediaAsset>(modelBuilder);
+        ApplyTenantFilter<ProjectMedia>(modelBuilder);
+        ApplyTenantFilter<ContentItem>(modelBuilder);
+        ApplyTenantFilter<ContentVariant>(modelBuilder);
+        ApplyTenantFilter<ApprovalRequest>(modelBuilder);
+        ApplyTenantFilter<ApprovalDecision>(modelBuilder);
     }
 
     private void ApplyTenantFilter<TEntity>(ModelBuilder modelBuilder) where TEntity : TenantOwnedEntity =>

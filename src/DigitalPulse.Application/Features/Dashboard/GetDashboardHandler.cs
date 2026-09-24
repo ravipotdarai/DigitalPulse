@@ -4,6 +4,7 @@ using DigitalPulse.Contracts.Onboarding;
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Scans;
 using DigitalPulse.Domain.Directories;
+using DigitalPulse.Domain.Projects;
 using DigitalPulse.Domain.Social;
 using Microsoft.EntityFrameworkCore;
 
@@ -84,6 +85,8 @@ public sealed class GetDashboardHandler
             await _db.SocialContent.CountAsync(c => c.TenantId == tenantId && c.Status == SocialContentStatus.Draft, cancellationToken),
             await _db.SocialContent.CountAsync(c => c.TenantId == tenantId && c.Status == SocialContentStatus.Blocked, cancellationToken),
             await _db.DirectoryTasks.CountAsync(t => t.TenantId == tenantId && t.Status != DirectoryTaskStatus.Verified, cancellationToken),
-            await _db.DirectoryTasks.CountAsync(t => t.TenantId == tenantId && t.Status == DirectoryTaskStatus.Verified, cancellationToken));
+            await _db.DirectoryTasks.CountAsync(t => t.TenantId == tenantId && t.Status == DirectoryTaskStatus.Verified, cancellationToken),
+            await _db.Projects.CountAsync(p => p.TenantId == tenantId, cancellationToken),
+            await _db.ContentVariants.CountAsync(v => v.TenantId == tenantId && v.Status == ContentItemStatus.Hold, cancellationToken));
     }
 }

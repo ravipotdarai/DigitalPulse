@@ -1,6 +1,6 @@
 # DigitalPulse
 
-AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phases 2–7**, plus a **theme architecture** (Editorial implemented; Executive / Future AI / Minimal fallback tokens).
+AI Digital Presence OS. This repository currently implements **landing + authentication + multi-tenant onboarding + Phases 2–8**, plus a **theme architecture** (Editorial implemented; Executive / Future AI / Minimal fallback tokens).
 
 ## Run locally
 
@@ -27,7 +27,7 @@ Open http://localhost:5173 (API http://localhost:5088).
 
 ## Flow
 
-Landing → Register → Login → Create Tenant → Tenant → Business → Location → Select Plan → Dashboard → Business identity → Connection Center → DigitalPulse Check → Website intelligence → Social → Directories
+Landing → Register → Login → Create Tenant → Tenant → Business → Location → Select Plan → Dashboard → Business identity → Connection Center → DigitalPulse Check → Website intelligence → Social → Directories → Projects
 
 Connection Center lists official adapters (Google, Meta, LinkedIn, YouTube, IndiaMART, Justdial, WhatsApp Cloud API, Website, Search Console, Google Ads). Connect issues a **development grant** behind `IPlatformAuthorizationBroker`. Live provider OAuth is not invented. IndiaMART/Justdial are assisted-only. WhatsApp is Cloud API only.
 
@@ -38,6 +38,8 @@ Website intelligence stores an on-page SEO/AEO snapshot from the official homepa
 Social workspace drafts Google, Facebook, Instagram, LinkedIn, and YouTube copy. Approve → publish stays on hold unless a live provider write exists. WhatsApp is not a social post. Metrics are hold/unavailable — likes and views are not invented.
 
 IndiaMART and Justdial are assisted playbooks prepared from canonical identity. Official reads/writes are not invented; verification is operator-confirmed.
+
+Projects store engagement records, permission scope, media catalog entries, and a content factory. Variants (including WhatsApp template/session drafts) are assembled from stored project fields. Approval honors Full / Partial / None. Live publishes and AI rewrites are not invented.
 
 Development authentication is JWT behind `IAuthTokenIssuer` (`DevelopmentJwtTokenIssuer`). Entra External ID is not wired yet.
 

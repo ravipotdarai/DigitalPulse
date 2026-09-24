@@ -10,12 +10,14 @@ using DigitalPulse.Application.Features.Scans;
 using DigitalPulse.Application.Features.Subscriptions;
 using DigitalPulse.Application.Features.Tenants;
 using DigitalPulse.Application.Features.Directories;
+using DigitalPulse.Application.Features.Projects;
 using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Application.Features.Website;
 using DigitalPulse.Contracts.Auth;
 using DigitalPulse.Contracts.Billing;
 using DigitalPulse.Contracts.Businesses;
 using DigitalPulse.Contracts.Directories;
+using DigitalPulse.Contracts.Projects;
 using DigitalPulse.Contracts.Social;
 using DigitalPulse.Contracts.Tenancy;
 using FluentValidation;
@@ -82,6 +84,16 @@ public static class DependencyInjection
         services.AddScoped<CompleteDirectoryStepHandler>();
         services.AddScoped<VerifyDirectoryTaskHandler>();
         services.AddScoped<MonitorDirectoryHandler>();
+        services.AddScoped<GetProjectWorkspaceHandler>();
+        services.AddScoped<GetProjectHandler>();
+        services.AddScoped<CreateProjectHandler>();
+        services.AddScoped<UpdateProjectHandler>();
+        services.AddScoped<LinkProjectServiceHandler>();
+        services.AddScoped<LinkProjectBrandHandler>();
+        services.AddScoped<RegisterProjectMediaHandler>();
+        services.AddScoped<GenerateProjectContentHandler>();
+        services.AddScoped<RequestContentApprovalHandler>();
+        services.AddScoped<DecideContentApprovalHandler>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         return services;
     }
@@ -258,6 +270,45 @@ public sealed class PrepareDirectoryRequestValidator : AbstractValidator<Prepare
 public sealed class VerifyDirectoryRequestValidator : AbstractValidator<VerifyDirectoryRequest>
 {
     public VerifyDirectoryRequestValidator()
+    {
+        RuleFor(x => x.Note).NotEmpty().MaximumLength(500);
+    }
+}
+
+public sealed class CreateProjectRequestValidator : AbstractValidator<CreateProjectRequest>
+{
+    public CreateProjectRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.PermissionScope).NotEmpty();
+        RuleFor(x => x.Confidentiality).NotEmpty();
+    }
+}
+
+public sealed class UpdateProjectRequestValidator : AbstractValidator<UpdateProjectRequest>
+{
+    public UpdateProjectRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.PermissionScope).NotEmpty();
+        RuleFor(x => x.Confidentiality).NotEmpty();
+        RuleFor(x => x.PublicationStatus).NotEmpty();
+    }
+}
+
+public sealed class RegisterMediaRequestValidator : AbstractValidator<RegisterMediaRequest>
+{
+    public RegisterMediaRequestValidator()
+    {
+        RuleFor(x => x.Label).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Kind).NotEmpty();
+        RuleFor(x => x.SourceUrl).MaximumLength(2048);
+    }
+}
+
+public sealed class DecideApprovalRequestValidator : AbstractValidator<DecideApprovalRequest>
+{
+    public DecideApprovalRequestValidator()
     {
         RuleFor(x => x.Note).NotEmpty().MaximumLength(500);
     }

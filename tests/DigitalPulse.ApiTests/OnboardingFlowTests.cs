@@ -8,6 +8,7 @@ using DigitalPulse.Contracts.Connections;
 using DigitalPulse.Contracts.Onboarding;
 using DigitalPulse.Contracts.Scans;
 using DigitalPulse.Contracts.Directories;
+using DigitalPulse.Contracts.Projects;
 using DigitalPulse.Contracts.Social;
 using DigitalPulse.Contracts.Website;
 using DigitalPulse.Contracts.Tenancy;
@@ -598,6 +599,83 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
             $"/v1/businesses/{userA.BusinessId}/directories/prepare",
             new PrepareDirectoryRequest("JUSTDIAL"));
         Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
+    }
+
+    [Fact]
+    public async Task Project_factory_approves_only_inside_permission_scope()
+    {
+        var session = await RegisterAndOnboard("Direct", "Project Co");
+        UseToken(session.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+
+        var service = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/services",
+            new NamedItemRequest("Roasting"));
+        service.EnsureSuccessStatusCode();
+        var serviceBody = await service.Content.ReadFromJsonAsync<NamedItemResponse>();
+
+        var created = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/projects",
+            new CreateProjectRequest("Harbour Roast", "Harbour Cafe", "FOOD", "Mumbai", "A flagship roast program.", "Repeat wholesale.", null, null, "Partial", "Internal"));
+        created.EnsureSuccessStatusCode();
+        var detail = await created.Content.ReadFromJsonAsync<ProjectDetailResponse>();
+        Assert.Equal("Partial", detail!.Project.PermissionScope);
+
+        await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/projects/{detail.Project.Id}/services",
+            new LinkNamedRequest(serviceBody!.Id));
+        await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/projects/{detail.Project.Id}/media",
+            new RegisterMediaRequest("Hero", "Image", null));
+
+        var factory = await _client.PostAsync(
+            $"/v1/businesses/{session.BusinessId}/projects/{detail.Project.Id}/factory", null);
+        factory.EnsureSuccessStatusCode();
+        var pack = await factory.Content.ReadFromJsonAsync<ProjectDetailResponse>();
+        Assert.Single(pack!.Packs);
+        Assert.Equal(12, pack.Packs[0].Variants.Count);
+        Assert.Contains(pack.Packs[0].Variants, v => v.Kind == "WhatsAppTemplateDraft");
+
+        var request = await _client.PostAsync(
+            $"/v1/businesses/{session.BusinessId}/projects/{detail.Project.Id}/content/{pack.Packs[0].Id}/approvals", null);
+        request.EnsureSuccessStatusCode();
+        var pending = await request.Content.ReadFromJsonAsync<ProjectDetailResponse>();
+        var approval = pending!.Packs[0].Approvals.Single(a => a.Open);
+
+        var decided = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{session.BusinessId}/projects/{detail.Project.Id}/approvals/{approval.Id}/decide",
+            new DecideApprovalRequest(true, "Approved against stored permission scope."));
+        decided.EnsureSuccessStatusCode();
+        var after = await decided.Content.ReadFromJsonAsync<ProjectDetailResponse>();
+        Assert.Contains(after!.Packs[0].Variants, v => v.Kind == "WebsiteCaseStudy" && v.Status == "Approved");
+        Assert.Contains(after.Packs[0].Variants, v => v.Kind == "LinkedInPost" && v.Status == "Hold");
+        Assert.All(after.Packs[0].Variants, v => Assert.DoesNotContain("Published", v.Status, StringComparison.Ordinal));
+
+        var dashboard = await _client.GetFromJsonAsync<DashboardResponse>("/v1/dashboard");
+        Assert.True(dashboard!.ProjectCount >= 1);
+        Assert.True(dashboard.ContentHoldCount >= 1);
+    }
+
+    [Fact]
+    public async Task Projects_stay_isolated_across_tenants()
+    {
+        var userA = await RegisterAndOnboard("Direct", "Alpha Projects");
+        UseToken(userA.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var created = await _client.PostAsJsonAsync(
+            $"/v1/businesses/{userA.BusinessId}/projects",
+            new CreateProjectRequest("Secret", null, null, null, null, null, null, null, "None", "Restricted"));
+        var body = await created.Content.ReadFromJsonAsync<ProjectDetailResponse>();
+
+        var userB = await RegisterAndOnboard("Direct", "Beta Projects");
+        UseToken(userB.Token);
+        await _client.PostAsJsonAsync("/v1/subscriptions", new SelectPlanRequest("STARTER"));
+        var peek = await _client.GetAsync($"/v1/businesses/{userA.BusinessId}/projects");
+        Assert.Equal(HttpStatusCode.NotFound, peek.StatusCode);
+        var steal = await _client.GetAsync($"/v1/businesses/{userA.BusinessId}/projects/{body!.Project.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, steal.StatusCode);
+        var factory = await _client.PostAsync($"/v1/businesses/{userA.BusinessId}/projects/{body.Project.Id}/factory", null);
+        Assert.Equal(HttpStatusCode.NotFound, factory.StatusCode);
     }
 
     [Fact]

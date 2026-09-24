@@ -3,6 +3,7 @@ using DigitalPulse.Domain.Platforms;
 using DigitalPulse.Domain.Scans;
 using DigitalPulse.Domain.Tenancy;
 using DigitalPulse.Domain.Directories;
+using DigitalPulse.Domain.Projects;
 using DigitalPulse.Domain.Social;
 using DigitalPulse.Domain.Website;
 using DigitalPulse.Infrastructure.Persistence;
@@ -165,6 +166,30 @@ public sealed class TenantIsolationTests
         await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
         var visible = await dbA.DirectoryTasks.Select(t => t.PreparedName).ToListAsync();
         Assert.Equal(["A Co"], visible);
+    }
+
+    [Fact]
+    public async Task Query_filter_hides_other_tenant_projects()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var businessA = Business.Create(tenantA, "A Co", null);
+        var businessB = Business.Create(tenantB, "B Co", null);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"iso-project-{Guid.NewGuid()}")
+            .Options;
+
+        await using (var seed = new AppDbContext(options, tenantContext: null))
+        {
+            seed.Businesses.AddRange(businessA, businessB);
+            seed.Projects.Add(Project.Create(tenantA, businessA.Id, "A Project", null, null, null, null, null, null, null, ProjectPermissionScope.None, ProjectConfidentiality.Internal));
+            seed.Projects.Add(Project.Create(tenantB, businessB.Id, "B Project", null, null, null, null, null, null, null, ProjectPermissionScope.None, ProjectConfidentiality.Internal));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
+        var visible = await dbA.Projects.Select(p => p.Name).ToListAsync();
+        Assert.Equal(["A Project"], visible);
     }
 
     private sealed class FixedTenantContext : Application.Abstractions.ITenantContext
