@@ -1,4 +1,5 @@
 using DigitalPulse.Domain.Common;
+using DigitalPulse.Domain.Safety;
 
 namespace DigitalPulse.Domain.Social;
 
@@ -62,6 +63,7 @@ public sealed class SocialContentItem : TenantOwnedEntity
         ArgumentException.ThrowIfNullOrWhiteSpace(platformCode);
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentException.ThrowIfNullOrWhiteSpace(body);
+        ContentSafety.EnsureAllowed(title, body);
 
         return new SocialContentItem
         {
@@ -84,6 +86,7 @@ public sealed class SocialContentItem : TenantOwnedEntity
 
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentException.ThrowIfNullOrWhiteSpace(body);
+        ContentSafety.EnsureAllowed(title, body);
         Title = title.Trim();
         Body = body.Trim();
         Status = SocialContentStatus.Draft;
@@ -131,6 +134,14 @@ public sealed class SocialContentItem : TenantOwnedEntity
         VerificationDetail = detail.Trim();
         LastPublishError = null;
         Touch();
+    }
+
+    public void Discard()
+    {
+        if (Status == SocialContentStatus.Published)
+        {
+            throw new InvalidOperationException("Published posts cannot be deleted from DigitalPulse.");
+        }
     }
 }
 

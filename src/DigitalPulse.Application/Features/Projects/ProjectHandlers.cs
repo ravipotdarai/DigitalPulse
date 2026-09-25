@@ -118,6 +118,7 @@ public sealed class CreateProjectHandler
             .Select(l => l.City ?? l.Name)
             .FirstOrDefaultAsync(cancellationToken);
 
+        ContentGuard.Require(request.Name, request.ClientName, request.Description, request.Outcomes);
         var project = Project.Create(
             tenantId,
             businessId,
@@ -153,6 +154,7 @@ public sealed class UpdateProjectHandler
         var tenantId = _tenant.RequireTenantId();
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
         var project = await ProjectComposer.RequireAsync(_db, businessId, projectId, cancellationToken);
+        ContentGuard.Require(request.Name, request.ClientName, request.Description, request.Outcomes);
         project.Update(
             request.Name,
             request.ClientName,

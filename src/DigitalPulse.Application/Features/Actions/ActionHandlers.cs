@@ -151,6 +151,8 @@ public sealed class EnqueueActionHandler
             throw AppException.Validation("Give the action a short title.");
         }
 
+        ContentGuard.Require(request.Title, request.TargetLabel);
+
         var policy = await ActionPolicyStore.RequireAsync(_db, tenantId, cancellationToken);
         var plan = await ActionPolicyStore.CurrentPlan(_db, tenantId, cancellationToken);
         var used = await ActionPolicyStore.UsedThisMonthAsync(_db, tenantId, cancellationToken);

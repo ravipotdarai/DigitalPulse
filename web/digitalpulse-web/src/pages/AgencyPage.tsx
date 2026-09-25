@@ -6,12 +6,13 @@ import { ApiError, api, type AgencyWorkspace } from "../lib/api";
 import { PageState } from "../components/PageState";
 import { DataGrid, GridAction } from "../design/DataGrid";
 import { useSession } from "../state/session";
+import { tenantTypeLabel } from "../lib/tenant";
 
 export function AgencyPage() {
   const query = useQuery({ queryKey: ["agency"], queryFn: api.agency });
-  if (query.isLoading) return <PageState mode="loading" title="Opening agency workspace" />;
+  if (query.isLoading) return <PageState mode="loading" title="Opening company desk" />;
   if (query.isError || !query.data) {
-    const detail = query.error instanceof ApiError ? query.error.title : "Agency workspace is available on Agency tenants.";
+    const detail = query.error instanceof ApiError ? query.error.title : "Clients are available on Company tenants.";
     return <AgencyHold detail={detail} />;
   }
   return <AgencyWorkspaceView data={query.data} />;
@@ -23,15 +24,15 @@ function AgencyHold({ detail }: { detail: string }) {
   return (
     <section className="command">
       <header>
-        <p className="hero-kicker">Agency + White Label</p>
-        <h1 className="page-title">Agency desk</h1>
-        <p className="page-lead">Portfolio clients, white-label branding, and agency reports live here. They stay closed on a Direct tenant.</p>
+        <p className="hero-kicker">Company · Clients</p>
+        <h1 className="page-title">Clients</h1>
+        <p className="page-lead">Portfolio clients, white-label branding, and company reports live here. They stay closed on a Direct tenant.</p>
       </header>
       <article className="panel agency-hold">
-        <span className="status-pill is-hold">{tenantType ?? "Direct"} tenant</span>
-        <h2>This session is not an Agency tenant</h2>
+        <span className="status-pill is-hold">{tenantTypeLabel(tenantType) || "Direct"} tenant</span>
+        <h2>This session is not a Company tenant</h2>
         <p className="ink-muted">{detail}</p>
-        <p className="ink-muted">Create or switch to an Agency tenant, then select the Agency plan. Client businesses stay under that one tenant — they are not child tenants.</p>
+        <p className="ink-muted">Create or switch to a Company tenant, then select the Company plan. Client businesses stay under that one tenant — they are not child tenants.</p>
         <div className="id-form-actions spaced">
           <Button appearance="primary" onClick={() => navigate("/app/billing")}>Open billing</Button>
           <Button appearance="secondary" onClick={() => navigate("/app/info")}>Workspace</Button>
@@ -69,14 +70,14 @@ function AgencyWorkspaceView({ data }: { data: AgencyWorkspace }) {
       await refresh();
     } catch (err) {
       setSuccess(null);
-      setError(err instanceof ApiError ? err.title : "Agency workspace could not continue.");
+      setError(err instanceof ApiError ? err.title : "Company desk could not continue.");
     }
   }
 
   return (
     <section className="command">
       <header>
-        <p className="hero-kicker">Agency + White Label</p>
+        <p className="hero-kicker">Company · Clients</p>
         <h1 className="display display-page command-title">{data.tenantName}</h1>
         <p className="ink-muted command-lead">{data.note}</p>
         <p className="ink-muted">
@@ -104,7 +105,7 @@ function AgencyWorkspaceView({ data }: { data: AgencyWorkspace }) {
                   contactName: contactName || null,
                   contactEmail: contactEmail || null
                 }),
-                "Client business stored on this Agency tenant."
+                "Client business stored on this Company tenant."
               );
               setName("");
               setWebsite("");
@@ -176,7 +177,7 @@ function AgencyWorkspaceView({ data }: { data: AgencyWorkspace }) {
         <h2>Client businesses</h2>
         <DataGrid
           noun="client"
-          empty="Add a client business. Agency clients are extra businesses on this tenant, not child tenants."
+          empty="Add a client business. Company clients are extra businesses on this tenant, not child tenants."
           columns={["Client", "Status", "Findings", "Last check"]}
           rows={data.clients.map((item) => ({
             id: item.id,
@@ -228,7 +229,7 @@ function AgencyWorkspaceView({ data }: { data: AgencyWorkspace }) {
           />
         </article>
         <article className="panel">
-          <h2>Agency reports</h2>
+          <h2>Company reports</h2>
           <p className="ink-muted">Observed Fact, Recommendation, AI Interpretation, and Customer Decision stay separate. AI commentary is not invented.</p>
           <div className="id-form-actions spaced">
             <Button appearance="primary" onClick={() => run(() => api.assembleAgencyReport({ scope: "Portfolio" }), "Portfolio report assembled from stored work.")}>

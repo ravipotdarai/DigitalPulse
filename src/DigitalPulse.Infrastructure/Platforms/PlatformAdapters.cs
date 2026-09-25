@@ -1,6 +1,7 @@
 using System.Text.Json;
 using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Application.Common;
+using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Domain.Platforms;
 using Microsoft.Extensions.Configuration;
 
@@ -75,7 +76,15 @@ public abstract class PlatformAdapter : IPlatformAdapter
         return checks;
     }
 
-    public async Task<PlatformPublishResult> PublishAsync(PlatformConnection connection, string title, string body, CancellationToken cancellationToken)
+    public Task<PlatformPublishResult> PublishAsync(PlatformConnection connection, string title, string body, CancellationToken cancellationToken) =>
+        PublishAsync(connection, title, body, null, cancellationToken);
+
+    public virtual async Task<PlatformPublishResult> PublishAsync(
+        PlatformConnection connection,
+        string title,
+        string body,
+        PlatformPublishMedia? media,
+        CancellationToken cancellationToken)
     {
         await EnsureFreshAsync(connection, cancellationToken);
         if (Descriptor.Capabilities.AssistedOnly)
@@ -93,9 +102,16 @@ public abstract class PlatformAdapter : IPlatformAdapter
             return new PlatformPublishResult("Blocked", "Connect the platform before attempting a publish.");
         }
 
+        media ??= SocialDraft.ToMedia(body);
         if (connection.HasLiveCredential && Gateway is not null)
         {
-            var request = LivePublish(connection, title, body);
+            var sent = await SendOfficialPublishAsync(connection, title, body, media, cancellationToken);
+            if (sent is not null)
+            {
+                return sent;
+            }
+
+            var request = LivePublish(connection, title, body, media);
             if (request is null)
             {
                 return new PlatformPublishResult("Hold", $"{Descriptor.Name} is connected, but this write shape is not supported on the official API.");
@@ -108,19 +124,32 @@ public abstract class PlatformAdapter : IPlatformAdapter
                 request.Value.Body,
                 request.Value.Headers,
                 cancellationToken);
-            if (result.StatusCode is 401 or 403)
-            {
-                return new PlatformPublishResult("Hold", "The official publish was rejected. Reauthorize the connection. Nothing was invented.");
-            }
-
-            return result.Ok
-                ? new PlatformPublishResult("Published", $"Official {Descriptor.Name} write accepted ({result.StatusCode}).")
-                : new PlatformPublishResult("Hold", $"Official {Descriptor.Name} write returned {result.StatusCode}. DigitalPulse did not invent a posted update.");
+            return Interpret(result, Descriptor.Name);
         }
 
         return new PlatformPublishResult(
             "Hold",
             "Live provider publish waits for an official OAuth grant. DigitalPulse will not invent a posted update.");
+    }
+
+    protected virtual Task<PlatformPublishResult?> SendOfficialPublishAsync(
+        PlatformConnection connection,
+        string title,
+        string body,
+        PlatformPublishMedia media,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<PlatformPublishResult?>(null);
+
+    protected static PlatformPublishResult Interpret(OfficialHttpResult result, string name)
+    {
+        if (result.StatusCode is 401 or 403)
+        {
+            return new PlatformPublishResult("Hold", "The official publish was rejected. Reauthorize the connection. Nothing was invented.");
+        }
+
+        return result.Ok
+            ? new PlatformPublishResult("Published", $"Official {name} write accepted ({result.StatusCode}).")
+            : new PlatformPublishResult("Hold", $"Official {name} write returned {result.StatusCode}. DigitalPulse did not invent a posted update.");
     }
 
     public virtual async Task<PlatformMetricsResult> MetricsAsync(PlatformConnection connection, CancellationToken cancellationToken)
@@ -162,6 +191,10 @@ public abstract class PlatformAdapter : IPlatformAdapter
     }
 
     protected virtual (HttpMethod Method, string Url, string? Body, IReadOnlyDictionary<string, string>? Headers)? LiveHealth(PlatformConnection connection) => null;
+
+    protected virtual (HttpMethod Method, string Url, string? Body, IReadOnlyDictionary<string, string>? Headers)? LivePublish(
+        PlatformConnection connection, string title, string body, PlatformPublishMedia? media) =>
+        LivePublish(connection, title, body);
 
     protected virtual (HttpMethod Method, string Url, string? Body, IReadOnlyDictionary<string, string>? Headers)? LivePublish(
         PlatformConnection connection, string title, string body) => null;
@@ -225,13 +258,44 @@ public abstract class PlatformAdapter : IPlatformAdapter
 
 public sealed class GoogleAdapter(IOfficialPlatformGateway gateway, ILiveTokenRefresher? tokens = null) : PlatformAdapter("GOOGLE", "Google", "Search", PlatformAuthMode.OAuth,
     "Business Profile and Search presence through official Google authorization.",
-    new(true, false, true, false, false, true, false), gateway, tokens)
+    new(true, true, true, false, true, true, false), gateway, tokens)
 {
     protected override (HttpMethod, string, string?, IReadOnlyDictionary<string, string>?)? LiveHealth(PlatformConnection connection) =>
         (HttpMethod.Get, "https://www.googleapis.com/oauth2/v3/userinfo", null, null);
 
     protected override (HttpMethod, string, string?, IReadOnlyDictionary<string, string>?)? LiveMetrics(PlatformConnection connection) =>
         (HttpMethod.Get, "https://mybusinessaccountmanagement.googleapis.com/v1/accounts", null, null);
+
+    protected override (HttpMethod, string, string?, IReadOnlyDictionary<string, string>?)? LivePublish(
+        PlatformConnection connection, string title, string body, PlatformPublishMedia? media)
+    {
+        var location = connection.ExternalAccount;
+        if (string.IsNullOrWhiteSpace(location) ||
+            location.Contains("GOOGLE", StringComparison.OrdinalIgnoreCase) ||
+            !location.Contains("locations/", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var draft = SocialDraft.Parse(body);
+        var summary = string.IsNullOrWhiteSpace(draft.Text) ? title : $"{title}\n\n{draft.Text}";
+        var image = media?.ImageUrl ?? draft.ImageUrl;
+        var payload = new Dictionary<string, object?>
+        {
+            ["languageCode"] = "en",
+            ["summary"] = summary.Length > 1500 ? summary[..1500] : summary,
+            ["topicType"] = "STANDARD"
+        };
+        if (!string.IsNullOrWhiteSpace(image))
+        {
+            payload["media"] = new object[]
+            {
+                new Dictionary<string, string> { ["mediaFormat"] = "PHOTO", ["sourceUrl"] = image }
+            };
+        }
+
+        return (HttpMethod.Post, $"https://mybusiness.googleapis.com/v4/{location.Trim('/')}/localPosts", JsonSerializer.Serialize(payload), null);
+    }
 }
 
 public sealed class FacebookAdapter(IOfficialPlatformGateway gateway, ILiveTokenRefresher? tokens = null) : PlatformAdapter("FACEBOOK", "Facebook", "Social", PlatformAuthMode.OAuth,
@@ -242,7 +306,51 @@ public sealed class FacebookAdapter(IOfficialPlatformGateway gateway, ILiveToken
         (HttpMethod.Get, "https://graph.facebook.com/v21.0/me?fields=id,name", null, null);
 
     protected override (HttpMethod, string, string?, IReadOnlyDictionary<string, string>?)? LivePublish(PlatformConnection connection, string title, string body) =>
-        (HttpMethod.Post, "https://graph.facebook.com/v21.0/me/feed", JsonSerializer.Serialize(new { message = $"{title}\n\n{body}" }), null);
+        (HttpMethod.Post, "https://graph.facebook.com/v21.0/me/feed", JsonSerializer.Serialize(new { message = $"{title}\n\n{SocialDraft.Parse(body).Text}" }), null);
+
+    protected override async Task<PlatformPublishResult?> SendOfficialPublishAsync(
+        PlatformConnection connection,
+        string title,
+        string body,
+        PlatformPublishMedia media,
+        CancellationToken cancellationToken)
+    {
+        if (Gateway is null || !media.HasImage && !media.HasVideo)
+        {
+            return null;
+        }
+
+        var caption = $"{title}\n\n{SocialDraft.Parse(body).Text}".Trim();
+        var parts = new List<OfficialFormPart> { new("caption", null, "text/plain", System.Text.Encoding.UTF8.GetBytes(caption)) };
+        string url;
+        if (media.HasVideo)
+        {
+            url = "https://graph.facebook.com/v21.0/me/videos";
+            if (media.VideoBytes is { Length: > 0 })
+            {
+                parts.Add(new("source", media.VideoFileName ?? "clip.mp4", "video/mp4", media.VideoBytes));
+            }
+            else if (!string.IsNullOrWhiteSpace(media.VideoUrl))
+            {
+                parts.Add(new("file_url", null, "text/plain", System.Text.Encoding.UTF8.GetBytes(media.VideoUrl)));
+            }
+        }
+        else
+        {
+            url = "https://graph.facebook.com/v21.0/me/photos";
+            if (media.ImageBytes is { Length: > 0 })
+            {
+                parts.Add(new("source", media.ImageFileName ?? "photo.jpg", "image/jpeg", media.ImageBytes));
+            }
+            else if (!string.IsNullOrWhiteSpace(media.ImageUrl))
+            {
+                parts.Add(new("url", null, "text/plain", System.Text.Encoding.UTF8.GetBytes(media.ImageUrl)));
+            }
+        }
+
+        var result = await Gateway.SendMultipartAsync(HttpMethod.Post, url, connection.AccessToken, parts, cancellationToken);
+        return Interpret(result, "Facebook");
+    }
 
     protected override (HttpMethod, string, string?, IReadOnlyDictionary<string, string>?)? LiveMetrics(PlatformConnection connection) =>
         (HttpMethod.Get, "https://graph.facebook.com/v21.0/me?fields=id,name,fan_count", null, null);
@@ -254,6 +362,52 @@ public sealed class InstagramAdapter(IOfficialPlatformGateway gateway, ILiveToke
 {
     protected override (HttpMethod, string, string?, IReadOnlyDictionary<string, string>?)? LiveHealth(PlatformConnection connection) =>
         (HttpMethod.Get, "https://graph.facebook.com/v21.0/me/accounts", null, null);
+
+    protected override async Task<PlatformPublishResult?> SendOfficialPublishAsync(
+        PlatformConnection connection,
+        string title,
+        string body,
+        PlatformPublishMedia media,
+        CancellationToken cancellationToken)
+    {
+        var image = media.ImageUrl;
+        if (Gateway is null || string.IsNullOrWhiteSpace(image))
+        {
+            return null;
+        }
+
+        var account = connection.ExternalAccount is { Length: > 0 } id && !id.Equals("INSTAGRAM", StringComparison.OrdinalIgnoreCase)
+            ? id
+            : "me";
+        var caption = $"{title}\n\n{SocialDraft.Parse(body).Text}".Trim();
+        var created = await Gateway.SendAsync(
+            HttpMethod.Post,
+            $"https://graph.facebook.com/v21.0/{account}/media",
+            connection.AccessToken,
+            JsonSerializer.Serialize(new { image_url = image, caption }),
+            null,
+            cancellationToken);
+        if (!created.Ok)
+        {
+            return Interpret(created, "Instagram");
+        }
+
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(created.Body) ? "{}" : created.Body);
+        var creationId = doc.RootElement.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+        if (string.IsNullOrWhiteSpace(creationId))
+        {
+            return new PlatformPublishResult("Hold", "Instagram accepted the container but did not return a creation id.");
+        }
+
+        var published = await Gateway.SendAsync(
+            HttpMethod.Post,
+            $"https://graph.facebook.com/v21.0/{account}/media_publish",
+            connection.AccessToken,
+            JsonSerializer.Serialize(new { creation_id = creationId }),
+            null,
+            cancellationToken);
+        return Interpret(published, "Instagram");
+    }
 }
 
 public sealed class LinkedInAdapter(IOfficialPlatformGateway gateway, ILiveTokenRefresher? tokens = null) : PlatformAdapter("LINKEDIN", "LinkedIn", "Social", PlatformAuthMode.OAuth,
@@ -263,23 +417,42 @@ public sealed class LinkedInAdapter(IOfficialPlatformGateway gateway, ILiveToken
     protected override (HttpMethod, string, string?, IReadOnlyDictionary<string, string>?)? LiveHealth(PlatformConnection connection) =>
         (HttpMethod.Get, "https://api.linkedin.com/v2/userinfo", null, null);
 
-    protected override (HttpMethod, string, string?, IReadOnlyDictionary<string, string>?)? LivePublish(PlatformConnection connection, string title, string body)
+    protected override (HttpMethod, string, string?, IReadOnlyDictionary<string, string>?)? LivePublish(
+        PlatformConnection connection, string title, string body, PlatformPublishMedia? media)
     {
         var person = connection.ExternalAccount is { Length: > 0 } account &&
                      !account.Equals("LINKEDIN", StringComparison.OrdinalIgnoreCase)
             ? (account.StartsWith("urn:", StringComparison.Ordinal) ? account : $"urn:li:person:{account}")
             : "urn:li:person:me";
+        var draft = SocialDraft.Parse(body);
+        var image = media?.ImageUrl ?? draft.ImageUrl;
+        var video = media?.VideoUrl ?? draft.VideoUrl;
+        var share = new Dictionary<string, object?>
+        {
+            ["shareCommentary"] = new Dictionary<string, string> { ["text"] = $"{title}\n\n{draft.Text}".Trim() },
+            ["shareMediaCategory"] = "NONE"
+        };
+        if (!string.IsNullOrWhiteSpace(image) || !string.IsNullOrWhiteSpace(video))
+        {
+            var source = !string.IsNullOrWhiteSpace(video) ? video : image;
+            share["shareMediaCategory"] = string.IsNullOrWhiteSpace(video) ? "IMAGE" : "VIDEO";
+            share["media"] = new object[]
+            {
+                new Dictionary<string, object?>
+                {
+                    ["status"] = new Dictionary<string, string> { ["code"] = "READY" },
+                    ["originalUrl"] = source
+                }
+            };
+        }
+
         var payload = JsonSerializer.Serialize(new Dictionary<string, object?>
         {
             ["author"] = person,
             ["lifecycleState"] = "PUBLISHED",
             ["specificContent"] = new Dictionary<string, object?>
             {
-                ["com.linkedin.ugc.ShareContent"] = new Dictionary<string, object?>
-                {
-                    ["shareCommentary"] = new Dictionary<string, string> { ["text"] = $"{title}\n\n{body}" },
-                    ["shareMediaCategory"] = "NONE"
-                }
+                ["com.linkedin.ugc.ShareContent"] = share
             },
             ["visibility"] = new Dictionary<string, string>
             {
@@ -299,6 +472,38 @@ public sealed class YouTubeAdapter(IOfficialPlatformGateway gateway, ILiveTokenR
 
     protected override (HttpMethod, string, string?, IReadOnlyDictionary<string, string>?)? LiveMetrics(PlatformConnection connection) =>
         LiveHealth(connection);
+
+    protected override async Task<PlatformPublishResult?> SendOfficialPublishAsync(
+        PlatformConnection connection,
+        string title,
+        string body,
+        PlatformPublishMedia media,
+        CancellationToken cancellationToken)
+    {
+        if (Gateway is null || media.VideoBytes is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        var draft = SocialDraft.Parse(body);
+        var snippet = JsonSerializer.Serialize(new
+        {
+            snippet = new { title, description = draft.Text },
+            status = new { privacyStatus = "unlisted" }
+        });
+        var parts = new List<OfficialFormPart>
+        {
+            new("snippet", "snippet.json", "application/json", System.Text.Encoding.UTF8.GetBytes(snippet)),
+            new("video", media.VideoFileName ?? "video.mp4", "video/mp4", media.VideoBytes)
+        };
+        var result = await Gateway.SendMultipartAsync(
+            HttpMethod.Post,
+            "https://www.googleapis.com/upload/youtube/v3/videos?part=snippet,status&uploadType=multipart",
+            connection.AccessToken,
+            parts,
+            cancellationToken);
+        return Interpret(result, "YouTube");
+    }
 }
 
 public sealed class IndiaMartAdapter(IOfficialPlatformGateway gateway, ILiveTokenRefresher? tokens = null) : PlatformAdapter("INDIAMART", "IndiaMART", "Directory", PlatformAuthMode.Assisted,

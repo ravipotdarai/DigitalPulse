@@ -48,6 +48,7 @@ public static class DependencyInjection
             client.DefaultRequestHeaders.UserAgent.ParseAdd("DigitalPulse-Platforms/1.0");
         });
         services.AddSingleton<IOfficialPlatformGateway, OfficialPlatformGateway>();
+        services.AddSingleton<ISocialMediaStore, FileSocialMediaStore>();
         services.AddSingleton<IPlatformAdapter, GoogleAdapter>();
         services.AddSingleton<IPlatformAdapter, FacebookAdapter>();
         services.AddSingleton<IPlatformAdapter, InstagramAdapter>();

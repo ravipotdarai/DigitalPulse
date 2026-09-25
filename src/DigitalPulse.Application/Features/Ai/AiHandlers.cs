@@ -105,6 +105,7 @@ public sealed class AddKnowledgeHandler
     {
         var tenantId = _tenant.RequireTenantId();
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        ContentGuard.Require(request.Title, request.Body);
         var entry = KnowledgeEntry.Create(
             tenantId,
             businessId,
@@ -181,6 +182,8 @@ public sealed class RunAiHandler
         {
             throw AppException.Validation("Ask at least four characters so retrieval has something to match.");
         }
+
+        ContentGuard.Require(request.Prompt);
 
         AiAgentDescriptor agent;
         try

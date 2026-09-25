@@ -2,6 +2,7 @@ import { Textarea } from "@fluentui/react-components";
 import { Button } from "../design/Button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ApiError, api, type DirectoryTask, type DirectoryWorkspace } from "../lib/api";
 import { PageState } from "../components/PageState";
 import { ChannelCard } from "../design/ChannelCard";
@@ -25,12 +26,22 @@ export function DirectoriesPage() {
 }
 
 function DirectoryWorkspaceView({ businessId, data }: { businessId: string; data: DirectoryWorkspace }) {
+  const [params] = useSearchParams();
+  const focus = params.get("platform")?.toUpperCase();
+  const providers = focus
+    ? data.providers.filter((provider) => provider.capabilities.platformCode === focus)
+    : data.providers;
+  const shown = providers.length > 0 ? providers : data.providers;
+  const tasks = focus
+    ? data.tasks.filter((task) => task.platformCode === focus)
+    : data.tasks;
+  const heading = focus === "INDIAMART" ? "IndiaMART" : focus === "JUSTDIAL" ? "Justdial" : "Directories";
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(data.tasks[0]?.id ?? null);
-  const selected = data.tasks.find((item) => item.id === selectedId) ?? data.tasks[0] ?? null;
+  const [selectedId, setSelectedId] = useState<string | null>(tasks[0]?.id ?? null);
+  const selected = tasks.find((item) => item.id === selectedId) ?? tasks[0] ?? null;
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ["directories"] });
@@ -62,15 +73,15 @@ function DirectoryWorkspaceView({ businessId, data }: { businessId: string; data
   return (
     <section className="command">
       <header>
-        <p className="hero-kicker">IndiaMART / Justdial</p>
-        <h1 className="page-title">Directories</h1>
+        <p className="hero-kicker">Growth</p>
+        <h1 className="page-title">{heading}</h1>
         <p className="page-lead">{data.note}</p>
         {error ? <p className="note-err" role="alert">{error}</p> : null}
         {success ? <p className="note-ok">{success}</p> : null}
       </header>
 
       <div className="channel-grid">
-        {data.providers.map((provider) => (
+        {shown.map((provider) => (
           <ChannelCard
             key={provider.capabilities.platformCode}
             code={provider.capabilities.platformCode}
@@ -97,16 +108,16 @@ function DirectoryWorkspaceView({ businessId, data }: { businessId: string; data
         ))}
       </div>
 
-      {data.tasks.length === 0 ? (
+      {tasks.length === 0 ? (
         <div className="dp-empty dp-surface dp-empty-lg">
           <strong>No assisted tasks</strong>
-          <p>Enable IndiaMART or Justdial in Connection Center, then prepare a playbook from identity.</p>
+          <p>Enable {heading === "Directories" ? "IndiaMART or Justdial" : heading} in Social login or Connection Center, then prepare a playbook from the business profile.</p>
         </div>
       ) : (
         <div className="workspace-split">
           <aside className="panel">
             <h2>Tasks</h2>
-            {data.tasks.map((task) => (
+            {tasks.map((task) => (
               <button
                 key={task.id}
                 type="button"

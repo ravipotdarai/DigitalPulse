@@ -38,9 +38,10 @@ export function CreateTenantPage() {
       <form className="wizard-form" onSubmit={onSubmit}>
         <Field label="Workspace name" value={name} onChange={setName} required />
         <RadioGroup value={type} onChange={(_, d) => setType(d.value)} layout="horizontal">
-          <Radio value="Direct" label="Direct customer" />
-          <Radio value="Agency" label="Agency" />
+          <Radio value="Direct" label="Direct — one business you operate" />
+          <Radio value="Agency" label="Company — multiple client businesses" />
         </RadioGroup>
+        <p className="ink-muted meta-line">Company is stored as an Agency tenant. Platform tenants are not created through self-serve onboarding.</p>
         {error ? <PageState mode="error" title="Tenant was not created" detail={error} /> : null}
         <Button appearance="primary" type="submit" disabled={busy}>Continue</Button>
       </form>

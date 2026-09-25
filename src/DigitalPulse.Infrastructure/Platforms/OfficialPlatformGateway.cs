@@ -41,4 +41,38 @@ public sealed class OfficialPlatformGateway : IOfficialPlatformGateway
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         return new OfficialHttpResult((int)response.StatusCode, body, response.IsSuccessStatusCode);
     }
+
+    public async Task<OfficialHttpResult> SendMultipartAsync(
+        HttpMethod method,
+        string url,
+        string? accessToken,
+        IReadOnlyList<OfficialFormPart> parts,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(method, url);
+        if (!string.IsNullOrWhiteSpace(accessToken))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
+
+        var form = new MultipartFormDataContent();
+        foreach (var part in parts)
+        {
+            var content = new ByteArrayContent(part.Bytes);
+            content.Headers.ContentType = new MediaTypeHeaderValue(part.ContentType);
+            if (string.IsNullOrWhiteSpace(part.FileName))
+            {
+                form.Add(content, part.Name);
+            }
+            else
+            {
+                form.Add(content, part.Name, part.FileName);
+            }
+        }
+
+        request.Content = form;
+        using var response = await _http.CreateClient("official-platforms").SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        return new OfficialHttpResult((int)response.StatusCode, body, response.IsSuccessStatusCode);
+    }
 }

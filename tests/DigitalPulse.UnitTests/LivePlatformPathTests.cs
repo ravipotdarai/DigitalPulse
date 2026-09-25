@@ -249,6 +249,14 @@ public sealed class LivePlatformPathTests
 
             return Task.FromResult(new OfficialHttpResult(404, "{}", false));
         }
+
+        public Task<OfficialHttpResult> SendMultipartAsync(
+            HttpMethod method,
+            string url,
+            string? accessToken,
+            IReadOnlyList<OfficialFormPart> parts,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new OfficialHttpResult(404, "{}", false));
     }
 
     private sealed class FakeGateway : IOfficialPlatformGateway
@@ -259,6 +267,14 @@ public sealed class LivePlatformPathTests
             string? accessToken,
             string? jsonBody,
             IReadOnlyDictionary<string, string>? headers,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new OfficialHttpResult(200, """{"id":"p1"}""", true));
+
+        public Task<OfficialHttpResult> SendMultipartAsync(
+            HttpMethod method,
+            string url,
+            string? accessToken,
+            IReadOnlyList<OfficialFormPart> parts,
             CancellationToken cancellationToken) =>
             Task.FromResult(new OfficialHttpResult(200, """{"id":"p1"}""", true));
     }

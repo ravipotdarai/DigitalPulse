@@ -14,6 +14,8 @@ public static class SocialEndpoints
         group.MapPut("/content/{contentId:guid}", UpdateAsync);
         group.MapPost("/content/{contentId:guid}/approve", ApproveAsync);
         group.MapPost("/content/{contentId:guid}/publish", PublishAsync);
+        group.MapDelete("/content/{contentId:guid}", DeleteAsync);
+        group.MapPost("/media", UploadAsync).DisableAntiforgery();
         group.MapPost("/metrics/refresh", RefreshAsync);
         return app;
     }
@@ -41,4 +43,27 @@ public static class SocialEndpoints
     private static async Task<Ok<SocialWorkspaceResponse>> RefreshAsync(
         Guid businessId, RefreshSocialMetricsHandler handler, CancellationToken cancellationToken) =>
         TypedResults.Ok(await handler.Handle(businessId, cancellationToken));
+
+    private static async Task<NoContent> DeleteAsync(
+        Guid businessId, Guid contentId, DeleteSocialContentHandler handler, CancellationToken cancellationToken)
+    {
+        await handler.Handle(businessId, contentId, cancellationToken);
+        return TypedResults.NoContent();
+    }
+
+    private static async Task<Ok<SocialMediaResponse>> UploadAsync(
+        Guid businessId,
+        IFormFile file,
+        UploadSocialMediaHandler handler,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = file.OpenReadStream();
+        return TypedResults.Ok(await handler.Handle(
+            businessId,
+            file.FileName,
+            file.ContentType ?? string.Empty,
+            file.Length,
+            stream,
+            cancellationToken));
+    }
 }

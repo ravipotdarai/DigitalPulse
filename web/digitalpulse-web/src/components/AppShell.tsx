@@ -14,7 +14,7 @@ import {
 } from "@fluentui/react-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { AssistantDrawer } from "../design/AssistantDrawer";
 import { CommandPalette } from "../design/CommandPalette";
@@ -23,7 +23,9 @@ import { linkState } from "../design/platforms";
 import { useSession } from "../state/session";
 import { useUi } from "../state/ui";
 import { themeCatalog, useTheme } from "../theme";
-import { NAV_GROUPS, activeNavItem } from "./navigation";
+import { tenantTypeLabel } from "../lib/tenant";
+import { NavRail } from "./NavRail";
+import { activeNavItem } from "./navigation";
 
 const DEV_THEMES = new Set(["editorial", "executive", "future-ai", "minimal"]);
 
@@ -32,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const profile = useSession((s) => s.profile);
   const clear = useSession((s) => s.clear);
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const navOpen = useUi((s) => s.navOpen);
   const setNav = useUi((s) => s.setNav);
   const collapsed = useUi((s) => s.navCollapsed);
@@ -65,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       : states.includes("live")
         ? { tone: "live", label: `${states.filter((s) => s === "live").length} linked` }
         : { tone: "idle", label: "No links" };
-  const current = activeNavItem(pathname);
+  const current = activeNavItem(pathname, search);
   const insights = buildInsights(identity.data);
   const tenantHint = profile?.tenantId ? profile.tenantId.replace(/-/g, "").slice(0, 8) : "no-tenant";
   const holds = (ready.data?.holds ?? []).filter((hold): hold is string => Boolean(hold));
@@ -83,34 +85,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Dismiss20Regular />
           </button>
         </div>
-        <nav className="os-nav-groups">
-          {NAV_GROUPS.map((group) => (
-            <div className="os-nav-group" key={group.label}>
-              <p className="os-nav-label">{group.label}</p>
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const on = current.to === item.to;
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    className={on ? "os-nav-link is-on" : "os-nav-link"}
-                    aria-current={on ? "page" : undefined}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    <Icon aria-hidden="true" />
-                    <span>{item.label}</span>
-                  </NavLink>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
+        <NavRail pathname={pathname} search={search} collapsed={collapsed} />
         <div className="os-nav-foot">
           <div className="os-tenant">
             <span className="os-tenant-name">{profile?.tenantName ?? "Workspace"}</span>
-            <span className="os-tenant-type">{profile?.tenantType ?? ""}</span>
+            <span className="os-tenant-type">{tenantTypeLabel(profile?.tenantType)}</span>
           </div>
           <button
             type="button"

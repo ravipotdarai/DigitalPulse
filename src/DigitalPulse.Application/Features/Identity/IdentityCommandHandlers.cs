@@ -27,6 +27,7 @@ public sealed class UpdateBusinessProfileHandler
             throw AppException.Validation("Industry is not in the catalog.");
         }
 
+        ContentGuard.Require(request.Name, request.BrandVoice);
         business.UpdateIdentity(request.Name, request.Website, request.FoundedYear, request.BrandVoice, request.IndustryCode);
         await _db.SaveChangesAsync(cancellationToken);
         return business.ToResponse();
@@ -184,6 +185,7 @@ public sealed class AddCategoryHandler
     {
         var tenantId = _tenants.RequireTenantId();
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        ContentGuard.Require(request.Name);
         if (await _db.Categories.AnyAsync(c => c.BusinessId == businessId && c.Name == request.Name.Trim(), cancellationToken))
         {
             throw AppException.Conflict("That category is already on this business.");
@@ -213,6 +215,7 @@ public sealed class UpdateCategoryHandler
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
         var category = await _db.Categories.FirstOrDefaultAsync(c => c.Id == categoryId && c.BusinessId == businessId, cancellationToken)
             ?? throw AppException.NotFound("Category was not found.");
+        ContentGuard.Require(request.Name);
         if (await _db.Categories.AnyAsync(c => c.BusinessId == businessId && c.Name == request.Name.Trim() && c.Id != categoryId, cancellationToken))
         {
             throw AppException.Conflict("That category is already on this business.");
@@ -239,6 +242,7 @@ public sealed class AddServiceHandler
     {
         var tenantId = _tenants.RequireTenantId();
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        ContentGuard.Require(request.Name, request.Description);
         var service = Service.Create(tenantId, businessId, request.Name, request.Description);
         _db.Services.Add(service);
         await _db.SaveChangesAsync(cancellationToken);
@@ -263,6 +267,7 @@ public sealed class UpdateServiceHandler
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
         var service = await _db.Services.FirstOrDefaultAsync(s => s.Id == serviceId && s.BusinessId == businessId, cancellationToken)
             ?? throw AppException.NotFound("Service was not found.");
+        ContentGuard.Require(request.Name, request.Description);
         service.Update(request.Name, request.Description);
         await _db.SaveChangesAsync(cancellationToken);
         return new NamedItemResponse(service.Id, service.Name, service.Description);
@@ -284,6 +289,7 @@ public sealed class AddBusinessBrandHandler
     {
         var tenantId = _tenants.RequireTenantId();
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        ContentGuard.Require(request.Name);
         var name = request.Name.Trim();
         var brand = await _db.Brands.FirstOrDefaultAsync(b => b.TenantId == tenantId && b.Name == name, cancellationToken);
         if (brand is null)
@@ -326,6 +332,8 @@ public sealed class AddFactHandler
             throw AppException.Validation("Fact type is not in the catalog.");
         }
 
+        ContentGuard.Require(request.Value);
+
         var fact = BusinessFact.Create(tenantId, businessId, code, request.Value, BusinessAccess.ParseFactStatus(request.Status));
         _db.Facts.Add(fact);
         await _db.SaveChangesAsync(cancellationToken);
@@ -356,6 +364,7 @@ public sealed class UpdateFactHandler
             throw AppException.Validation("Fact type is not in the catalog.");
         }
 
+        ContentGuard.Require(request.Value);
         fact.Update(code, request.Value, BusinessAccess.ParseFactStatus(request.Status));
         await _db.SaveChangesAsync(cancellationToken);
         return new FactResponse(fact.Id, fact.FactTypeCode, fact.Value, fact.Status.ToString(), fact.CanPublish);

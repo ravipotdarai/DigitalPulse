@@ -381,6 +381,8 @@ public sealed class CreateWhatsAppTemplateHandler
             throw AppException.Validation("Template name and body are required.");
         }
 
+        ContentGuard.Require(request.Name, request.Body);
+
         if (await _db.WhatsAppTemplates.AnyAsync(t => t.BusinessId == businessId && t.Name == request.Name.Trim(), cancellationToken))
         {
             throw AppException.Conflict("A template with that name already exists.");
@@ -542,6 +544,8 @@ public sealed class DraftWhatsAppMessageHandler
         {
             throw AppException.Validation("Write a short message body.");
         }
+
+        ContentGuard.Require(request.Body);
 
         if (kind == WhatsAppMessageKind.Template)
         {

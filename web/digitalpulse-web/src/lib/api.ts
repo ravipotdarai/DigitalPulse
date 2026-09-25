@@ -324,6 +324,21 @@ export const api = {
     request<SocialContent>(`/v1/businesses/${businessId}/social/content/${contentId}/approve`, { method: "POST" }),
   publishSocial: (businessId: string, contentId: string) =>
     request<SocialContent>(`/v1/businesses/${businessId}/social/content/${contentId}/publish`, { method: "POST" }),
+  deleteSocial: (businessId: string, contentId: string) =>
+    request<void>(`/v1/businesses/${businessId}/social/content/${contentId}`, { method: "DELETE" }),
+  uploadSocialMedia: async (businessId: string, file: File) => {
+    const token = getStoredToken();
+    const body = new FormData();
+    body.append("file", file);
+    const headers = new Headers();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(`/v1/businesses/${businessId}/social/media`, { method: "POST", headers, body });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new ApiError(response.status, typeof payload.title === "string" ? payload.title : "The image or video could not be stored.");
+    }
+    return payload as SocialMediaUpload;
+  },
   refreshSocialMetrics: (businessId: string) =>
     request<SocialWorkspace>(`/v1/businesses/${businessId}/social/metrics/refresh`, { method: "POST" }),
   directories: (businessId: string) => request<DirectoryWorkspace>(`/v1/businesses/${businessId}/directories`),
@@ -677,12 +692,22 @@ export type SocialContent = {
   lastPublishError: string | null;
   createdAtUtc: string;
   updatedAtUtc: string;
+  review: SocialPostReview;
+};
+export type SocialPostReview = {
+  safetyStatus: string;
+  safetyDetail: string;
+  seoStatus: string;
+  seoNotes: string[];
+  analyticsStatus: string;
+  analyticsDetail: string;
 };
 export type SocialWorkspace = {
   channels: SocialChannel[];
   items: SocialContent[];
   note: string;
 };
+export type SocialMediaUpload = { id: string; kind: string; fileName: string; contentType: string };
 export type DirectoryCapability = {
   platformCode: string;
   platformName: string;

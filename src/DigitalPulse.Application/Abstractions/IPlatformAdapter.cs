@@ -14,6 +14,17 @@ public sealed record PlatformHealthResult(string Status, string Detail);
 public sealed record PlatformDiagnostic(string Check, string Status, string Detail);
 public sealed record PlatformPublishResult(string Status, string Detail);
 public sealed record PlatformMetricsResult(string Status, string Detail);
+public sealed record PlatformPublishMedia(
+    string? ImageUrl,
+    string? VideoUrl,
+    string? ImageFileName,
+    string? VideoFileName,
+    byte[]? ImageBytes,
+    byte[]? VideoBytes)
+{
+    public bool HasImage => ImageBytes is { Length: > 0 } || !string.IsNullOrWhiteSpace(ImageUrl);
+    public bool HasVideo => VideoBytes is { Length: > 0 } || !string.IsNullOrWhiteSpace(VideoUrl);
+}
 
 public interface IPlatformAdapter
 {
@@ -21,6 +32,13 @@ public interface IPlatformAdapter
     Task<PlatformHealthResult> HealthCheckAsync(PlatformConnection connection, CancellationToken cancellationToken);
     Task<IReadOnlyList<PlatformDiagnostic>> DiagnoseAsync(PlatformConnection connection, CancellationToken cancellationToken);
     Task<PlatformPublishResult> PublishAsync(PlatformConnection connection, string title, string body, CancellationToken cancellationToken);
+    Task<PlatformPublishResult> PublishAsync(
+        PlatformConnection connection,
+        string title,
+        string body,
+        PlatformPublishMedia? media,
+        CancellationToken cancellationToken) =>
+        PublishAsync(connection, title, body, cancellationToken);
     Task<PlatformMetricsResult> MetricsAsync(PlatformConnection connection, CancellationToken cancellationToken);
 }
 

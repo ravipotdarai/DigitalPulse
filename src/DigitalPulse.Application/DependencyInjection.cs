@@ -95,7 +95,9 @@ public static class DependencyInjection
         services.AddScoped<CreateSocialContentHandler>();
         services.AddScoped<UpdateSocialContentHandler>();
         services.AddScoped<ApproveSocialContentHandler>();
+        services.AddScoped<DeleteSocialContentHandler>();
         services.AddScoped<PublishSocialContentHandler>();
+        services.AddScoped<UploadSocialMediaHandler>();
         services.AddScoped<RefreshSocialMetricsHandler>();
         services.AddScoped<GetDirectoryWorkspaceHandler>();
         services.AddScoped<PrepareDirectoryTaskHandler>();

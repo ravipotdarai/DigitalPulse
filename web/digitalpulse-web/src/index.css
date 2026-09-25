@@ -135,6 +135,7 @@
 * { box-sizing: border-box; }
 
 html, body, #root { min-height: 100%; }
+html { scrollbar-gutter: stable; }
 
 .app-root { min-height: 100dvh; background: transparent; }
 
@@ -201,10 +202,7 @@ button, input, textarea, select { font: inherit; }
 
 .fui-Input,
 .fui-Textarea,
-.fui-Dropdown,
-[class*="fui-Input"],
-[class*="fui-Textarea"],
-[class*="fui-Dropdown"] {
+.fui-Dropdown {
   border-radius: var(--r-1) !important;
   min-width: 0;
 }
@@ -721,41 +719,61 @@ button, input, textarea, select { font: inherit; }
 .veil {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 80;
   display: grid;
   place-items: start center;
   padding: 12vh 1rem 1rem;
   background: color-mix(in srgb, var(--ink) 45%, transparent);
 }
 
+.veil-panel { width: min(40rem, 100%); }
+
 .command-box {
-  width: min(40rem, 100%);
-  background: var(--panel);
-  border: 1px solid var(--line-strong);
+  display: grid;
+  width: 100%;
+  background: var(--dp-surface-elevated, var(--panel));
+  border: 1px solid var(--dp-border-strong, var(--line-strong));
   box-shadow: var(--shadow);
+  color: var(--dp-text-primary, var(--ink));
 }
 
-.command-box input {
+.command-box .command-input,
+.command-input {
   width: 100%;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  padding: 0.9rem 1rem;
-  background: transparent;
-  color: var(--ink);
+  border: 0 !important;
+  border-bottom: 1px solid var(--dp-border, var(--line)) !important;
+  border-radius: 0 !important;
+  min-height: 3rem !important;
+  padding: 0.95rem 1.1rem;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  color: var(--dp-text-primary, var(--ink)) !important;
+}
+
+.command-list {
+  max-height: min(28rem, 56vh);
+  overflow: auto;
 }
 
 .command-box button {
   display: block;
   width: 100%;
-  padding: 0.7rem 1rem;
+  padding: 0.75rem 1.1rem;
   border: 0;
   background: none;
-  color: inherit;
+  color: var(--dp-text-primary, var(--ink));
   text-align: left;
   cursor: pointer;
 }
 
-.command-box button:hover { background: var(--signal-soft); }
+.command-box button:hover,
+.command-box button.is-on { background: var(--dp-accent-soft, var(--signal-soft)); }
+.command-empty {
+  margin: 0;
+  padding: 1rem 1.1rem 1.15rem;
+  color: var(--dp-text-muted, var(--muted));
+}
 
 .drawer {
   position: fixed;

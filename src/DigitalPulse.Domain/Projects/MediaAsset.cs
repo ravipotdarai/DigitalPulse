@@ -19,7 +19,7 @@ public sealed class MediaAsset : TenantOwnedEntity
 
     private MediaAsset() { }
 
-    public static MediaAsset Register(Guid tenantId, Guid businessId, string label, MediaKind kind, string? sourceUrl)
+    public static MediaAsset Register(Guid tenantId, Guid businessId, string label, MediaKind kind, string? sourceUrl, Guid? id = null)
     {
         if (tenantId == Guid.Empty) throw new ArgumentException("Tenant is required.", nameof(tenantId));
         if (businessId == Guid.Empty) throw new ArgumentException("Business is required.", nameof(businessId));
@@ -27,12 +27,13 @@ public sealed class MediaAsset : TenantOwnedEntity
 
         return new MediaAsset
         {
+            Id = id ?? Guid.NewGuid(),
             TenantId = tenantId,
             BusinessId = businessId,
             Label = label.Trim(),
             Kind = kind,
             SourceUrl = string.IsNullOrWhiteSpace(sourceUrl) ? null : sourceUrl.Trim(),
-            Note = "Media is a catalog record only. DigitalPulse does not host a production CDN in this phase."
+            Note = "Stored on this host so DigitalPulse can send it through the official publish API after the user approves."
         };
     }
 }

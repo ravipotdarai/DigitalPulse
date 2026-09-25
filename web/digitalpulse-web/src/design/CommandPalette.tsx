@@ -1,25 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUi } from "../state/ui";
-import { Overlay, Stagger, StaggerItem } from "./motion";
+import { Overlay } from "./motion";
 
 const COMMANDS = [
-  { id: "command", label: "Overview — command center", to: "/app" },
-  { id: "findings", label: "Signals — DigitalPulse Check", to: "/app/findings" },
-  { id: "identity", label: "Business identity", to: "/app/identity" },
-  { id: "connections", label: "Connections ecosystem", to: "/app/connections" },
-  { id: "projects", label: "Projects and content factory", to: "/app/projects" },
-  { id: "website", label: "Website and search", to: "/app/website" },
-  { id: "social", label: "Social content", to: "/app/social" },
-  { id: "directories", label: "Directories — IndiaMART / Justdial", to: "/app/directories" },
-  { id: "ai", label: "AI orchestrator", to: "/app/ai" },
-  { id: "actions", label: "Action center — Autopilot", to: "/app/actions" },
-  { id: "whatsapp", label: "WhatsApp Business Messaging", to: "/app/whatsapp" },
-  { id: "monitoring", label: "Monitoring and reports", to: "/app/monitoring" },
-  { id: "agency", label: "Agency clients and white label", to: "/app/agency" },
-  { id: "operations", label: "Operations and production readiness", to: "/app/operations" },
+  { id: "command", label: "Overview", to: "/app" },
+  { id: "workspace", label: "Workspace — tenant and plan", to: "/app/info" },
   { id: "billing", label: "Billing and subscription", to: "/app/billing" },
-  { id: "workspace", label: "Workspace settings", to: "/app/info" }
+  { id: "identity", label: "Business profile", to: "/app/identity" },
+  { id: "agency", label: "Company clients and white label", to: "/app/agency" },
+  { id: "website", label: "Website and search", to: "/app/website" },
+  { id: "monitoring", label: "Monitor", to: "/app/monitoring" },
+  { id: "findings", label: "Scans — DigitalPulse Check", to: "/app/findings" },
+  { id: "projects", label: "Projects", to: "/app/projects" },
+  { id: "social", label: "Common post — all platforms", to: "/app/social" },
+  { id: "google", label: "Google social studio", to: "/app/social/google" },
+  { id: "facebook", label: "Facebook social studio", to: "/app/social/facebook" },
+  { id: "instagram", label: "Instagram social studio", to: "/app/social/instagram" },
+  { id: "linkedin", label: "LinkedIn social studio", to: "/app/social/linkedin" },
+  { id: "youtube", label: "YouTube social studio", to: "/app/social/youtube" },
+  { id: "whatsapp", label: "WhatsApp", to: "/app/whatsapp" },
+  { id: "indiamart", label: "IndiaMART", to: "/app/directories?platform=INDIAMART" },
+  { id: "justdial", label: "Justdial", to: "/app/directories?platform=JUSTDIAL" },
+  { id: "connections", label: "Connection center", to: "/app/connections" },
+  { id: "ai", label: "Orchestrator", to: "/app/ai" },
+  { id: "actions", label: "Actions", to: "/app/actions" },
+  { id: "operations", label: "Operations", to: "/app/operations" }
 ];
 
 export function CommandPalette() {
@@ -27,6 +33,7 @@ export function CommandPalette() {
   const setCommand = useUi((s) => s.setCommand);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -41,7 +48,10 @@ export function CommandPalette() {
   }, [open, setCommand]);
 
   useEffect(() => {
-    if (!open) setQuery("");
+    if (!open) {
+      setQuery("");
+      setActive(0);
+    }
   }, [open]);
 
   const items = useMemo(() => {
@@ -49,31 +59,55 @@ export function CommandPalette() {
     return COMMANDS.filter((item) => item.label.toLowerCase().includes(needle));
   }, [query]);
 
+  function go(to: string) {
+    navigate(to);
+    setCommand(false);
+  }
+
   return (
-    <Overlay open={open} onClose={() => setCommand(false)} label="Command">
+    <Overlay open={open} onClose={() => setCommand(false)} label="Jump">
       <div className="command-box">
         <input
           autoFocus
+          className="command-input"
           placeholder="Jump to a surface"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          aria-label="Jump to a surface"
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setActive(0);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setActive((index) => Math.min(items.length - 1, index + 1));
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              setActive((index) => Math.max(0, index - 1));
+            }
+            if (event.key === "Enter" && items[active]) {
+              event.preventDefault();
+              go(items[active].to);
+            }
+          }}
         />
-        <Stagger>
-          {items.map((item) => (
-            <StaggerItem key={item.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  navigate(item.to);
-                  setCommand(false);
-                }}
-              >
-                {item.label}
-              </button>
-            </StaggerItem>
+        <div className="command-list" role="listbox" aria-label="Surfaces">
+          {items.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              role="option"
+              aria-selected={index === active}
+              className={index === active ? "is-on" : undefined}
+              onMouseEnter={() => setActive(index)}
+              onClick={() => go(item.to)}
+            >
+              {item.label}
+            </button>
           ))}
-        </Stagger>
-        {items.length === 0 ? <p className="dp-empty">No matches</p> : null}
+          {items.length === 0 ? <p className="command-empty">No matches</p> : null}
+        </div>
       </div>
     </Overlay>
   );

@@ -15,6 +15,7 @@ import { BrandMark } from "../design/BrandMark";
 import { PulseMeter } from "../design/PulseMeter";
 import { SignalRow } from "../design/Signal";
 import { TiltCard } from "../design/TiltCard";
+import { tenantTypeLabel } from "../lib/tenant";
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -49,7 +50,7 @@ export function DashboardPage() {
     <div className="cc exec">
       <section className="cc-hero" aria-labelledby="cc-name">
         <Reveal>
-          <p className="hero-kicker">{data.tenantType} · {data.planName}</p>
+          <p className="hero-kicker">{tenantTypeLabel(data.tenantType)} · {data.planName}</p>
           <h1 className="cc-name" id="cc-name"><Headline text={name} /></h1>
           <p className="cc-state">
             {data.lastScanAtUtc ? (
@@ -263,7 +264,7 @@ export function DashboardPage() {
             />
             {data.tenantType === "Agency" ? (
               <Watch
-                label="Agency clients"
+                label="Company clients"
                 value={`${data.agencyClientCount} client business${data.agencyClientCount === 1 ? "" : "es"}`}
                 tone={data.agencyClientCount ? "live" : "idle"}
               />

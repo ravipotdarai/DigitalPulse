@@ -602,6 +602,7 @@ public sealed class AddCompetitorHandler
             throw AppException.Validation("That competitor is already on the operator list.");
         }
 
+        ContentGuard.Require(request.Name, request.Notes);
         try
         {
             _db.Competitors.Add(Competitor.Create(tenantId, businessId, request.Name, request.Website, request.Notes));

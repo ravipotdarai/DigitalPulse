@@ -25,7 +25,7 @@ internal static class SocialChannels
         _ => throw AppException.Validation("WhatsApp and directory platforms are not social posts in this phase.")
     };
 
-    public static SocialContentResponse ToResponse(this SocialContentItem item) =>
+    public static SocialContentResponse ToResponse(this SocialContentItem item, bool analyticsLive = false) =>
         new(
             item.Id,
             item.BusinessId,
@@ -38,7 +38,20 @@ internal static class SocialChannels
             item.VerificationDetail,
             item.LastPublishError,
             item.CreatedAtUtc,
-            item.UpdatedAtUtc);
+            item.UpdatedAtUtc,
+            SocialPostChecks.Evaluate(item.Title, item.Body, analyticsLive));
+
+    public static bool AnalyticsLive(IEnumerable<DigitalPulse.Domain.Platforms.PlatformConnection> connections) =>
+        connections.Any(c =>
+            c.PlatformCode.Equals("GOOGLE_ANALYTICS", StringComparison.OrdinalIgnoreCase) && c.HasLiveCredential);
+
+    public static async Task<bool> AnalyticsLiveAsync(IAppDbContext db, Guid businessId, CancellationToken cancellationToken)
+    {
+        var links = await db.Connections.AsNoTracking()
+            .Where(c => c.BusinessId == businessId && c.PlatformCode == "GOOGLE_ANALYTICS")
+            .ToListAsync(cancellationToken);
+        return AnalyticsLive(links);
+    }
 }
 
 public sealed class GetSocialWorkspaceHandler
@@ -95,9 +108,10 @@ public sealed class GetSocialWorkspaceHandler
 
         return new SocialWorkspaceResponse(
             channels,
-            items.Select(i => i.ToResponse()).ToList(),
-            "Google, Meta, LinkedIn, and YouTube drafts publish through the official API when a live OAuth grant is stored. Development grants stay on hold. WhatsApp is not a social post.");
+            items.Select(i => i.ToResponse(SocialChannels.AnalyticsLive(connections))).ToList(),
+            "After you log in and approve, DigitalPulse posts the draft — including the attached image or short video — through the official API. Development grants stay on hold. WhatsApp is not a social post.");
     }
+
 }
 
 public sealed class CreateSocialContentHandler
@@ -123,16 +137,25 @@ public sealed class CreateSocialContentHandler
         }
 
         _catalog.Get(request.PlatformCode);
-        var item = SocialContentItem.Draft(
-            tenantId,
-            businessId,
-            request.PlatformCode,
-            SocialChannels.KindFor(request.PlatformCode),
-            request.Title,
-            request.Body);
+        SocialContentItem item;
+        try
+        {
+            item = SocialContentItem.Draft(
+                tenantId,
+                businessId,
+                request.PlatformCode,
+                SocialChannels.KindFor(request.PlatformCode),
+                request.Title,
+                request.Body);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw AppException.Validation(ex.Message);
+        }
+
         _db.SocialContent.Add(item);
         await _db.SaveChangesAsync(cancellationToken);
-        return item.ToResponse();
+        return item.ToResponse(await SocialChannels.AnalyticsLiveAsync(_db, businessId, cancellationToken));
     }
 }
 
@@ -167,7 +190,7 @@ public sealed class UpdateSocialContentHandler
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        return item.ToResponse();
+        return item.ToResponse(await SocialChannels.AnalyticsLiveAsync(_db, businessId, cancellationToken));
     }
 }
 
@@ -188,9 +211,46 @@ public sealed class ApproveSocialContentHandler
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
         var item = await _db.SocialContent.FirstOrDefaultAsync(c => c.Id == contentId && c.BusinessId == businessId, cancellationToken)
             ?? throw AppException.NotFound("Social content was not found.");
+        var safety = DigitalPulse.Domain.Safety.ContentSafety.Assess(item.Title, item.Body);
+        if (!safety.Allowed)
+        {
+            throw AppException.Validation(safety.Detail);
+        }
+
         item.Approve();
         await _db.SaveChangesAsync(cancellationToken);
-        return item.ToResponse();
+        return item.ToResponse(await SocialChannels.AnalyticsLiveAsync(_db, businessId, cancellationToken));
+    }
+}
+
+public sealed class DeleteSocialContentHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+
+    public DeleteSocialContentHandler(IAppDbContext db, ITenantContext tenant)
+    {
+        _db = db;
+        _tenant = tenant;
+    }
+
+    public async Task Handle(Guid businessId, Guid contentId, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        var item = await _db.SocialContent.FirstOrDefaultAsync(c => c.Id == contentId && c.BusinessId == businessId, cancellationToken)
+            ?? throw AppException.NotFound("Social content was not found.");
+        try
+        {
+            item.Discard();
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw AppException.Validation(ex.Message);
+        }
+
+        _db.SocialContent.Remove(item);
+        await _db.SaveChangesAsync(cancellationToken);
     }
 }
 
@@ -199,12 +259,14 @@ public sealed class PublishSocialContentHandler
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IPlatformAdapterCatalog _catalog;
+    private readonly ISocialMediaStore _media;
 
-    public PublishSocialContentHandler(IAppDbContext db, ITenantContext tenant, IPlatformAdapterCatalog catalog)
+    public PublishSocialContentHandler(IAppDbContext db, ITenantContext tenant, IPlatformAdapterCatalog catalog, ISocialMediaStore media)
     {
         _db = db;
         _tenant = tenant;
         _catalog = catalog;
+        _media = media;
     }
 
     public async Task<SocialContentResponse> Handle(Guid businessId, Guid contentId, CancellationToken cancellationToken)
@@ -228,7 +290,8 @@ public sealed class PublishSocialContentHandler
             return item.ToResponse();
         }
 
-        var result = await adapter.PublishAsync(connection, item.Title, item.Body, cancellationToken);
+        var media = await LoadMediaAsync(businessId, item.Body, cancellationToken);
+        var result = await adapter.PublishAsync(connection, item.Title, item.Body, media, cancellationToken);
         if (result.Status.Equals("Published", StringComparison.OrdinalIgnoreCase))
         {
             item.MarkPublished(result.Detail);
@@ -249,6 +312,38 @@ public sealed class PublishSocialContentHandler
 
         await _db.SaveChangesAsync(cancellationToken);
         return item.ToResponse();
+    }
+
+    private async Task<PlatformPublishMedia> LoadMediaAsync(Guid businessId, string body, CancellationToken cancellationToken)
+    {
+        var parts = SocialDraft.Parse(body);
+        byte[]? imageBytes = null;
+        byte[]? videoBytes = null;
+        string? imageName = null;
+        string? videoName = null;
+        if (parts.ImageFileId is Guid imageId)
+        {
+            var asset = await _db.MediaAssets.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == imageId && a.BusinessId == businessId, cancellationToken);
+            if (asset?.SourceUrl is not null)
+            {
+                imageBytes = await _media.ReadAsync(asset.SourceUrl, cancellationToken);
+                imageName = asset.Label;
+            }
+        }
+
+        if (parts.VideoFileId is Guid videoId)
+        {
+            var asset = await _db.MediaAssets.AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == videoId && a.BusinessId == businessId, cancellationToken);
+            if (asset?.SourceUrl is not null)
+            {
+                videoBytes = await _media.ReadAsync(asset.SourceUrl, cancellationToken);
+                videoName = asset.Label;
+            }
+        }
+
+        return new PlatformPublishMedia(parts.ImageUrl, parts.VideoUrl, imageName, videoName, imageBytes, videoBytes);
     }
 }
 

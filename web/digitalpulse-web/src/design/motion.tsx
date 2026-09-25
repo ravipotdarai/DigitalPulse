@@ -1,5 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion, type HTMLMotionProps, type Variants } from "framer-motion";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useTheme } from "../theme";
 
 /** DigitalPulse motion language. Pages and chrome consume these tokens — do not invent local timings. */
@@ -44,11 +45,11 @@ export function useMotionTiming() {
 
 export function pageTransition(reduce: boolean) {
   return {
-    initial: reduce ? false : { opacity: 0, y: MOTION.distance.sm },
-    animate: { opacity: 1, y: 0 },
-    exit: reduce ? undefined : { opacity: 0, y: -MOTION.distance.xs },
+    initial: reduce ? false : { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: reduce ? undefined : { opacity: 0 },
     transition: {
-      duration: reduce ? 0 : MOTION.duration.enter,
+      duration: reduce ? 0 : MOTION.duration.fast,
       ease: MOTION.ease
     }
   };
@@ -64,13 +65,13 @@ export function panelTransition(reduce: boolean, duration: number) {
 }
 
 export function PageEnter({ children, className }: { children: ReactNode; className?: string }) {
-  const { reduce, enter, ease } = useMotionTiming();
+  const { reduce, ease } = useMotionTiming();
   return (
     <motion.div
       className={className}
-      initial={reduce ? false : { opacity: 0, y: MOTION.distance.sm }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: enter, ease }}
+      initial={reduce ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: reduce ? 0 : 0.22, ease }}
     >
       {children}
     </motion.div>
@@ -161,12 +162,13 @@ export function Overlay({
   children: ReactNode;
 }) {
   const { reduce, fast, enter, ease } = useMotionTiming();
-  return (
+  return createPortal(
     <AnimatePresence>
       {open ? (
         <motion.div
           className="veil"
           role="dialog"
+          aria-modal="true"
           aria-label={label}
           onClick={onClose}
           initial={reduce ? false : { opacity: 0 }}
@@ -175,17 +177,19 @@ export function Overlay({
           transition={{ duration: reduce ? 0 : fast, ease }}
         >
           <motion.div
+            className="veil-panel"
             onClick={(event) => event.stopPropagation()}
-            initial={reduce ? false : { opacity: 0, y: MOTION.distance.md, scale: MOTION.scale.enter }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduce ? undefined : { opacity: 0, y: MOTION.distance.xs, scale: MOTION.scale.enter }}
+            initial={reduce ? false : { opacity: 0, scale: MOTION.scale.enter }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={reduce ? undefined : { opacity: 0, scale: MOTION.scale.enter }}
             transition={{ duration: reduce ? 0 : enter, ease }}
           >
             {children}
           </motion.div>
         </motion.div>
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
 

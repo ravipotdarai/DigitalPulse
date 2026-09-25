@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { MOTION, useMotionTiming } from "./design/motion";
+import { useMotionTiming } from "./design/motion";
 import { AppShell } from "./components/AppShell";
 import { PublicChrome } from "./components/PublicChrome";
 import { getStoredToken } from "./lib/api";
@@ -57,17 +57,17 @@ function Frame({ children }: { children: React.ReactNode }) {
 
 function AnimatedRoutes() {
   const location = useLocation();
-  const { reduce, enter, fast, ease } = useMotionTiming();
+  const { reduce, fast, ease } = useMotionTiming();
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={location.pathname}
         className="route-view"
-        initial={reduce ? false : { opacity: 0, y: MOTION.distance.sm }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={reduce ? undefined : { opacity: 0, y: -MOTION.distance.xs, transition: { duration: fast, ease } }}
-        transition={{ duration: enter, ease }}
+        initial={reduce ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={reduce ? undefined : { opacity: 0, transition: { duration: fast, ease } }}
+        transition={{ duration: reduce ? 0 : 0.22, ease }}
       >
         <Routes location={location}>
           <Route path="/" element={<GuestOnly><LandingPage /></GuestOnly>} />
@@ -87,6 +87,7 @@ function AnimatedRoutes() {
           <Route path="/app/findings" element={<RequireAuth><FindingsPage /></RequireAuth>} />
           <Route path="/app/website" element={<RequireAuth><WebsitePage /></RequireAuth>} />
           <Route path="/app/social" element={<RequireAuth><SocialPage /></RequireAuth>} />
+          <Route path="/app/social/:platform" element={<RequireAuth><SocialPage /></RequireAuth>} />
           <Route path="/app/directories" element={<RequireAuth><DirectoriesPage /></RequireAuth>} />
           <Route path="/app/projects" element={<RequireAuth><ProjectsPage /></RequireAuth>} />
           <Route path="/app/ai" element={<RequireAuth><AiPage /></RequireAuth>} />

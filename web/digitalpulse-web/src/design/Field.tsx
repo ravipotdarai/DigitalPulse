@@ -24,6 +24,7 @@ export function Field({
     <label className="dp-field">
       <span>{label}</span>
       <Input
+        className="field-full"
         appearance="outline"
         size="large"
         name={name}
@@ -53,20 +54,25 @@ export function SelectField({
 }) {
   const selected = options.find((option) => option.value === value);
   return (
-    <label className="dp-field">
+    <div className="dp-field">
       <span>{label}</span>
       <Dropdown
         className="field-full"
         appearance="outline"
-        value={selected?.label ?? "Choose"}
+        placeholder="Choose"
+        value={selected?.label}
         selectedOptions={value ? [value] : []}
-        onOptionSelect={(_, data) => onChange(data.optionValue ?? "")}
+        onOptionSelect={(_, data) => {
+          if (data.optionValue) onChange(data.optionValue);
+        }}
       >
         {options.map((option) => (
-          <Option key={option.value} value={option.value}>{option.label}</Option>
+          <Option key={option.value} value={option.value} text={option.label}>
+            {option.label}
+          </Option>
         ))}
       </Dropdown>
-    </label>
+    </div>
   );
 }
 
@@ -82,7 +88,7 @@ export function AreaField({
   return (
     <label className="dp-field">
       <Label>{label}</Label>
-      <Textarea appearance="outline" resize="vertical" value={value} onChange={(_, next) => onChange(next.value)} />
+      <Textarea className="field-full" appearance="outline" resize="vertical" value={value} onChange={(_, next) => onChange(next.value)} />
     </label>
   );
 }

@@ -26,7 +26,10 @@
   to { opacity: 1; }
 }
 
-.route-view { min-height: 48vh; }
+.route-view {
+  min-height: 48vh;
+  isolation: isolate;
+}
 
 .page-view,
 .cc,
@@ -34,7 +37,7 @@
 .workspace,
 .command,
 .wizard {
-  animation: dpPageIn var(--dp-dur-slow) var(--dp-ease) both;
+  animation: none;
 }
 
 /* Buttons and chrome */

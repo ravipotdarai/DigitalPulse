@@ -12,6 +12,14 @@ public sealed record SocialChannelResponse(
     string? MetricStatus,
     string? MetricDetail);
 
+public sealed record SocialPostReview(
+    string SafetyStatus,
+    string SafetyDetail,
+    string SeoStatus,
+    IReadOnlyList<string> SeoNotes,
+    string AnalyticsStatus,
+    string AnalyticsDetail);
+
 public sealed record SocialContentResponse(
     Guid Id,
     Guid BusinessId,
@@ -24,7 +32,8 @@ public sealed record SocialContentResponse(
     string? VerificationDetail,
     string? LastPublishError,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    SocialPostReview Review);
 
 public sealed record SocialWorkspaceResponse(
     IReadOnlyList<SocialChannelResponse> Channels,
@@ -33,3 +42,4 @@ public sealed record SocialWorkspaceResponse(
 
 public sealed record CreateSocialContentRequest(string PlatformCode, string Title, string Body);
 public sealed record UpdateSocialContentRequest(string Title, string Body);
+public sealed record SocialMediaResponse(Guid Id, string Kind, string FileName, string ContentType);
