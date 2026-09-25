@@ -1,8 +1,10 @@
-import { Button, Input, Textarea } from "@fluentui/react-components";
+import { Input, Textarea } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api, type SocialWorkspace } from "../lib/api";
 import { PageState } from "../components/PageState";
+import { ChannelCard, ChannelChip } from "../design/ChannelCard";
 import { DataGrid } from "../design/DataGrid";
 
 export function SocialPage() {
@@ -81,16 +83,21 @@ function SocialWorkspaceView({ businessId, data }: { businessId: string; data: S
         {success ? <p className="note-ok">{success}</p> : null}
       </header>
 
-      <div className="band band-3">
+      <div className="channel-grid">
         {data.channels.map((channel) => (
-          <article className="panel" key={channel.platformCode}>
-            <p className="hero-kicker">{channel.category}</p>
-            <h3>{channel.platformName}</h3>
-            <div className="row-line"><span>Connection</span><span className={`sev ${channel.connectionStatus === "Connected" ? "sev-ok" : "sev-hold"}`}>{channel.connectionStatus ?? "Not connected"}</span></div>
-            <div className="row-line"><span>Publish</span><span className="sev sev-hold">{channel.canPublish ? "Capability listed" : "Assisted only"}</span></div>
-            <div className="row-line"><span>Metrics</span><span className={`sev ${channel.metricStatus === "Hold" ? "sev-warn" : "sev-hold"}`}>{channel.metricStatus ?? "Not captured"}</span></div>
+          <ChannelCard
+            key={channel.platformCode}
+            code={channel.platformCode}
+            name={channel.platformName}
+            category={channel.category}
+            rows={[
+              { label: "Connection", value: channel.connectionStatus ?? "Not connected", tone: channel.connectionStatus === "Connected" ? "ok" : "hold" },
+              { label: "Publish", value: channel.canPublish ? "Capability listed" : "Assisted only", tone: "hold" },
+              { label: "Metrics", value: channel.metricStatus ?? "Not captured", tone: channel.metricStatus === "Hold" ? "warn" : "hold" }
+            ]}
+          >
             {channel.metricDetail ? <p className="ink-muted meta-line">{channel.metricDetail}</p> : null}
-          </article>
+          </ChannelCard>
         ))}
       </div>
 
@@ -100,13 +107,13 @@ function SocialWorkspaceView({ businessId, data }: { businessId: string; data: S
           <p className="hero-kicker">Channel</p>
           <div className="draft-channels" role="group" aria-label="Channel">
             {data.channels.map((channel) => (
-              <Button
+              <ChannelChip
                 key={channel.platformCode}
-                appearance={platform === channel.platformCode ? "primary" : "subtle"}
-                onClick={() => setPlatform(channel.platformCode)}
-              >
-                {channel.platformName}
-              </Button>
+                code={channel.platformCode}
+                name={channel.platformName}
+                selected={platform === channel.platformCode}
+                onSelect={() => setPlatform(channel.platformCode)}
+              />
             ))}
           </div>
           <Input value={title} onChange={(_, next) => setTitle(next.value)} placeholder="Title" aria-label="Draft title" />

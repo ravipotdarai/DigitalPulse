@@ -22,11 +22,13 @@ import { DrawerFrame } from "../design/motion";
 import { linkState } from "../design/platforms";
 import { useSession } from "../state/session";
 import { useUi } from "../state/ui";
-import { ThemeSwitcher, useTheme } from "../theme";
+import { themeCatalog, useTheme } from "../theme";
 import { NAV_GROUPS, activeNavItem } from "./navigation";
 
+const DEV_THEMES = new Set(["editorial", "executive", "future-ai", "minimal"]);
+
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { scheme, setScheme } = useTheme();
+  const { scheme, setScheme, id: themeId, setId: setThemeId } = useTheme();
   const profile = useSession((s) => s.profile);
   const clear = useSession((s) => s.clear);
   const navigate = useNavigate();
@@ -51,6 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     queryFn: () => api.connections(firstId!),
     enabled: Boolean(firstId)
   });
+  const ready = useQuery({ queryKey: ["ready"], queryFn: api.ready, retry: false });
 
   useEffect(() => setNav(false), [pathname, setNav]);
 
@@ -64,6 +67,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         : { tone: "idle", label: "No links" };
   const current = activeNavItem(pathname);
   const insights = buildInsights(identity.data);
+  const tenantHint = profile?.tenantId ? profile.tenantId.replace(/-/g, "").slice(0, 8) : "no-tenant";
+  const holds = (ready.data?.holds ?? []).filter((hold): hold is string => Boolean(hold));
+  const vaultHeld = holds.some((hold) => /key vault/i.test(hold));
+  const linkedCount = states.filter((s) => s === "live").length;
 
   return (
     <div className={collapsed ? "os is-collapsed" : "os"}>
@@ -118,69 +125,86 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <header className="os-head">
-        <button type="button" className="icon-btn os-menu" aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNav(true)}>
-          <Navigation20Regular />
-        </button>
-        <p className="os-crumb" aria-live="polite">{current.label}</p>
+        <div className="os-head-lead">
+          <button type="button" className="icon-btn os-menu" aria-label="Open navigation" aria-expanded={navOpen} onClick={() => setNav(true)}>
+            <Navigation20Regular />
+          </button>
+          <p className="os-crumb" aria-live="polite">{current.label}</p>
+        </div>
         <button type="button" className="search-hit" onClick={() => setCommand(true)}>
           <Search20Regular aria-hidden="true" />
-          <span>Search DigitalPulse</span>
+          <span>Jump</span>
           <kbd>Ctrl K</kbd>
         </button>
-        <span className={`pulse-chip is-${pulse.tone}`} title="Connection state across authorized platforms. Development grants only.">
-          <i aria-hidden="true" />
-          {pulse.label}
-        </span>
-        {(businesses.data?.length ?? 0) > 1 ? (
-          <select
-            aria-label="Business"
-            className="business-hit"
-            value={firstId ?? ""}
-            onChange={(event) => navigate(`/app/businesses/${event.target.value}`)}
-          >
-            {(businesses.data ?? []).map((business) => (
-              <option key={business.id} value={business.id}>{business.name}</option>
-            ))}
-          </select>
-        ) : (
-          <span className="business-name">{businesses.data?.[0]?.name ?? "No business"}</span>
-        )}
-        <button type="button" className="icon-btn" aria-label="Open AI brief" onClick={() => setAssistant(true)}>
-          <Sparkle20Regular />
-        </button>
-        <button type="button" className="icon-btn" aria-label="Open signals" aria-pressed={noticeOpen} onClick={() => setNotice(!noticeOpen)}>
-          <Alert20Regular />
-        </button>
-        <Menu>
-          <MenuTrigger disableButtonEnhancement>
-            <button type="button" className="icon-btn" aria-label="Account and display">
-              <PersonCircle20Regular />
-            </button>
-          </MenuTrigger>
-          <MenuPopover>
-            <MenuList>
-              <MenuItem disabled>{profile?.displayName ?? profile?.email ?? "Account"}</MenuItem>
-              <MenuItem
-                icon={scheme === "dark" ? <WeatherSunny20Regular /> : <WeatherMoon20Regular />}
-                onClick={() => setScheme(scheme === "dark" ? "light" : "dark")}
-              >
-                {scheme === "dark" ? "Light scheme" : "Dark scheme"}
-              </MenuItem>
-              <MenuDivider />
-              <MenuItem
-                icon={<SignOut20Regular />}
-                onClick={async () => {
-                  await api.logout().catch(() => undefined);
-                  clear();
-                  navigate("/");
-                }}
-              >
-                Sign out
-              </MenuItem>
-            </MenuList>
-          </MenuPopover>
-        </Menu>
-        <ThemeSwitcher />
+        <div className="os-head-trail">
+          <span className={`pulse-chip is-${pulse.tone}`} title="Authorized platform state. Development grants only — not a live health index.">
+            <i aria-hidden="true" />
+            <span className="pulse-chip-label">{pulse.label}</span>
+          </span>
+          {(businesses.data?.length ?? 0) > 1 ? (
+            <select
+              aria-label="Business"
+              className="business-hit"
+              value={firstId ?? ""}
+              onChange={(event) => navigate(`/app/businesses/${event.target.value}`)}
+            >
+              {(businesses.data ?? []).map((business) => (
+                <option key={business.id} value={business.id}>{business.name}</option>
+              ))}
+            </select>
+          ) : (
+            <span className="business-name">{businesses.data?.[0]?.name ?? "No business"}</span>
+          )}
+          <button type="button" className="icon-btn" aria-label="Open AI brief" onClick={() => setAssistant(true)}>
+            <Sparkle20Regular />
+          </button>
+          <button type="button" className="icon-btn" aria-label="Open signals" aria-pressed={noticeOpen} onClick={() => setNotice(!noticeOpen)}>
+            <Alert20Regular />
+          </button>
+          <Menu>
+            <MenuTrigger disableButtonEnhancement>
+              <button type="button" className="icon-btn" aria-label="Account and display">
+                <PersonCircle20Regular />
+              </button>
+            </MenuTrigger>
+            <MenuPopover>
+              <MenuList>
+                <MenuItem disabled>{profile?.displayName ?? profile?.email ?? "Account"}</MenuItem>
+                <MenuItem disabled>
+                  {profile?.tenantName ?? "Workspace"} · {linkedCount} linked · {tenantHint}
+                </MenuItem>
+                <MenuItem disabled>
+                  Development JWT · {vaultHeld ? "Key Vault hold" : "Key Vault unconfigured"} · Idempotent
+                </MenuItem>
+                <MenuDivider />
+                <MenuItem
+                  icon={scheme === "dark" ? <WeatherSunny20Regular /> : <WeatherMoon20Regular />}
+                  onClick={() => setScheme(scheme === "dark" ? "light" : "dark")}
+                >
+                  {scheme === "dark" ? "Light scheme" : "Dark scheme"}
+                </MenuItem>
+                {import.meta.env.DEV
+                  ? themeCatalog.filter((theme) => DEV_THEMES.has(theme.id)).map((theme) => (
+                      <MenuItem key={theme.id} onClick={() => setThemeId(theme.id)}>
+                        {theme.label}{theme.id === themeId ? " · on" : ""}
+                      </MenuItem>
+                    ))
+                  : null}
+                <MenuDivider />
+                <MenuItem
+                  icon={<SignOut20Regular />}
+                  onClick={async () => {
+                    await api.logout().catch(() => undefined);
+                    clear();
+                    navigate("/");
+                  }}
+                >
+                  Sign out
+                </MenuItem>
+              </MenuList>
+            </MenuPopover>
+          </Menu>
+        </div>
       </header>
 
       <main className="os-main" id="dp-main">{children}</main>

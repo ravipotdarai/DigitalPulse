@@ -79,6 +79,7 @@
   --dp-background: var(--void);
   --dp-surface: var(--panel);
   --dp-surface-elevated: var(--raise);
+  --dp-surface-2: var(--raise);
   --dp-text-primary: var(--ink);
   --dp-text-secondary: color-mix(in srgb, var(--ink) 78%, var(--void));
   --dp-text-muted: var(--muted);
@@ -119,6 +120,16 @@
 
   --dp-viz-track: color-mix(in srgb, var(--ink) 10%, transparent);
   --dp-viz-grid: color-mix(in srgb, var(--ink) 6%, transparent);
+  --dp-azure: #4facfe;
+  --dp-glass: rgba(14, 18, 28, 0.65);
+  --dp-glass-border: rgba(255, 255, 255, 0.12);
+  --dp-glass-spec: inset 0 1px 1px 0 rgba(255, 255, 255, 0.18), 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+}
+
+:root:not(.dark) {
+  --dp-glass: rgba(255, 255, 255, 0.7);
+  --dp-glass-border: rgba(11, 14, 20, 0.1);
+  --dp-glass-spec: inset 0 1px 1px 0 rgba(255, 255, 255, 0.85), 0 16px 36px -14px rgba(11, 14, 20, 0.14);
 }
 
 * { box-sizing: border-box; }
@@ -611,7 +622,7 @@ button, input, textarea, select { font: inherit; }
   border: 0;
   padding: 0.15rem 0.35rem;
   background: none;
-  color: var(--muted);
+  color: var(--signal);
   cursor: pointer;
   font-size: 0.72rem;
   letter-spacing: 0.08em;

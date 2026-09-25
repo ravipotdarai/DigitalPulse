@@ -1,4 +1,4 @@
-import { Button } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api, type ActionWorkspace, type WorkAction } from "../lib/api";

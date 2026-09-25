@@ -1,4 +1,5 @@
-import { Button, Radio, RadioGroup } from "@fluentui/react-components";
+import { Radio, RadioGroup } from "@fluentui/react-components";
+import { Button } from "../../design/Button";
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError, api } from "../../lib/api";

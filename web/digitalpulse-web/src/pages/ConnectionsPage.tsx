@@ -1,4 +1,4 @@
-import { Button } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";

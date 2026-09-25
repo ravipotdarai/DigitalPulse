@@ -24,6 +24,8 @@ export function Field({
     <label className="dp-field">
       <span>{label}</span>
       <Input
+        appearance="outline"
+        size="large"
         name={name}
         type={type}
         required={required}
@@ -55,6 +57,7 @@ export function SelectField({
       <span>{label}</span>
       <Dropdown
         className="field-full"
+        appearance="outline"
         value={selected?.label ?? "Choose"}
         selectedOptions={value ? [value] : []}
         onOptionSelect={(_, data) => onChange(data.optionValue ?? "")}
@@ -79,7 +82,7 @@ export function AreaField({
   return (
     <label className="dp-field">
       <Label>{label}</Label>
-      <Textarea value={value} onChange={(_, next) => onChange(next.value)} resize="vertical" />
+      <Textarea appearance="outline" resize="vertical" value={value} onChange={(_, next) => onChange(next.value)} />
     </label>
   );
 }

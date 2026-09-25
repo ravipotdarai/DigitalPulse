@@ -1,4 +1,4 @@
-import { Button } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { WeatherMoon20Regular, WeatherSunny20Regular } from "@fluentui/react-icons";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ThemeSwitcher, useTheme } from "../theme";

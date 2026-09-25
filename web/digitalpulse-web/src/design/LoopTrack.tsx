@@ -11,11 +11,15 @@ export type StageState = "done" | "now" | "held" | "next";
 export function LoopTrack({
   states,
   notes,
-  compact = false
+  compact = false,
+  selected,
+  onSelect
 }: {
   states: Record<LoopStage, StageState>;
   notes?: Partial<Record<LoopStage, string>>;
   compact?: boolean;
+  selected?: LoopStage | null;
+  onSelect?: (stage: LoopStage) => void;
 }) {
   const doneCount = CORE_LOOP.filter((stage) => states[stage] === "done").length;
   return (
@@ -23,15 +27,32 @@ export function LoopTrack({
       <span className="loop-track-rail" aria-hidden="true">
         <span className="loop-track-fill" style={{ width: `${(doneCount / (CORE_LOOP.length - 1)) * 100}%` }} />
       </span>
-      {CORE_LOOP.map((stage, index) => (
-        <li key={stage} className={`loop-stage is-${states[stage]}`} style={{ "--i": index } as CSSProperties}>
-          <span className="loop-dot" aria-hidden="true" />
-          <span className="loop-num">{String(index + 1).padStart(2, "0")}</span>
-          <span className="loop-name">{stage}</span>
-          {!compact && notes?.[stage] ? <span className="loop-note">{notes[stage]}</span> : null}
-          <span className="sr-only">{states[stage]}</span>
-        </li>
-      ))}
+      {CORE_LOOP.map((stage, index) => {
+        const state = states[stage];
+        const on = selected === stage;
+        const body = (
+          <>
+            <span className={`loop-dot is-${state}`} aria-hidden="true">
+              {state === "now" ? <span className="loop-wave" /> : null}
+            </span>
+            <span className="loop-num">{String(index + 1).padStart(2, "0")}</span>
+            <span className="loop-name">{stage}</span>
+            {!compact && notes?.[stage] ? <span className="loop-note">{notes[stage]}</span> : null}
+            <span className="sr-only">{state}</span>
+          </>
+        );
+        return (
+          <li key={stage} className={`loop-stage is-${state}${on ? " is-selected" : ""}`} style={{ "--i": index } as CSSProperties}>
+            {onSelect ? (
+              <button type="button" className="loop-hit" onClick={() => onSelect(stage)} aria-pressed={on}>
+                {body}
+              </button>
+            ) : (
+              body
+            )}
+          </li>
+        );
+      })}
     </ol>
   );
 }

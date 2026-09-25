@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { BrandMark, brandColor } from "./BrandMark";
 import { useMotionTiming } from "./motion";
 import { LINK_LABEL, type LinkState } from "./platforms";
@@ -14,16 +14,20 @@ export type EcosystemNode = {
 };
 
 const W = 1000;
-const H = 600;
+const H = 540;
 const CX = W / 2;
 const CY = H / 2;
 const PULSE_SECONDS: Partial<Record<LinkState, number>> = { live: 2.8, syncing: 1.1, warning: 4.2 };
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 function place(index: number, total: number, compact: boolean) {
-  const angle = -Math.PI / 2 + (index / total) * Math.PI * 2;
-  const rx = compact ? 310 : 370;
-  const ry = compact ? 168 : 210;
+  const dual = total > 8;
+  const ring = dual ? index % 2 : 0;
+  const slot = dual ? Math.floor(index / 2) : index;
+  const count = dual ? Math.ceil(total / 2) : total;
+  const angle = -Math.PI / 2 + (slot / count) * Math.PI * 2 + (ring ? Math.PI / count : 0);
+  const rx = (compact ? 214 : 248) + ring * (compact ? 78 : 86);
+  const ry = (compact ? 116 : 138) + ring * (compact ? 46 : 52);
   return { x: CX + Math.cos(angle) * rx, y: CY + Math.sin(angle) * ry };
 }
 
@@ -93,11 +97,17 @@ export function PlatformEcosystem({
   const { stageRef, onPointerMove, onPointerLeave } = useStageTilt(reduce);
   const [hovered, setHovered] = useState<string | null>(null);
   const [pinned, setPinned] = useState<string | null>(null);
+  const glowId = `eco-core-${useId().replace(/:/g, "")}`;
   const placed = nodes.map((node, index) => ({ ...node, ...place(index, nodes.length, compact) }));
   const lit = hovered ?? selected ?? null;
   const inspectCode = hovered ?? selected ?? pinned;
   const inspected = placed.find((node) => node.code === inspectCode) ?? null;
   const inspectColor = inspected ? brandColor(inspected.code) : undefined;
+  const tally = {
+    live: nodes.filter((node) => node.state === "live" || node.state === "syncing").length,
+    watch: nodes.filter((node) => node.state === "warning" || node.state === "failing").length,
+    idle: nodes.filter((node) => node.state === "idle").length
+  };
 
   function hover(code: string | null) {
     setHovered(code);
@@ -106,18 +116,24 @@ export function PlatformEcosystem({
 
   return (
     <figure className={`eco${compact ? " is-compact" : ""}${lit ? " has-focus" : ""}`}>
+      <ul className="eco-telemetry" aria-label="Channel states">
+        <li className="is-live"><b>{tally.live}</b><span>Linked</span></li>
+        <li className="is-watch"><b>{tally.watch}</b><span>Needs attention</span></li>
+        <li className="is-idle"><b>{tally.idle}</b><span>Not connected</span></li>
+      </ul>
       <div className="eco-stage" ref={stageRef} onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}>
         <div className="eco-layer is-back" aria-hidden="true">
           <svg className="eco-links" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
             <defs>
-              <radialGradient id="eco-core" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="var(--dp-accent)" stopOpacity="0.22" />
-                <stop offset="100%" stopColor="var(--dp-accent)" stopOpacity="0" />
+              <radialGradient id={glowId} cx="50%" cy="38%" r="55%">
+                <stop offset="0%" stopColor="#00F2FE" stopOpacity="0.38" />
+                <stop offset="42%" stopColor="#4FACFE" stopOpacity="0.14" />
+                <stop offset="100%" stopColor="#7F00FF" stopOpacity="0" />
               </radialGradient>
             </defs>
-            <ellipse className="eco-glow" cx={CX} cy={CY} rx={compact ? 210 : 250} ry={compact ? 120 : 145} fill="url(#eco-core)" />
-            <ellipse className="eco-orbit" cx={CX} cy={CY} rx={compact ? 310 : 370} ry={compact ? 168 : 210} />
-            <ellipse className="eco-orbit is-inner" cx={CX} cy={CY} rx={compact ? 155 : 185} ry={compact ? 84 : 105} />
+            <ellipse className="eco-glow" cx={CX} cy={CY} rx={compact ? 188 : 220} ry={compact ? 108 : 128} fill={`url(#${glowId})`} />
+            <ellipse className="eco-orbit" cx={CX} cy={CY} rx={compact ? 292 : 334} ry={compact ? 162 : 190} />
+            <ellipse className="eco-orbit is-inner" cx={CX} cy={CY} rx={compact ? 214 : 248} ry={compact ? 116 : 138} />
             {placed.map((node, index) => {
               const d = `M${CX} ${CY} L${node.x} ${node.y}`;
               const seconds = PULSE_SECONDS[node.state];
@@ -153,10 +169,13 @@ export function PlatformEcosystem({
 
         <div className="eco-layer is-mid">
           <div className="eco-hub" style={lit && inspectColor ? ({ "--brand": inspectColor } as CSSProperties) : undefined}>
+            <span className="eco-hub-glow" aria-hidden="true" />
             <span className="eco-hub-ring" aria-hidden="true" />
             <span className="eco-hub-ring is-late" aria-hidden="true" />
-            <strong>{centerLabel}</strong>
-            {centerMeta ? <small>{centerMeta}</small> : null}
+            <span className="eco-hub-core">
+              <strong>{centerLabel}</strong>
+              {centerMeta ? <small>{centerMeta}</small> : null}
+            </span>
           </div>
         </div>
 
@@ -186,6 +205,7 @@ export function PlatformEcosystem({
                   <span className="eco-node-name">{node.name}</span>
                   <span className="eco-node-state">{node.meta ?? LINK_LABEL[node.state]}</span>
                 </span>
+                <i className="eco-node-pip" aria-hidden="true" />
               </motion.span>
             );
             const events = {

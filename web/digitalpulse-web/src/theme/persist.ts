@@ -3,7 +3,7 @@ import { THEME_IDS, type ColorScheme, type ThemeId, type ThemePreference } from 
 const DEVICE_KEY = "dp.theme";
 const userKey = (userId: string) => `dp.theme.user.${userId}`;
 
-export const defaultPreference: ThemePreference = { id: "editorial", scheme: "dark" };
+export const defaultPreference: ThemePreference = { id: "executive", scheme: "dark" };
 
 function parse(raw: string | null): ThemePreference | null {
   if (!raw) return null;

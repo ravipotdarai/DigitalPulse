@@ -1,4 +1,4 @@
-import { Button } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { FormEvent, useState, type ReactNode } from "react";
@@ -75,7 +75,7 @@ function IdentityWorkspace({ data }: { data: BusinessIdentity }) {
     <div className="workspace">
       <header className="workspace-head">
         <p className="hero-kicker">{String(score.filled).padStart(2, "0")} / {String(score.total).padStart(2, "0")} complete</p>
-        <h1 className="display">{data.business.name}</h1>
+        <h1 className="page-title">{data.business.name}</h1>
         <p>{[industry, data.business.website?.replace(/^https?:\/\//, "")].filter(Boolean).join(" · ") || current.hint}</p>
         <nav className="segments" aria-label="Identity sections">
           {SECTIONS.map((item) => (
@@ -200,7 +200,7 @@ function ProfileCard({ data }: { data: BusinessIdentity }) {
   }
 
   return (
-    <form className="panel id-settings" onSubmit={onSubmit}>
+    <form className="panel id-settings id-settings-wide" onSubmit={onSubmit}>
       <div className="form-grid">
         <Field label="Business name" value={name} onChange={setName} required />
         <Field label="Website" value={website} onChange={setWebsite} hint="Used to compare listings later." />

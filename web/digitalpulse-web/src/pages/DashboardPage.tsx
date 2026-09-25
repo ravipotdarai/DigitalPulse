@@ -1,5 +1,6 @@
-import { Button } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, type BusinessIdentity, type DashboardResponse, type Finding } from "../lib/api";
 import { PageState } from "../components/PageState";
@@ -10,11 +11,14 @@ import { Reveal, Stagger, StaggerItem } from "../design/motion";
 import { SectionTitle } from "../design/PageHeader";
 import { PlatformEcosystem } from "../design/PlatformEcosystem";
 import { linkState, relativeTime, severityRank } from "../design/platforms";
+import { BrandMark } from "../design/BrandMark";
 import { PulseMeter } from "../design/PulseMeter";
 import { SignalRow } from "../design/Signal";
+import { TiltCard } from "../design/TiltCard";
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const [stage, setStage] = useState<LoopStage | null>(null);
   const query = useQuery({ queryKey: ["dashboard"], queryFn: api.dashboard });
   const firstId = query.data?.businesses[0]?.id;
   const identity = useQuery({ queryKey: ["identity", firstId], queryFn: () => api.identity(firstId!), enabled: Boolean(firstId) });
@@ -38,9 +42,11 @@ export function DashboardPage() {
   const lead = findings[0];
   const loop = loopStates(data, coverage, linked);
   const name = business?.name ?? data.tenantName;
+  const inspect = stage ?? CORE_LOOP.find((item) => loop.states[item] === "now") ?? CORE_LOOP[0];
+  const inspectHref = STAGE_HREF[inspect];
 
   return (
-    <div className="cc">
+    <div className="cc exec">
       <section className="cc-hero" aria-labelledby="cc-name">
         <Reveal>
           <p className="hero-kicker">{data.tenantType} · {data.planName}</p>
@@ -65,8 +71,9 @@ export function DashboardPage() {
         <Reveal delay={0.1}>
           <PulseMeter
             score={coverage}
-            label="Presence health"
-            caption="Coverage of the canonical identity record. It does not include live platform metrics."
+            label="Identity coverage"
+            caption="Canonical record completeness. Not a live SEO, review, or reputation index."
+            facets={identity.data ? identityFacets(identity.data) : undefined}
           />
         </Reveal>
       </section>
@@ -83,7 +90,6 @@ export function DashboardPage() {
           <p className="empty-line"><strong>No platform adapters</strong>The catalog is empty for this plan.</p>
         ) : (
           <PlatformEcosystem
-            compact
             centerLabel={name}
             centerMeta={`${linked} linked`}
             nodes={catalog.map((platform) => {
@@ -104,48 +110,118 @@ export function DashboardPage() {
         )}
       </Reveal>
 
-      <section className="cc-split">
-        <Reveal>
-          <SectionTitle
-            kicker="Signals"
-            title="What DigitalPulse detected"
-            action={<Link className="text-link" to="/app/findings">All signals</Link>}
-          />
-          {scans.isLoading ? (
-            <PageState mode="loading" title="Loading signals" />
-          ) : findings.length === 0 ? (
-            <p className="empty-line">
-              <strong>{data.lastScanAtUtc ? "No open signals" : "No check has run"}</strong>
-              {data.lastScanAtUtc
-                ? "The latest check produced no unresolved, evidence-backed issues."
-                : "Run DigitalPulse Check to compare identity, website, and authorized platforms."}
-            </p>
-          ) : (
-            <Stagger className="signal-list">
-              {findings.slice(0, 6).map((finding, index) => (
-                <StaggerItem key={finding.id}>
-                  <SignalRow
-                    index={index + 1}
-                    severity={finding.severity}
-                    title={finding.title}
-                    meta={`${finding.category} · ${finding.evidence.length} evidence`}
-                    status={finding.status}
-                    onSelect={() => navigate(`/app/findings?signal=${finding.id}`)}
-                  />
-                </StaggerItem>
-              ))}
-            </Stagger>
-          )}
-        </Reveal>
-        <Reveal delay={0.08}>
+      <Reveal as="section">
+        <SectionTitle
+          kicker="Signals"
+          title="What DigitalPulse detected"
+          action={<Link className="text-link" to="/app/findings">All signals</Link>}
+        />
+        {scans.isLoading ? (
+          <PageState mode="loading" title="Loading signals" />
+        ) : findings.length === 0 ? (
+          <p className="empty-line">
+            <strong>{data.lastScanAtUtc ? "No open signals" : "No check has run"}</strong>
+            {data.lastScanAtUtc
+              ? "The latest check produced no unresolved, evidence-backed issues."
+              : "Run DigitalPulse Check to compare identity, website, and authorized platforms."}
+          </p>
+        ) : (
+          <Stagger className="signal-list">
+            {findings.slice(0, 6).map((finding, index) => (
+              <StaggerItem key={finding.id}>
+                <SignalRow
+                  index={index + 1}
+                  severity={finding.severity}
+                  title={finding.title}
+                  meta={`${finding.category} · ${finding.evidence.length} evidence`}
+                  status={finding.status}
+                  onSelect={() => navigate(`/app/findings?signal=${finding.id}`)}
+                />
+              </StaggerItem>
+            ))}
+          </Stagger>
+        )}
+      </Reveal>
+
+      <Reveal as="section" className="glass-panel loop-panel">
+        <SectionTitle kicker="Autonomous core loop" title="Where this business is in the loop" />
+        <LoopTrack states={loop.states} notes={loop.notes} selected={inspect} onSelect={setStage} />
+        <div className="loop-inspect" aria-live="polite">
+          <span className={`status-pill is-${loop.states[inspect]}`}>{loop.states[inspect]}</span>
+          <strong>{inspect}</strong>
+          <p>{loop.notes[inspect] ?? STAGE_COPY[inspect]}</p>
+          <Link className="text-link" to={inspectHref}>Open {inspect.toLowerCase()}</Link>
+        </div>
+      </Reveal>
+
+      <section className="cc-bento">
+        <TiltCard className="glass-panel">
+          <SectionTitle kicker="Governance" title="Action approval cockpit" action={<Link className="text-link" to="/app/actions">Action center</Link>} />
+          <div className="lanes">
+            <article className="lane is-auto">
+              <span className="status-pill is-live">Autonomous lane</span>
+              <h3>Low-risk internal work</h3>
+              <p>{data.actionOpenCount} open action{data.actionOpenCount === 1 ? "" : "s"} can run inside DigitalPulse. Full Auto never invents a provider write.</p>
+              <small>{data.actionHeldCount === 0 ? "No external write is waiting." : `${data.actionHeldCount} still need a live adapter or sign-off.`}</small>
+            </article>
+            <article className="lane is-assist">
+              <span className="status-pill is-hold">Assisted / high risk</span>
+              <h3>Current vs proposed</h3>
+              <p>
+                {lead
+                  ? `${lead.title} · ${lead.evidence.length} evidence source${lead.evidence.length === 1 ? "" : "s"}.`
+                  : "No high-risk proposal is waiting. DigitalPulse will not invent a diff."}
+              </p>
+              <small>{data.socialBlockedCount + data.contentHoldCount} publish hold{data.socialBlockedCount + data.contentHoldCount === 1 ? "" : "s"} · evidence required before execute.</small>
+            </article>
+          </div>
+        </TiltCard>
+        <TiltCard className="glass-panel">
+          <SectionTitle kicker="Evidence" title="Ground-truth brief" />
           <Brief lead={lead} identity={identity.data} onOpen={(to) => navigate(to)} />
-        </Reveal>
+        </TiltCard>
       </section>
 
-      <Reveal as="section">
-        <SectionTitle kicker="Core loop" title="Where this business is in the loop" />
-        <LoopTrack states={loop.states} notes={loop.notes} />
-      </Reveal>
+      <section className="cc-bento">
+        <TiltCard className="glass-panel">
+          <SectionTitle kicker="Audit stream" title="Stored events" action={<Link className="text-link" to="/app/findings">Signals</Link>} />
+          <ol className="audit-stream">
+            {auditRows(data, findings).map((row) => (
+              <li key={row.id}>
+                <time>{row.when}</time>
+                <code>{row.ctx}</code>
+                <span>{row.detail}</span>
+              </li>
+            ))}
+          </ol>
+        </TiltCard>
+        <TiltCard className="glass-panel">
+          <SectionTitle kicker="Channels" title="Connectivity matrix" action={<Link className="text-link" to="/app/connections">Connections</Link>} />
+          {catalog.length === 0 ? (
+            <p className="empty-line"><strong>No platform adapters</strong>The catalog is empty for this plan.</p>
+          ) : (
+            <ul className="channel-matrix">
+              {catalog.map((platform) => {
+                const link = links.find((item) => item.platformCode === platform.code);
+                const state = linkState(link);
+                return (
+                  <li key={platform.code} className={`is-${state}`}>
+                    <button type="button" onClick={() => navigate(`/app/connections?platform=${platform.code}`)}>
+                      <span className="channel-mark">
+                        <BrandMark code={platform.code} name={platform.name} />
+                      </span>
+                      <strong>{platform.name}</strong>
+                      <span className={`status-pill is-${state}`}>{state}</span>
+                      <small>{link?.grantKind ?? "Not connected"}</small>
+                      <small>{link?.lastHealthAtUtc ? `Checked ${relativeTime(link.lastHealthAtUtc)}` : "No health probe"}</small>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TiltCard>
+      </section>
 
       <section className="cc-ops">
         <Reveal>
@@ -220,6 +296,62 @@ export function DashboardPage() {
       ) : null}
     </div>
   );
+}
+
+const STAGE_HREF: Record<LoopStage, string> = {
+  Connect: "/app/connections",
+  Understand: "/app/website",
+  Detect: "/app/findings",
+  Create: "/app/social",
+  Approve: "/app/actions",
+  Execute: "/app/actions",
+  Verify: "/app/directories",
+  Monitor: "/app/monitoring"
+};
+
+const STAGE_COPY: Record<LoopStage, string> = {
+  Connect: "Authorize official adapters. Development grants stay labeled as such.",
+  Understand: "Identity and website snapshots are stored. Live Search Console waits for OAuth.",
+  Detect: "DigitalPulse Check compares the identity record to stored evidence.",
+  Create: "Drafts stay in DigitalPulse until an official write exists.",
+  Approve: "High-risk work requires a human. Autopilot does not invent a publish.",
+  Execute: "Internal checks can run. Live publishes stay held without a live credential.",
+  Verify: "Directory verification is operator-confirmed. Unofficial writes are out of scope.",
+  Monitor: "Stored health is recorded. Live likes, reviews, and spend are not invented."
+};
+
+function identityFacets(data: BusinessIdentity) {
+  return [
+    { label: "Website", ok: Boolean(data.business.website) },
+    { label: "Contacts", ok: data.contacts.length > 0 },
+    { label: "Category", ok: data.categories.length > 0 },
+    { label: "Approved fact", ok: data.facts.some((fact) => fact.status === "Approved") }
+  ];
+}
+
+function auditRows(data: DashboardResponse, findings: Finding[]) {
+  const rows = [
+    data.lastScanAtUtc
+      ? { id: "scan", when: relativeTime(data.lastScanAtUtc) ?? "Stored", ctx: "check", detail: `${data.openFindingCount} open finding${data.openFindingCount === 1 ? "" : "s"} from DigitalPulse Check.` }
+      : { id: "scan", when: "—", ctx: "check", detail: "No DigitalPulse Check has been stored." },
+    data.lastWebsiteAtUtc
+      ? { id: "web", when: relativeTime(data.lastWebsiteAtUtc) ?? "Stored", ctx: "website", detail: `${data.websiteObservationCount} on-page observations. Search provider ${data.searchProvider}.` }
+      : { id: "web", when: "—", ctx: "website", detail: "Website has not been analyzed." },
+    data.lastMonitoringAtUtc
+      ? { id: "mon", when: relativeTime(data.lastMonitoringAtUtc) ?? "Stored", ctx: "monitor", detail: `${data.openAlertCount} open alert${data.openAlertCount === 1 ? "" : "s"}. Live provider metrics stay held.` }
+      : { id: "mon", when: "—", ctx: "monitor", detail: data.monitoringHoldReason },
+    { id: "bill", when: "now", ctx: "billing", detail: `${data.subscriptionStatus} · ${data.heldInvoiceCount} held invoice${data.heldInvoiceCount === 1 ? "" : "s"}. Captures are not invented.` }
+  ];
+  const lead = findings[0];
+  if (lead) {
+    rows.unshift({
+      id: lead.id,
+      when: "latest",
+      ctx: lead.category.toLowerCase(),
+      detail: `${lead.title} · ${lead.evidence.length} evidence source${lead.evidence.length === 1 ? "" : "s"}.`
+    });
+  }
+  return rows.slice(0, 6);
 }
 
 function Headline({ text }: { text: string }) {

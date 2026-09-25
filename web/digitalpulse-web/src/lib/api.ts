@@ -442,7 +442,15 @@ export const api = {
     request<OperationsWorkspace>("/v1/operations/drills", { method: "POST", body: JSON.stringify(body) }),
   runInventory: (body: { kind?: string | null }) =>
     request<OperationsWorkspace>("/v1/operations/scans", { method: "POST", body: JSON.stringify(body) }),
-  assembleReadiness: () => request<OperationsWorkspace>("/v1/operations/readiness", { method: "POST" })
+  assembleReadiness: () => request<OperationsWorkspace>("/v1/operations/readiness", { method: "POST" }),
+  ready: () => request<ReadyStatus>("/ready")
+};
+
+export type ReadyStatus = {
+  status: string;
+  environment?: string;
+  role?: string;
+  holds?: (string | null)[];
 };
 
 export type PlatformCapabilities = {

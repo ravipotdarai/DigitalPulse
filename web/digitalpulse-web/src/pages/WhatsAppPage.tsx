@@ -1,9 +1,10 @@
-import { Button } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api, type WhatsAppWorkspace } from "../lib/api";
 import { PageState } from "../components/PageState";
 import { DataGrid } from "../design/DataGrid";
+import { BrandMark } from "../design/BrandMark";
 import { Field } from "../design/Field";
 
 export function WhatsAppPage() {
@@ -85,7 +86,13 @@ function WhatsAppWorkspaceView({ businessId, data }: { businessId: string; data:
 
       <div className="band band-2">
         <article className="panel">
-          <h2>Business account</h2>
+          <header className="channel-card-head">
+            <BrandMark code="WHATSAPP" name="WhatsApp" />
+            <div>
+              <p className="hero-kicker">Official Cloud API</p>
+              <h2>Business account</h2>
+            </div>
+          </header>
           <form
             className="id-form"
             onSubmit={(event) => {

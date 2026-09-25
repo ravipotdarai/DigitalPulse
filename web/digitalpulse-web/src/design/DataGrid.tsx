@@ -7,7 +7,8 @@ export function DataGrid({
   columns,
   rows,
   selectedId,
-  onRow
+  onRow,
+  maxHeight = "22rem"
 }: {
   noun: string;
   empty: string;
@@ -15,6 +16,7 @@ export function DataGrid({
   rows: { id: string; cells: ReactNode[]; search: string; actions?: ReactNode }[];
   selectedId?: string | null;
   onRow?: (id: string) => void;
+  maxHeight?: string;
 }) {
   const [query, setQuery] = useState("");
   const visible = useMemo(() => {
@@ -24,7 +26,7 @@ export function DataGrid({
   }, [query, rows]);
 
   return (
-    <div className="dp-grid">
+    <div className="dp-grid" style={{ maxHeight }}>
       <div className="dp-grid-bar">
         <p>{rows.length} {noun}{rows.length === 1 ? "" : "s"}</p>
         <Input size="small" placeholder="Search" value={query} onChange={(_, next) => setQuery(next.value)} aria-label={`Filter ${noun}s`} />

@@ -1,4 +1,5 @@
-import { Button, Input, Textarea } from "@fluentui/react-components";
+import { Input, Textarea } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api, type ProjectDetail, type ProjectWorkspace } from "../lib/api";

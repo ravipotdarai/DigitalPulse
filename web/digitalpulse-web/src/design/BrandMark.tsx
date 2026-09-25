@@ -5,6 +5,7 @@ import {
   siGoogleads,
   siGooglesearchconsole,
   siInstagram,
+  siMeta,
   siWhatsapp,
   siYoutube,
   type SimpleIcon
@@ -15,6 +16,7 @@ const ICONS: Record<string, SimpleIcon> = {
   GOOGLE: siGoogle,
   FACEBOOK: siFacebook,
   INSTAGRAM: siInstagram,
+  META: siMeta,
   YOUTUBE: siYoutube,
   WHATSAPP: siWhatsapp,
   GOOGLEADS: siGoogleads,

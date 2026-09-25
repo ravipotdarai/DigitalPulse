@@ -1,19 +1,44 @@
-import { Button } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ApiError, api, type AgencyWorkspace } from "../lib/api";
 import { PageState } from "../components/PageState";
 import { DataGrid, GridAction } from "../design/DataGrid";
+import { useSession } from "../state/session";
 
 export function AgencyPage() {
   const query = useQuery({ queryKey: ["agency"], queryFn: api.agency });
   if (query.isLoading) return <PageState mode="loading" title="Opening agency workspace" />;
   if (query.isError || !query.data) {
     const detail = query.error instanceof ApiError ? query.error.title : "Agency workspace is available on Agency tenants.";
-    return <PageState mode="error" title="Agency workspace unavailable" detail={detail} />;
+    return <AgencyHold detail={detail} />;
   }
   return <AgencyWorkspaceView data={query.data} />;
+}
+
+function AgencyHold({ detail }: { detail: string }) {
+  const navigate = useNavigate();
+  const tenantType = useSession((state) => state.profile?.tenantType);
+  return (
+    <section className="command">
+      <header>
+        <p className="hero-kicker">Agency + White Label</p>
+        <h1 className="page-title">Agency desk</h1>
+        <p className="page-lead">Portfolio clients, white-label branding, and agency reports live here. They stay closed on a Direct tenant.</p>
+      </header>
+      <article className="panel agency-hold">
+        <span className="status-pill is-hold">{tenantType ?? "Direct"} tenant</span>
+        <h2>This session is not an Agency tenant</h2>
+        <p className="ink-muted">{detail}</p>
+        <p className="ink-muted">Create or switch to an Agency tenant, then select the Agency plan. Client businesses stay under that one tenant — they are not child tenants.</p>
+        <div className="id-form-actions spaced">
+          <Button appearance="primary" onClick={() => navigate("/app/billing")}>Open billing</Button>
+          <Button appearance="secondary" onClick={() => navigate("/app/info")}>Workspace</Button>
+        </div>
+      </article>
+    </section>
+  );
 }
 
 function AgencyWorkspaceView({ data }: { data: AgencyWorkspace }) {

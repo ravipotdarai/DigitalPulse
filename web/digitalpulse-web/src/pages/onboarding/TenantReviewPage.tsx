@@ -1,4 +1,4 @@
-import { Button } from "@fluentui/react-components";
+import { Button } from "../../design/Button";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";

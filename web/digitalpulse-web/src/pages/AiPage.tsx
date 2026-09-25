@@ -1,4 +1,5 @@
-import { Button, Textarea } from "@fluentui/react-components";
+import { Textarea } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api, type AiRun, type AiWorkspace } from "../lib/api";
@@ -6,6 +7,7 @@ import { PageState } from "../components/PageState";
 import { DataGrid } from "../design/DataGrid";
 import { Field } from "../design/Field";
 import { AIBrief } from "../design/AIBrief";
+import { PageHeader } from "../design/PageHeader";
 
 export function AiPage() {
   const businesses = useQuery({ queryKey: ["businesses"], queryFn: api.listBusinesses });
@@ -126,7 +128,7 @@ function AiWorkspaceView({ businessId, data }: { businessId: string; data: AiWor
             <p className="ink-muted">{data.agents.find((item) => item.code === agent)?.purpose}</p>
             <label className="dp-field">
               <span>Ask</span>
-              <Textarea value={prompt} onChange={(_, d) => setPrompt(d.value)} required />
+              <Textarea appearance="outline" resize="vertical" value={prompt} onChange={(_, d) => setPrompt(d.value)} required />
             </label>
             <Button appearance="primary" type="submit" disabled={run.isPending || prompt.trim().length < 4}>
               {run.isPending ? "Orchestrating…" : "Run orchestrator"}
@@ -154,7 +156,7 @@ function AiWorkspaceView({ businessId, data }: { businessId: string; data: AiWor
             <Field label="Source URL" value={sourceUrl} onChange={setSourceUrl} type="url" />
             <label className="dp-field">
               <span>Body</span>
-              <Textarea value={body} onChange={(_, d) => setBody(d.value)} required />
+              <Textarea appearance="outline" resize="vertical" value={body} onChange={(_, d) => setBody(d.value)} required />
             </label>
             <Button appearance="primary" type="submit" disabled={addKnowledge.isPending || !title.trim() || !body.trim()}>
               {addKnowledge.isPending ? "Indexing…" : "Add knowledge"}
@@ -164,9 +166,11 @@ function AiWorkspaceView({ businessId, data }: { businessId: string; data: AiWor
       </div>
 
       <div className="band band-2">
-        <article>
+        <article className="panel">
+          <h2>Runs</h2>
           <DataGrid
             noun="run"
+            maxHeight="20rem"
             empty="Run the orchestrator after the identity record has something to retrieve."
             columns={["Agent", "Status", "Confidence", "Provider"]}
             rows={data.runs.map((item) => ({
@@ -178,9 +182,11 @@ function AiWorkspaceView({ businessId, data }: { businessId: string; data: AiWor
             onRow={(id) => setSelectedId(id)}
           />
         </article>
-        <article>
+        <article className="panel">
+          <h2>Graphify nodes</h2>
           <DataGrid
             noun="node"
+            maxHeight="20rem"
             empty="Rebuild Graphify from the identity record."
             columns={["Kind", "Label", "Value"]}
             rows={data.nodes.map((node) => ({

@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { ColorScheme, ThemeId, ThemeTokens } from "./types";
-import { editorialTheme } from "./themes/editorial";
+import { executiveTheme } from "./themes/executive";
 
 export type ThemeContextValue = {
   id: ThemeId;
@@ -11,9 +11,9 @@ export type ThemeContextValue = {
 };
 
 export const ThemeContext = createContext<ThemeContextValue>({
-  id: "editorial",
+  id: "executive",
   scheme: "dark",
-  tokens: editorialTheme,
+  tokens: executiveTheme,
   setId: () => undefined,
   setScheme: () => undefined
 });

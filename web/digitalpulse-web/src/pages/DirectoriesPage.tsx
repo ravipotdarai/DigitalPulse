@@ -1,8 +1,10 @@
-import { Button, Textarea } from "@fluentui/react-components";
+import { Textarea } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api, type DirectoryTask, type DirectoryWorkspace } from "../lib/api";
 import { PageState } from "../components/PageState";
+import { ChannelCard } from "../design/ChannelCard";
 
 export function DirectoriesPage() {
   const businesses = useQuery({ queryKey: ["businesses"], queryFn: api.listBusinesses });
@@ -67,24 +69,31 @@ function DirectoryWorkspaceView({ businessId, data }: { businessId: string; data
         {success ? <p className="note-ok">{success}</p> : null}
       </header>
 
-      <div className="band band-2">
+      <div className="channel-grid">
         {data.providers.map((provider) => (
-          <article className="panel" key={provider.capabilities.platformCode}>
-            <p className="hero-kicker">{provider.capabilities.assistedOnly ? "Assisted" : "API"}</p>
-            <h2>{provider.capabilities.platformName}</h2>
-            <div className="row-line"><span>Connection</span><span className={`sev ${provider.connectionStatus === "Connected" ? "sev-ok" : "sev-hold"}`}>{provider.connectionStatus ?? "Not enabled"}</span></div>
-            <div className="row-line"><span>Official read</span><span className="sev sev-hold">{provider.readStatus}</span></div>
-            <div className="row-line"><span>Official write</span><span className="sev sev-hold">Assisted</span></div>
+          <ChannelCard
+            key={provider.capabilities.platformCode}
+            code={provider.capabilities.platformCode}
+            name={provider.capabilities.platformName}
+            category={provider.capabilities.assistedOnly ? "Assisted directory" : "API directory"}
+            rows={[
+              { label: "Connection", value: provider.connectionStatus ?? "Not enabled", tone: provider.connectionStatus === "Connected" ? "ok" : "hold" },
+              { label: "Official read", value: provider.readStatus, tone: "hold" },
+              { label: "Official write", value: "Assisted", tone: "hold" }
+            ]}
+            footer={
+              <div className="id-form-actions">
+                <Button appearance="primary" disabled={prepare.isPending} onClick={() => prepare.mutate(provider.capabilities.platformCode)}>
+                  Prepare playbook
+                </Button>
+                <Button appearance="subtle" onClick={() => void run(() => api.monitorDirectory(businessId, provider.capabilities.platformCode), "Monitor stored. Live listing pages were not scraped.")}>
+                  Monitor
+                </Button>
+              </div>
+            }
+          >
             <p className="ink-muted">{provider.readDetail}</p>
-            <div className="id-form-actions">
-              <Button appearance="primary" disabled={prepare.isPending} onClick={() => prepare.mutate(provider.capabilities.platformCode)}>
-                Prepare playbook
-              </Button>
-              <Button appearance="subtle" onClick={() => void run(() => api.monitorDirectory(businessId, provider.capabilities.platformCode), "Monitor stored. Live listing pages were not scraped.")}>
-                Monitor
-              </Button>
-            </div>
-          </article>
+          </ChannelCard>
         ))}
       </div>
 

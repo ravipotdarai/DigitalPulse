@@ -1,4 +1,4 @@
-import { Button } from "@fluentui/react-components";
+import { Button } from "../design/Button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api, type MonitoringWorkspace } from "../lib/api";
@@ -94,7 +94,6 @@ function MonitoringWorkspaceView({ businessId, data }: { businessId: string; dat
             </Button>
           </div>
         </article>
-
         <article className="panel">
           <h2>Add a competitor</h2>
           <form
@@ -117,124 +116,143 @@ function MonitoringWorkspaceView({ businessId, data }: { businessId: string; dat
         </article>
       </div>
 
-      <article className="panel">
-        <h2>Kinds</h2>
-        <DataGrid
-          noun="check"
-          empty="Monitoring kinds load from the catalog."
-          columns={["Check", "Live API", "Purpose"]}
-          rows={data.kinds.map((item) => ({
-            id: item.code,
-            search: `${item.name} ${item.purpose}`.toLowerCase(),
-            cells: [item.name, item.canObserveWithoutLiveApi ? "Stored evidence" : "Held without live API", item.purpose]
-          }))}
-        />
-      </article>
+      <div className="band band-2">
+        <article className="panel">
+          <h2>Kinds</h2>
+          <DataGrid
+            noun="check"
+            maxHeight="20rem"
+            empty="Monitoring kinds load from the catalog."
+            columns={["Check", "Live API", "Purpose"]}
+            rows={data.kinds.map((item) => ({
+              id: item.code,
+              search: `${item.name} ${item.purpose}`.toLowerCase(),
+              cells: [item.name, item.canObserveWithoutLiveApi ? "Stored evidence" : "Held without live API", item.purpose]
+            }))}
+          />
+        </article>
+        <article className="panel">
+          <h2>Runs</h2>
+          <DataGrid
+            noun="run"
+            maxHeight="20rem"
+            empty="Run monitoring to store the first observations."
+            columns={["Trigger", "Status", "Summary"]}
+            rows={data.runs.map((item) => ({
+              id: item.id,
+              search: `${item.trigger} ${item.status} ${item.summary}`.toLowerCase(),
+              cells: [item.trigger, item.status, item.summary],
+              actions: <button type="button" className="grid-action" onClick={() => setSelectedRunId(item.id)}>Open</button>
+            }))}
+            selectedId={selectedRun?.id}
+            onRow={(id) => setSelectedRunId(id)}
+          />
+        </article>
+      </div>
 
-      <article className="panel">
-        <h2>Runs</h2>
-        <DataGrid
-          noun="run"
-          empty="Run monitoring to store the first observations."
-          columns={["Trigger", "Status", "Summary"]}
-          rows={data.runs.map((item) => ({
-            id: item.id,
-            search: `${item.trigger} ${item.status} ${item.summary}`.toLowerCase(),
-            cells: [item.trigger, item.status, item.summary],
-            actions: <button type="button" className="grid-action" onClick={() => setSelectedRunId(item.id)}>Open</button>
-          }))}
-          onRow={(id) => setSelectedRunId(id)}
-        />
-        {selectedRun ? (
-          <div className="id-form" style={{ marginTop: "1rem" }}>
-            <p className="ink-muted">{selectedRun.summary}</p>
-            <DataGrid
-              noun="observation"
-              empty="This run has no stored results."
-              columns={["Kind", "Status", "Observed fact", "Recommendation"]}
-              rows={selectedRun.results.map((item) => ({
-                id: item.id,
-                search: `${item.kind} ${item.status} ${item.observedFact}`.toLowerCase(),
-                cells: [item.title, item.status, item.observedFact, item.recommendation]
-              }))}
-            />
-          </div>
-        ) : null}
-      </article>
+      {selectedRun ? (
+        <article className="panel">
+          <h2>Observations · {selectedRun.trigger}</h2>
+          <p className="ink-muted">{selectedRun.summary}</p>
+          <DataGrid
+            noun="observation"
+            maxHeight="18rem"
+            empty="This run has no stored results."
+            columns={["Kind", "Status", "Observed fact", "Recommendation"]}
+            rows={selectedRun.results.map((item) => ({
+              id: item.id,
+              search: `${item.kind} ${item.status} ${item.observedFact}`.toLowerCase(),
+              cells: [item.title, item.status, item.observedFact, item.recommendation]
+            }))}
+          />
+        </article>
+      ) : null}
 
-      <article className="panel">
-        <h2>Alerts</h2>
-        <DataGrid
-          noun="alert"
-          empty="No alerts. Changed observations and unhealthy websites raise alerts."
-          columns={["Severity", "Status", "Title", "Detail"]}
-          rows={data.alerts.map((item) => ({
-            id: item.id,
-            search: `${item.severity} ${item.status} ${item.title}`.toLowerCase(),
-            cells: [item.severity, item.status, item.title, item.detail],
-            actions: item.status === "Open"
-              ? (
-                <button
-                  type="button"
-                  className="grid-action"
-                  onClick={() => run(() => api.acknowledgeAlert(businessId, item.id), "Alert acknowledged.")}
+      <div className="band band-2">
+        <article className="panel">
+          <h2>Alerts</h2>
+          <DataGrid
+            noun="alert"
+            maxHeight="18rem"
+            empty="No alerts. Changed observations and unhealthy websites raise alerts."
+            columns={["Severity", "Status", "Title", "Detail"]}
+            rows={data.alerts.map((item) => ({
+              id: item.id,
+              search: `${item.severity} ${item.status} ${item.title}`.toLowerCase(),
+              cells: [item.severity, item.status, item.title, item.detail],
+              actions: item.status === "Open"
+                ? (
+                  <button
+                    type="button"
+                    className="grid-action"
+                    onClick={() => run(() => api.acknowledgeAlert(businessId, item.id), "Alert acknowledged.")}
+                  >
+                    Acknowledge
+                  </button>
+                )
+                : undefined
+            }))}
+          />
+        </article>
+        <article className="panel">
+          <h2>Competitors</h2>
+          <DataGrid
+            noun="competitor"
+            maxHeight="18rem"
+            empty="Record a competitor by name. Official pages are not invented."
+            columns={["Name", "Website", "Notes"]}
+            rows={data.competitors.map((item) => ({
+              id: item.id,
+              search: `${item.name} ${item.website ?? ""}`.toLowerCase(),
+              cells: [item.name, item.website ?? "—", item.notes ?? "—"]
+            }))}
+          />
+        </article>
+      </div>
+
+      <div className="band band-2">
+        <article className="panel">
+          <h2>Reports</h2>
+          <DataGrid
+            noun="report"
+            maxHeight="18rem"
+            empty="Assemble a pulse from the latest stored run."
+            columns={["Kind", "Title", "Decision"]}
+            rows={data.reports.map((item) => ({
+              id: item.id,
+              search: `${item.kind} ${item.title} ${item.customerDecision ?? ""}`.toLowerCase(),
+              cells: [item.kind, item.title, item.customerDecision ?? "Waiting"],
+              actions: <button type="button" className="grid-action" onClick={() => setSelectedReportId(item.id)}>Open</button>
+            }))}
+            selectedId={selectedReport?.id}
+            onRow={(id) => setSelectedReportId(id)}
+          />
+        </article>
+        <article className="panel">
+          <h2>Selected report</h2>
+          {selectedReport ? (
+            <div className="id-form">
+              <p><strong>Observed fact.</strong> {selectedReport.observedFact}</p>
+              <p><strong>Recommendation.</strong> {selectedReport.recommendation}</p>
+              <p><strong>AI interpretation.</strong> {selectedReport.aiInterpretation}</p>
+              <p><strong>Customer decision.</strong> {selectedReport.customerDecision ?? "Not recorded."}</p>
+              <p className="ink-muted">{selectedReport.holdReason}</p>
+              <Field label="Record a decision" value={decision} onChange={setDecision} />
+              <div className="id-form-actions">
+                <Button
+                  appearance="primary"
+                  disabled={!decision.trim()}
+                  onClick={() => run(() => api.recordReportDecision(businessId, selectedReport.id, { decision }), "Customer decision stored.")}
                 >
-                  Acknowledge
-                </button>
-              )
-              : undefined
-          }))}
-        />
-      </article>
-
-      <article className="panel">
-        <h2>Competitors</h2>
-        <DataGrid
-          noun="competitor"
-          empty="Record a competitor by name. Official pages are not invented."
-          columns={["Name", "Website", "Notes"]}
-          rows={data.competitors.map((item) => ({
-            id: item.id,
-            search: `${item.name} ${item.website ?? ""}`.toLowerCase(),
-            cells: [item.name, item.website ?? "—", item.notes ?? "—"]
-          }))}
-        />
-      </article>
-
-      <article className="panel">
-        <h2>Reports</h2>
-        <DataGrid
-          noun="report"
-          empty="Assemble a pulse from the latest stored run."
-          columns={["Kind", "Title", "Decision"]}
-          rows={data.reports.map((item) => ({
-            id: item.id,
-            search: `${item.kind} ${item.title} ${item.customerDecision ?? ""}`.toLowerCase(),
-            cells: [item.kind, item.title, item.customerDecision ?? "Waiting"],
-            actions: <button type="button" className="grid-action" onClick={() => setSelectedReportId(item.id)}>Open</button>
-          }))}
-          onRow={(id) => setSelectedReportId(id)}
-        />
-        {selectedReport ? (
-          <div className="id-form" style={{ marginTop: "1rem" }}>
-            <p><strong>Observed fact.</strong> {selectedReport.observedFact}</p>
-            <p><strong>Recommendation.</strong> {selectedReport.recommendation}</p>
-            <p><strong>AI interpretation.</strong> {selectedReport.aiInterpretation}</p>
-            <p><strong>Customer decision.</strong> {selectedReport.customerDecision ?? "Not recorded."}</p>
-            <p className="ink-muted">{selectedReport.holdReason}</p>
-            <Field label="Record a decision" value={decision} onChange={setDecision} />
-            <div className="id-form-actions">
-              <Button
-                appearance="primary"
-                disabled={!decision.trim()}
-                onClick={() => run(() => api.recordReportDecision(businessId, selectedReport.id, { decision }), "Customer decision stored.")}
-              >
-                Save decision
-              </Button>
+                  Save decision
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : null}
-      </article>
+          ) : (
+            <p className="ink-muted">Select a report to record a customer decision. DigitalPulse will not invent a capture.</p>
+          )}
+        </article>
+      </div>
     </section>
   );
 }
