@@ -16,6 +16,8 @@ public static class ConnectionEndpoints
         group.MapPost("/{connectionId:guid}/health", HealthAsync);
         group.MapPost("/{connectionId:guid}/diagnose", DiagnoseAsync);
         group.MapPost("/{connectionId:guid}/reauthorize", ReauthorizeAsync);
+        group.MapGet("/{connectionId:guid}/accounts", AccountsAsync);
+        group.MapPost("/{connectionId:guid}/account", SelectAccountAsync);
         group.MapDelete("/{connectionId:guid}", DisconnectAsync);
 
         app.MapGet("/v1/connections/callback", CallbackAsync).WithTags("Connections").AllowAnonymous();
@@ -56,6 +58,18 @@ public static class ConnectionEndpoints
     private static async Task<Ok<StartConnectionResponse>> ReauthorizeAsync(
         Guid businessId, Guid connectionId, ConnectionActionHandler handler, CancellationToken cancellationToken) =>
         TypedResults.Ok(await handler.ReauthorizeAsync(businessId, connectionId, cancellationToken));
+
+    private static async Task<Ok<IReadOnlyList<ConnectionAccountOption>>> AccountsAsync(
+        Guid businessId, Guid connectionId, ConnectionActionHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.ListAccountsAsync(businessId, connectionId, cancellationToken));
+
+    private static async Task<Ok<ConnectionResponse>> SelectAccountAsync(
+        Guid businessId,
+        Guid connectionId,
+        SelectConnectionAccountRequest request,
+        ConnectionActionHandler handler,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.SelectAccountAsync(businessId, connectionId, request.ExternalAccount, cancellationToken));
 
     private static async Task<NoContent> DisconnectAsync(
         Guid businessId, Guid connectionId, ConnectionActionHandler handler, CancellationToken cancellationToken)

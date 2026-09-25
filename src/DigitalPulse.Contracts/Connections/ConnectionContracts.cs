@@ -27,6 +27,7 @@ public sealed record ConnectionResponse(
     string AuthMode,
     string? ExternalAccount,
     string? GrantKind,
+    bool HasLiveCredential,
     DateTimeOffset? ConnectedAtUtc,
     DateTimeOffset? LastHealthAtUtc,
     string? LastHealthStatus,
@@ -48,3 +49,7 @@ public sealed record StartConnectionResponse(
 public sealed record CompleteConnectionRequest(string? Code);
 
 public sealed record DiagnosticResponse(string Check, string Status, string Detail);
+
+public sealed record ConnectionAccountOption(string Id, string Label, string Kind);
+
+public sealed record SelectConnectionAccountRequest(string ExternalAccount);

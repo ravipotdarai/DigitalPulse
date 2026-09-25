@@ -20,6 +20,14 @@ public sealed record EvidenceResponse(
     string Value,
     string Source);
 
+public sealed record FindingStepResponse(
+    Guid Id,
+    int Ordinal,
+    string Title,
+    string Detail,
+    string? OfficialUrl,
+    DateTimeOffset? CompletedAtUtc);
+
 public sealed record FindingResponse(
     Guid Id,
     Guid ScanId,
@@ -35,6 +43,10 @@ public sealed record FindingResponse(
     string VerificationMethod,
     string AutomationState,
     string Status,
+    string ResolutionPath,
+    string? PlaybookCode,
+    DateTimeOffset? VerifiedAtUtc,
+    IReadOnlyList<FindingStepResponse> Steps,
     IReadOnlyList<EvidenceResponse> Evidence);
 
 public sealed record ScanDetailResponse(

@@ -15,7 +15,7 @@ public static class OfficialOAuthCatalog
         var code = platformCode.Trim().ToUpperInvariant();
         return code switch
         {
-            "GOOGLE" or "SEARCH_CONSOLE" or "YOUTUBE" or "GOOGLE_ADS" => Google(code, configuration),
+            "GOOGLE" or "SEARCH_CONSOLE" or "YOUTUBE" or "GOOGLE_ADS" or "GOOGLE_ANALYTICS" => Google(code, configuration),
             "FACEBOOK" or "INSTAGRAM" => Pair(
                 configuration["Connections:Meta:ClientId"] ?? configuration["Connections:Facebook:ClientId"],
                 configuration["Connections:Meta:ClientSecret"] ?? configuration["Connections:Facebook:ClientSecret"],
@@ -44,9 +44,10 @@ public static class OfficialOAuthCatalog
     {
         var scopes = platform switch
         {
-            "SEARCH_CONSOLE" => "openid email https://www.googleapis.com/auth/webmasters.readonly",
+            "SEARCH_CONSOLE" => "openid email https://www.googleapis.com/auth/webmasters",
             "YOUTUBE" => "openid email https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload",
             "GOOGLE_ADS" => "openid email https://www.googleapis.com/auth/adwords",
+            "GOOGLE_ANALYTICS" => "openid email https://www.googleapis.com/auth/analytics.readonly",
             _ => "openid email https://www.googleapis.com/auth/business.manage"
         };
         return Pair(
@@ -63,8 +64,9 @@ public static class OfficialOAuthCatalog
             : new OAuthApp(id.Trim(), secret.Trim(), authorize, token, scopes);
 }
 
-public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker
+public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker, ILiveTokenRefresher
 {
+    private static readonly TimeSpan RefreshSkew = TimeSpan.FromMinutes(2);
     private readonly IHttpClientFactory _http;
     private readonly IConfiguration _configuration;
 
@@ -137,6 +139,66 @@ public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker
         connection.MarkConnected("Development", Guid.NewGuid().ToString("N")[..16], $"Development · {connection.PlatformCode}");
     }
 
+    public async Task EnsureFreshAsync(PlatformConnection connection, CancellationToken cancellationToken)
+    {
+        if (!connection.HasLiveCredential ||
+            !string.Equals(connection.GrantKind, "OAuth", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (connection.TokenExpiresAtUtc is null)
+        {
+            return;
+        }
+
+        if (connection.TokenExpiresAtUtc > DateTimeOffset.UtcNow.Add(RefreshSkew))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(connection.RefreshToken))
+        {
+            connection.MarkNeedsReauth("The official access token expired and no refresh token is stored. Reauthorize.");
+            return;
+        }
+
+        var app = OfficialOAuthCatalog.TryGet(connection.PlatformCode, _configuration);
+        if (app is null)
+        {
+            connection.MarkNeedsReauth("Official OAuth is not configured on this host. The stored token cannot be refreshed.");
+            return;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, app.TokenUrl)
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["refresh_token"] = connection.RefreshToken,
+                ["client_id"] = app.ClientId,
+                ["client_secret"] = app.ClientSecret
+            })
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        using var response = await _http.CreateClient("official-platforms").SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            connection.MarkNeedsReauth($"Official token refresh failed ({(int)response.StatusCode}). DigitalPulse did not invent a grant.");
+            return;
+        }
+
+        if (!TryReadAccessToken(body, app.Scopes, out var access, out var refresh, out var expires, out var scope) ||
+            string.IsNullOrWhiteSpace(access))
+        {
+            connection.MarkNeedsReauth("The official refresh response did not include an access token.");
+            return;
+        }
+
+        connection.ApplyRefreshedTokens(access, refresh, expires, scope);
+    }
+
     private async Task ExchangeAsync(PlatformConnection connection, OAuthApp app, string code, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, app.TokenUrl)
@@ -159,21 +221,11 @@ public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker
             return;
         }
 
-        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
-        var root = doc.RootElement;
-        var access = root.TryGetProperty("access_token", out var at) ? at.GetString() : null;
-        if (string.IsNullOrWhiteSpace(access))
+        if (!TryReadAccessToken(body, app.Scopes, out var access, out var refresh, out var expires, out var scope) ||
+            string.IsNullOrWhiteSpace(access))
         {
             connection.MarkError("The official token response did not include an access token.");
             return;
-        }
-
-        var refresh = root.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : null;
-        var scope = root.TryGetProperty("scope", out var sc) ? sc.GetString() : app.Scopes;
-        DateTimeOffset? expires = null;
-        if (root.TryGetProperty("expires_in", out var exp) && exp.TryGetInt32(out var seconds))
-        {
-            expires = DateTimeOffset.UtcNow.AddSeconds(seconds);
         }
 
         var account = await TryIdentityAsync(connection.PlatformCode, access, cancellationToken)
@@ -217,6 +269,42 @@ public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker
         catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException)
         {
             return null;
+        }
+    }
+
+    private static bool TryReadAccessToken(
+        string body,
+        string fallbackScope,
+        out string? access,
+        out string? refresh,
+        out DateTimeOffset? expires,
+        out string? scope)
+    {
+        access = null;
+        refresh = null;
+        expires = null;
+        scope = fallbackScope;
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
+            var root = doc.RootElement;
+            access = root.TryGetProperty("access_token", out var at) ? at.GetString() : null;
+            refresh = root.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : null;
+            if (root.TryGetProperty("scope", out var sc))
+            {
+                scope = sc.GetString() ?? fallbackScope;
+            }
+
+            if (root.TryGetProperty("expires_in", out var exp) && exp.TryGetInt32(out var seconds))
+            {
+                expires = DateTimeOffset.UtcNow.AddSeconds(seconds);
+            }
+
+            return !string.IsNullOrWhiteSpace(access);
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 

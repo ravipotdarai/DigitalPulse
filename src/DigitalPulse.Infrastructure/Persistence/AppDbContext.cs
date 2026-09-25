@@ -55,6 +55,9 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<FindingEvidence> FindingEvidence => Set<FindingEvidence>();
     public DbSet<WebsiteSnapshot> WebsiteSnapshots => Set<WebsiteSnapshot>();
     public DbSet<SearchObservation> SearchObservations => Set<SearchObservation>();
+    public DbSet<SearchConsoleQuery> SearchConsoleQueries => Set<SearchConsoleQuery>();
+    public DbSet<TestReport> TestReports => Set<TestReport>();
+    public DbSet<FindingStep> FindingSteps => Set<FindingStep>();
     public DbSet<SocialContentItem> SocialContent => Set<SocialContentItem>();
     public DbSet<SocialMetricSnapshot> SocialMetrics => Set<SocialMetricSnapshot>();
     public DbSet<DirectoryTask> DirectoryTasks => Set<DirectoryTask>();
@@ -136,8 +139,11 @@ public sealed class AppDbContext : DbContext, IAppDbContext
         ApplyTenantFilter<Scan>(modelBuilder);
         ApplyTenantFilter<Finding>(modelBuilder);
         ApplyTenantFilter<FindingEvidence>(modelBuilder);
+        ApplyTenantFilter<FindingStep>(modelBuilder);
         ApplyTenantFilter<WebsiteSnapshot>(modelBuilder);
         ApplyTenantFilter<SearchObservation>(modelBuilder);
+        ApplyTenantFilter<SearchConsoleQuery>(modelBuilder);
+        ApplyTenantFilter<TestReport>(modelBuilder);
         ApplyTenantFilter<SocialContentItem>(modelBuilder);
         ApplyTenantFilter<SocialMetricSnapshot>(modelBuilder);
         ApplyTenantFilter<DirectoryTask>(modelBuilder);

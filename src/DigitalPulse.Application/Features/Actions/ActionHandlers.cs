@@ -206,6 +206,13 @@ public sealed class EnqueueActionHandler
 
     private async Task<bool> LiveWriteAvailableAsync(Guid businessId, ActionKindDescriptor kind, Guid? targetId, CancellationToken cancellationToken)
     {
+        if (kind.Kind is ActionKind.SubmitSearchConsoleSitemap or ActionKind.InspectSearchConsoleUrl)
+        {
+            var gsc = await _db.Connections.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.BusinessId == businessId && c.PlatformCode == "SEARCH_CONSOLE", cancellationToken);
+            return gsc?.HasLiveCredential == true;
+        }
+
         if (kind.Kind is ActionKind.SendWhatsAppTemplate or ActionKind.SendWhatsAppSession)
         {
             var whatsApp = await _db.Connections.AsNoTracking()
@@ -282,6 +289,7 @@ public sealed class ExecuteActionHandler
     private readonly SendWhatsAppMessageHandler _whatsApp;
     private readonly RunMonitoringHandler _monitoring;
     private readonly AssemblePresenceReportHandler _report;
+    private readonly SearchConsoleWriteHandler _searchConsole;
 
     public ExecuteActionHandler(
         IAppDbContext db,
@@ -295,7 +303,8 @@ public sealed class ExecuteActionHandler
         VerifyDirectoryTaskHandler verify,
         SendWhatsAppMessageHandler whatsApp,
         RunMonitoringHandler monitoring,
-        AssemblePresenceReportHandler report)
+        AssemblePresenceReportHandler report,
+        SearchConsoleWriteHandler searchConsole)
     {
         _db = db;
         _tenant = tenant;
@@ -309,6 +318,7 @@ public sealed class ExecuteActionHandler
         _whatsApp = whatsApp;
         _monitoring = monitoring;
         _report = report;
+        _searchConsole = searchConsole;
     }
 
     public async Task<WorkActionResponse> Handle(Guid businessId, Guid actionId, CancellationToken cancellationToken)
@@ -418,6 +428,10 @@ public sealed class ExecuteActionHandler
             case ActionKind.AssembleReport:
                 await _report.Handle(businessId, cancellationToken);
                 return (false, "Report assembled from stored observations. AI interpretation was not invented.");
+            case ActionKind.SubmitSearchConsoleSitemap:
+                return await _searchConsole.SubmitSitemapAsync(businessId, cancellationToken);
+            case ActionKind.InspectSearchConsoleUrl:
+                return await _searchConsole.InspectUrlAsync(businessId, action.TargetLabel, cancellationToken);
             default:
                 return (true, "Unknown action kind stayed held.");
         }

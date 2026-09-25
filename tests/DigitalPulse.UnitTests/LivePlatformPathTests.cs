@@ -58,6 +58,90 @@ public sealed class LivePlatformPathTests
     }
 
     [Fact]
+    public async Task Official_oauth_refreshes_an_expired_access_token()
+    {
+        var config = GoogleConfig();
+        var broker = new OfficialOAuthBroker(new TokenHttpFactory("""{"access_token":"fresh-access","expires_in":3600}"""), config);
+        var connection = Live("GOOGLE", expiresAtUtc: DateTimeOffset.UtcNow.AddMinutes(-5), refreshToken: "refresh-1", accessToken: "old-access");
+        await broker.EnsureFreshAsync(connection, CancellationToken.None);
+        Assert.Equal("fresh-access", connection.AccessToken);
+        Assert.Equal("refresh-1", connection.RefreshToken);
+        Assert.True(connection.HasLiveCredential);
+        Assert.Equal(ConnectionStatus.Connected, connection.Status);
+    }
+
+    [Fact]
+    public async Task Official_oauth_refresh_failure_does_not_invent_a_grant()
+    {
+        var broker = new OfficialOAuthBroker(new TokenHttpFactory("{}", status: System.Net.HttpStatusCode.BadRequest), GoogleConfig());
+        var connection = Live("GOOGLE", expiresAtUtc: DateTimeOffset.UtcNow.AddMinutes(-1), refreshToken: "refresh-1", accessToken: "old-access");
+        await broker.EnsureFreshAsync(connection, CancellationToken.None);
+        Assert.Equal("old-access", connection.AccessToken);
+        Assert.Equal(ConnectionStatus.NeedsReauth, connection.Status);
+        Assert.False(connection.HasLiveCredential);
+        Assert.Contains("did not invent", connection.LastError, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Official_oauth_does_not_refresh_a_valid_token()
+    {
+        var broker = new OfficialOAuthBroker(new UnusedHttpFactory(), GoogleConfig());
+        var connection = Live("GOOGLE", expiresAtUtc: DateTimeOffset.UtcNow.AddHours(1), refreshToken: "refresh-1", accessToken: "old-access");
+        await broker.EnsureFreshAsync(connection, CancellationToken.None);
+        Assert.Equal("old-access", connection.AccessToken);
+        Assert.Equal(ConnectionStatus.Connected, connection.Status);
+    }
+
+    [Fact]
+    public async Task Official_oauth_expired_without_refresh_token_needs_reauth()
+    {
+        var broker = new OfficialOAuthBroker(new UnusedHttpFactory(), GoogleConfig());
+        var connection = Live("GOOGLE", expiresAtUtc: DateTimeOffset.UtcNow.AddMinutes(-1), refreshToken: null);
+        await broker.EnsureFreshAsync(connection, CancellationToken.None);
+        Assert.Equal(ConnectionStatus.NeedsReauth, connection.Status);
+        Assert.False(connection.HasLiveCredential);
+    }
+
+    [Fact]
+    public async Task Official_oauth_expired_without_keys_does_not_invent_a_refresh()
+    {
+        var broker = new OfficialOAuthBroker(new UnusedHttpFactory(), EmptyConfig());
+        var connection = Live("GOOGLE", expiresAtUtc: DateTimeOffset.UtcNow.AddMinutes(-1), refreshToken: "refresh-1", accessToken: "old-access");
+        await broker.EnsureFreshAsync(connection, CancellationToken.None);
+        Assert.Equal("old-access", connection.AccessToken);
+        Assert.Equal(ConnectionStatus.NeedsReauth, connection.Status);
+        Assert.Contains("not configured", connection.LastError, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Ads_metrics_hold_without_developer_token()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        var adapter = new GoogleAdsAdapter(new FakeGateway(), config);
+        var connection = Live("GOOGLE_ADS");
+        var result = await adapter.MetricsAsync(connection, CancellationToken.None);
+        Assert.Equal("Hold", result.Status);
+        Assert.Contains("DeveloperToken", result.Detail, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not invented", result.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Ads_metrics_return_official_campaigns_only()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Connections:GoogleAds:DeveloperToken"] = "dev-token"
+        }).Build();
+        var adapter = new GoogleAdsAdapter(new AdsGateway(), config);
+        var connection = Live("GOOGLE_ADS");
+        var result = await adapter.MetricsAsync(connection, CancellationToken.None);
+        Assert.Equal("Observed", result.Status);
+        var campaigns = DigitalPulse.Application.Website.GoogleAdsCampaigns.Parse(result.Detail);
+        Assert.Single(campaigns);
+        Assert.Equal("Brand", campaigns[0].Name);
+    }
+
+    [Fact]
     public async Task Facebook_publish_holds_without_a_live_token()
     {
         var adapter = new FacebookAdapter(new FakeGateway());
@@ -128,14 +212,44 @@ public sealed class LivePlatformPathTests
         Assert.False(decision.EligibleForAutopilot);
     }
 
-    private static PlatformConnection Live(string platform)
+    private static PlatformConnection Live(string platform, DateTimeOffset? expiresAtUtc = null, string? refreshToken = null, string accessToken = "access-token")
     {
         var connection = PlatformConnection.Start(Guid.NewGuid(), Guid.NewGuid(), platform, PlatformAuthMode.OAuth, "state-live");
-        connection.AttachLiveGrant("OAuth", "oauth-test", platform, "access-token", null, null, "test");
+        connection.AttachLiveGrant("OAuth", "oauth-test", platform, accessToken, refreshToken, expiresAtUtc, "test");
         return connection;
     }
 
     private static IConfiguration EmptyConfig() => new ConfigurationBuilder().AddInMemoryCollection().Build();
+
+    private static IConfiguration GoogleConfig() => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        ["Connections:Google:ClientId"] = "gid.apps.googleusercontent.com",
+        ["Connections:Google:ClientSecret"] = "gsecret"
+    }).Build();
+
+    private sealed class AdsGateway : IOfficialPlatformGateway
+    {
+        public Task<OfficialHttpResult> SendAsync(
+            HttpMethod method,
+            string url,
+            string? accessToken,
+            string? jsonBody,
+            IReadOnlyDictionary<string, string>? headers,
+            CancellationToken cancellationToken)
+        {
+            if (url.Contains("listAccessibleCustomers", StringComparison.Ordinal))
+            {
+                return Task.FromResult(new OfficialHttpResult(200, """{"resourceNames":["customers/123"]}""", true));
+            }
+
+            if (url.Contains("googleAds:search", StringComparison.Ordinal))
+            {
+                return Task.FromResult(new OfficialHttpResult(200, """{"results":[{"campaign":{"id":"9","name":"Brand","status":"ENABLED"},"metrics":{"impressions":"10","clicks":"1"}}]}""", true));
+            }
+
+            return Task.FromResult(new OfficialHttpResult(404, "{}", false));
+        }
+    }
 
     private sealed class FakeGateway : IOfficialPlatformGateway
     {
@@ -152,6 +266,17 @@ public sealed class LivePlatformPathTests
     private sealed class UnusedHttpFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new();
+    }
+
+    private sealed class TokenHttpFactory(string body, System.Net.HttpStatusCode status = System.Net.HttpStatusCode.OK) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(new TokenHandler(body, status), disposeHandler: false);
+    }
+
+    private sealed class TokenHandler(string body, System.Net.HttpStatusCode status) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
     }
 
     private sealed class OrderHttpFactory : IHttpClientFactory

@@ -47,7 +47,21 @@ public static class DatabaseSeeder
                 FactType.Create("HOURS", "Hours"),
                 FactType.Create("PRICE_RANGE", "Price range"),
                 FactType.Create("FOUNDED_YEAR", "Founded year"),
-                FactType.Create("BRAND_VOICE", "Brand voice"));
+                FactType.Create("BRAND_VOICE", "Brand voice"),
+                FactType.Create("VISION", "Vision"),
+                FactType.Create("MISSION", "Mission"));
+        }
+        else
+        {
+            if (!await db.FactTypes.AnyAsync(t => t.Code == "VISION", cancellationToken))
+            {
+                db.FactTypes.Add(FactType.Create("VISION", "Vision"));
+            }
+
+            if (!await db.FactTypes.AnyAsync(t => t.Code == "MISSION", cancellationToken))
+            {
+                db.FactTypes.Add(FactType.Create("MISSION", "Mission"));
+            }
         }
 
         await db.SaveChangesAsync(cancellationToken);

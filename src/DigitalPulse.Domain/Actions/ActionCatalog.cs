@@ -19,7 +19,9 @@ public enum ActionKind
     AssembleAgencyReport = 12,
     StartAgencyWorkflow = 13,
     CaptureBackup = 14,
-    AssembleReadiness = 15
+    AssembleReadiness = 15,
+    SubmitSearchConsoleSitemap = 16,
+    InspectSearchConsoleUrl = 17
 }
 
 public enum ActionRisk
@@ -63,7 +65,7 @@ public static class ActionKindCatalog
 {
     public static readonly IReadOnlyList<ActionKindDescriptor> All =
     [
-        new(ActionKind.AnalyzeWebsite, "analyze-website", "Analyze website", ActionRisk.Low, false, "Safe homepage snapshot. Not a live Search Console write."),
+        new(ActionKind.AnalyzeWebsite, "analyze-website", "Analyze website", ActionRisk.Low, false, "Same-host crawl of the official site. Not a Search Console write."),
         new(ActionKind.RunScan, "run-scan", "Run DigitalPulse Check", ActionRisk.Low, false, "Compares identity to stored observations."),
         new(ActionKind.RebuildGraphify, "rebuild-graphify", "Rebuild Graphify", ActionRisk.Low, false, "Rebuilds the business context graph from the record."),
         new(ActionKind.RunAi, "run-ai", "Run AI orchestrator", ActionRisk.Medium, false, "Evidence-backed composition. Never publishes."),
@@ -78,7 +80,9 @@ public static class ActionKindCatalog
         new(ActionKind.AssembleAgencyReport, "assemble-agency-report", "Assemble agency report", ActionRisk.Low, false, "Assembles a client or portfolio report from stored work. Live provider metrics are not invented."),
         new(ActionKind.StartAgencyWorkflow, "start-agency-workflow", "Start agency workflow", ActionRisk.Low, false, "Starts onboarding, review, audit, or white-label review. Custom-domain hosting stays held."),
         new(ActionKind.CaptureBackup, "capture-backup", "Capture tenant backup", ActionRisk.Low, false, "Stores a logical tenant snapshot. Azure Backup is not invented."),
-        new(ActionKind.AssembleReadiness, "assemble-readiness", "Assemble production readiness", ActionRisk.Low, false, "Records stored hardening gates. Live Azure and scanners stay held.")
+        new(ActionKind.AssembleReadiness, "assemble-readiness", "Assemble production readiness", ActionRisk.Low, false, "Records stored hardening gates. Live Azure and scanners stay held."),
+        new(ActionKind.SubmitSearchConsoleSitemap, "submit-search-console-sitemap", "Submit Search Console sitemap", ActionRisk.High, true, "Official sitemaps.submit. Requires a live webmasters grant. Clicks are not invented."),
+        new(ActionKind.InspectSearchConsoleUrl, "inspect-search-console-url", "Inspect Search Console URL", ActionRisk.High, true, "Official URL Inspection. Requires a live webmasters grant.")
     ];
 
     public static ActionKindDescriptor Require(string code) =>

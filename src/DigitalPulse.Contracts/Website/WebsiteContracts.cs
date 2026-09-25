@@ -18,6 +18,12 @@ public sealed record WebsiteSnapshotResponse(
     int WordCount,
     bool ContainsBusinessName,
     bool ContainsPhone,
+    bool ContainsEmail,
+    bool ContainsAddress,
+    bool ContainsVision,
+    bool HasContactForm,
+    string PageRole,
+    Guid? AuditRunId,
     string? Error,
     DateTimeOffset FetchedAtUtc);
 
@@ -36,10 +42,30 @@ public sealed record SearchConsoleStatusResponse(
     string? GrantKind,
     string Detail);
 
+public sealed record SearchConsoleQueryResponse(
+    string Query,
+    double Clicks,
+    double Impressions,
+    double Ctr,
+    double Position);
+
+public sealed record TestReportResponse(
+    Guid Id,
+    string Kind,
+    string Title,
+    string ObservedFact,
+    string Recommendation,
+    string HoldReason,
+    Guid? AuditRunId,
+    DateTimeOffset CreatedAtUtc);
+
 public sealed record WebsiteIntelligenceResponse(
     WebsiteSnapshotResponse? Snapshot,
+    IReadOnlyList<WebsiteSnapshotResponse> Pages,
     IReadOnlyList<SearchObservationResponse> Observations,
     SearchConsoleStatusResponse SearchConsole,
+    IReadOnlyList<SearchConsoleQueryResponse> SearchConsoleQueries,
+    IReadOnlyList<TestReportResponse> Reports,
     string SearchProvider,
     bool VectorSearchConfigured);
 

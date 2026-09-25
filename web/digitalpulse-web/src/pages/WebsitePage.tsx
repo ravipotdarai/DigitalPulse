@@ -37,7 +37,7 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
     mutationFn: () => api.analyzeWebsite(businessId),
     onSuccess: async () => {
       setError(null);
-      setSuccess("Homepage snapshot stored. Search Console metrics were not invented.");
+      setSuccess("Same-host crawl stored. Search Console clicks were not invented.");
       await queryClient.invalidateQueries({ queryKey: ["website"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
@@ -67,8 +67,9 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
         <p className="hero-kicker">Website + Search</p>
         <h1 className="page-title">Website intelligence</h1>
         <p className="page-lead">
-          On-page SEO and AEO come from a safe homepage fetch. {data.searchProvider} search is tenant-scoped.
-          Vector search is {data.vectorSearchConfigured ? "configured" : "not configured"}. Search Console clicks are never invented.
+          DigitalPulse crawls the official same-host site (capped), then compares About, Contact, and vision to the identity record.
+          Product descriptions are not scored. {data.searchProvider} search is tenant-scoped.
+          Search Console clicks are never invented.
         </p>
         <div className="id-form-actions spaced">
           <Button appearance="primary" disabled={analyze.isPending} onClick={() => analyze.mutate()}>
@@ -81,7 +82,7 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
 
       <div className="band band-3">
         <article className="panel">
-          <h2>Homepage snapshot</h2>
+          <h2>Site snapshot</h2>
           {!snapshot ? (
             <div className="dp-empty dp-empty-sm">
               <strong>No snapshot yet</strong>
@@ -101,8 +102,18 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
         <article className="panel">
           <h2>Search Console</h2>
           <p className="ink-muted">{data.searchConsole.detail}</p>
-          <div className="row-line"><span>Status</span><span className={`sev ${data.searchConsole.status === "NotConnected" ? "sev-hold" : "sev-warn"}`}>{data.searchConsole.status}</span></div>
+          <div className="row-line"><span>Status</span><span className={`sev ${data.searchConsole.status === "Observed" ? "sev-ok" : "sev-hold"}`}>{data.searchConsole.status}</span></div>
           <div className="row-line"><span>Grant</span><span>{data.searchConsole.grantKind ?? "—"}</span></div>
+          {data.searchConsoleQueries.length === 0 ? (
+            <p className="ink-muted">No official query rows stored.</p>
+          ) : (
+            data.searchConsoleQueries.map((row) => (
+              <div className="row-line" key={row.query}>
+                <span>{row.query}</span>
+                <span>{row.clicks} / {row.impressions}</span>
+              </div>
+            ))
+          )}
         </article>
         <article className="panel">
           <h2>Site search</h2>
@@ -128,6 +139,36 @@ function WebsiteWorkspace({ businessId, data }: { businessId: string; data: Webs
           ))}
         </article>
       </div>
+
+      {data.pages.length > 0 ? (
+        <DataGrid
+          noun="page"
+          empty="Analyze the website to crawl official same-host pages."
+          columns={["Role", "URL", "Status", "Words"]}
+          rows={data.pages.map((page) => ({
+            id: page.id,
+            search: `${page.pageRole} ${page.url ?? ""}`.toLowerCase(),
+            cells: [page.pageRole, page.url ?? "—", page.status, String(page.wordCount)]
+          }))}
+        />
+      ) : null}
+
+      {data.reports.length > 0 ? (
+        <article className="panel spaced">
+          <h2>Test reports</h2>
+          {data.reports.map((report) => (
+            <div className="row-line" key={report.id}>
+              <div>
+                <strong>{report.title}</strong>
+                <p className="ink-muted meta-line">{report.holdReason || report.observedFact}</p>
+              </div>
+              <Button appearance="subtle" onClick={() => void api.downloadReportPdf(businessId, report.id)}>
+                Download PDF
+              </Button>
+            </div>
+          ))}
+        </article>
+      ) : null}
 
       {!snapshot ? (
         <div className="dp-empty dp-surface dp-empty-lg">

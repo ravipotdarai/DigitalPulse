@@ -79,6 +79,31 @@ public sealed class PlatformConnection : TenantOwnedEntity
         TokenScope = string.IsNullOrWhiteSpace(scope) ? null : scope.Trim();
     }
 
+    public void AssignExternalAccount(string account)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(account);
+        ExternalAccount = account.Trim();
+        Touch();
+    }
+
+    public void ApplyRefreshedTokens(string accessToken, string? refreshToken, DateTimeOffset? expiresAtUtc, string? scope)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(accessToken);
+        AccessToken = accessToken.Trim();
+        if (!string.IsNullOrWhiteSpace(refreshToken))
+        {
+            RefreshToken = refreshToken.Trim();
+        }
+
+        TokenExpiresAtUtc = expiresAtUtc;
+        if (!string.IsNullOrWhiteSpace(scope))
+        {
+            TokenScope = scope.Trim();
+        }
+
+        Touch();
+    }
+
     public void BeginReauthorize(string authorizationState)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(authorizationState);

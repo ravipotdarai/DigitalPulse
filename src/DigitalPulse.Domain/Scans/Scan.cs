@@ -106,6 +106,9 @@ public sealed class Finding : TenantOwnedEntity
     public string VerificationMethod { get; private set; } = string.Empty;
     public FindingAutomationState AutomationState { get; private set; }
     public FindingStatus Status { get; private set; } = FindingStatus.Open;
+    public string ResolutionPath { get; private set; } = "AssistedPlaybook";
+    public string? PlaybookCode { get; private set; }
+    public DateTimeOffset? VerifiedAtUtc { get; private set; }
 
     private Finding() { }
 
@@ -122,7 +125,9 @@ public sealed class Finding : TenantOwnedEntity
         string recommendation,
         string suggestedAction,
         string verificationMethod,
-        FindingAutomationState automationState)
+        FindingAutomationState automationState,
+        string? resolutionPath = null,
+        string? playbookCode = null)
     {
         if (tenantId == Guid.Empty) throw new ArgumentException("Tenant is required.", nameof(tenantId));
         if (scanId == Guid.Empty) throw new ArgumentException("Scan is required.", nameof(scanId));
@@ -146,12 +151,25 @@ public sealed class Finding : TenantOwnedEntity
             SuggestedAction = suggestedAction.Trim(),
             VerificationMethod = verificationMethod.Trim(),
             AutomationState = automationState,
-            Status = FindingStatus.Open
+            Status = FindingStatus.Open,
+            ResolutionPath = string.IsNullOrWhiteSpace(resolutionPath) ? "AssistedPlaybook" : resolutionPath.Trim(),
+            PlaybookCode = string.IsNullOrWhiteSpace(playbookCode) ? null : playbookCode.Trim()
         };
+    }
+
+    public void MarkVerified()
+    {
+        VerifiedAtUtc = DateTimeOffset.UtcNow;
+        Touch();
     }
 
     public void SetStatus(FindingStatus status)
     {
+        if (status == FindingStatus.Resolved && VerifiedAtUtc is null)
+        {
+            throw new InvalidOperationException("Re-check the observed source before marking this signal resolved.");
+        }
+
         Status = status;
         Touch();
     }
@@ -193,5 +211,48 @@ public sealed class FindingEvidence : TenantOwnedEntity
             Value = value.Trim(),
             Source = source.Trim()
         };
+    }
+}
+
+public sealed class FindingStep : TenantOwnedEntity
+{
+    public Guid FindingId { get; private set; }
+    public int Ordinal { get; private set; }
+    public string Title { get; private set; } = string.Empty;
+    public string Detail { get; private set; } = string.Empty;
+    public string? OfficialUrl { get; private set; }
+    public DateTimeOffset? CompletedAtUtc { get; private set; }
+
+    private FindingStep() { }
+
+    public static FindingStep Create(
+        Guid tenantId,
+        Guid findingId,
+        int ordinal,
+        string title,
+        string detail,
+        string? officialUrl)
+    {
+        if (tenantId == Guid.Empty) throw new ArgumentException("Tenant is required.", nameof(tenantId));
+        if (findingId == Guid.Empty) throw new ArgumentException("Finding is required.", nameof(findingId));
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(detail);
+        if (ordinal < 1) throw new ArgumentOutOfRangeException(nameof(ordinal));
+
+        return new FindingStep
+        {
+            TenantId = tenantId,
+            FindingId = findingId,
+            Ordinal = ordinal,
+            Title = title.Trim(),
+            Detail = detail.Trim(),
+            OfficialUrl = string.IsNullOrWhiteSpace(officialUrl) ? null : officialUrl.Trim()
+        };
+    }
+
+    public void Complete()
+    {
+        CompletedAtUtc ??= DateTimeOffset.UtcNow;
+        Touch();
     }
 }

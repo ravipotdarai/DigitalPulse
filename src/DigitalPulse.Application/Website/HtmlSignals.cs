@@ -15,7 +15,8 @@ public sealed record HtmlSignals(
     bool HasOgTitle,
     IReadOnlyList<string> QuestionHeadings,
     string Text,
-    int WordCount);
+    int WordCount,
+    bool HasContactForm = false);
 
 public static class HtmlSignalParser
 {
@@ -26,6 +27,9 @@ public static class HtmlSignalParser
     private static readonly Regex CanonicalRegex = new(@"<link[^>]*rel\s*=\s*[""']canonical[""'][^>]*>", RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
     private static readonly Regex JsonLdRegex = new(@"<script[^>]*type\s*=\s*[""']application/ld\+json[""'][^>]*>(.*?)</script>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
     private static readonly Regex TagRegex = new(@"<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>|<[^>]+>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled, TimeSpan.FromMilliseconds(400));
+    private static readonly Regex HrefRegex = new(@"href\s*=\s*[""'](?<href>[^""']+)[""']", RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
+    private static readonly Regex FormRegex = new(@"<form\b|mailto:|tel:", RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
+    private static readonly Regex LocRegex = new(@"<loc>\s*(?<url>[^<]+)\s*</loc>", RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
     private static readonly Regex AttrRegex = new(@"(?<name>[a-zA-Z0-9:-]+)\s*=\s*[""'](?<value>[^""']*)[""']", RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
 
     public static HtmlSignals Parse(string? html)
@@ -63,7 +67,74 @@ public static class HtmlSignalParser
             !string.IsNullOrWhiteSpace(meta.OgTitle),
             questions,
             text.Length > 4000 ? text[..4000] : text,
-            words);
+            words,
+            FormRegex.IsMatch(html));
+    }
+
+    public static IReadOnlyList<string> ExtractHrefs(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return [];
+        }
+
+        return HrefRegex.Matches(html)
+            .Select(m => WebUtility.HtmlDecode(m.Groups["href"].Value)?.Trim())
+            .Where(h => !string.IsNullOrWhiteSpace(h))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public static IReadOnlyList<string> ExtractSitemapLocs(string? xml)
+    {
+        if (string.IsNullOrWhiteSpace(xml))
+        {
+            return [];
+        }
+
+        return LocRegex.Matches(xml)
+            .Select(m => WebUtility.HtmlDecode(m.Groups["url"].Value)?.Trim())
+            .Where(u => !string.IsNullOrWhiteSpace(u))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public static bool ContainsEmail(string? haystack, string? email) =>
+        !string.IsNullOrWhiteSpace(haystack)
+        && !string.IsNullOrWhiteSpace(email)
+        && haystack.Contains(email.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    public static bool ContainsAddress(string? haystack, string? addressLine, string? city)
+    {
+        if (string.IsNullOrWhiteSpace(haystack))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(addressLine) && haystack.Contains(addressLine.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(city) && haystack.Contains(city.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool ContainsVision(string? haystack, string? vision)
+    {
+        if (string.IsNullOrWhiteSpace(haystack))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(vision) && haystack.Contains(vision.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return haystack.Contains("vision", StringComparison.OrdinalIgnoreCase)
+            || haystack.Contains("mission", StringComparison.OrdinalIgnoreCase);
     }
 
     public static bool ContainsName(string? haystack, string? name) =>

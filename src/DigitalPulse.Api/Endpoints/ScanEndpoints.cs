@@ -15,6 +15,8 @@ public static class ScanEndpoints
 
         var findings = app.MapGroup("/v1/businesses/{businessId:guid}/findings").WithTags("Findings").RequireAuthorization();
         findings.MapPatch("/{findingId:guid}", UpdateAsync);
+        findings.MapPost("/{findingId:guid}/verify", VerifyAsync);
+        findings.MapPost("/{findingId:guid}/steps/{stepId:guid}/complete", CompleteStepAsync);
         return app;
     }
 
@@ -37,4 +39,16 @@ public static class ScanEndpoints
         UpdateFindingHandler handler,
         CancellationToken cancellationToken) =>
         TypedResults.Ok(await handler.Handle(businessId, findingId, request, cancellationToken));
+
+    private static async Task<Ok<FindingResponse>> VerifyAsync(
+        Guid businessId, Guid findingId, VerifyFindingHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, findingId, cancellationToken));
+
+    private static async Task<Ok<FindingResponse>> CompleteStepAsync(
+        Guid businessId,
+        Guid findingId,
+        Guid stepId,
+        CompleteFindingStepHandler handler,
+        CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, findingId, stepId, cancellationToken));
 }

@@ -16,7 +16,16 @@ dotnet run --project src/DigitalPulse.Api
 dotnet run --project src/DigitalPulse.Worker
 ```
 
-Official Google / Meta / LinkedIn OAuth redirect URI must be exactly `http://localhost:5088/v1/connections/callback`. The API loads `.env` on startup. Without client ids, Connect still issues a **development grant**. With client ids, the browser is sent to the official authorize URL.
+Official Google / Meta / LinkedIn OAuth redirect URI must be exactly `http://localhost:5088/v1/connections/callback`. The API loads `.env` on startup. Without client ids, Connect still issues a **development grant**. With client ids, the browser is sent to the official authorize URL. Expired access tokens are refreshed with the stored `refresh_token` when ClientId/Secret are present. DigitalPulse does not invent grants or GA4 hits (Measurement Protocol is out of scope).
+
+### Local Google OAuth
+
+1. In Google Cloud Console create a Web application OAuth client.
+2. Authorized redirect URI: `http://localhost:5088/v1/connections/callback`. Authorized JavaScript origin: `http://localhost:5173`.
+3. Enable only the APIs you will call: Search Console, Analytics Admin + Data, Google Ads (read), YouTube Data, Business Profile as needed.
+4. Copy `.env.example` to `.env` and set `Connections__Google__ClientId` and `Connections__Google__ClientSecret`. Leave them empty for a development grant.
+5. Google Ads health also needs `Connections__GoogleAds__DeveloperToken`. Campaigns are not mutated.
+6. After Connect, Connection Center shows **live credential** only when an official access token is stored. Reauthorize if Google omitted a refresh token.
 
 Frontend:
 

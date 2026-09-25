@@ -20,8 +20,10 @@ public sealed class WebsiteObservationsTests
         Assert.Contains(items, i => i.Title.Contains("Title tag", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(items, i => i.Category == SearchObservationCategory.Aeo);
         Assert.Contains(items, i => i.Category == SearchObservationCategory.SearchConsole);
+        Assert.Contains(items, i => i.Title.Contains("Search Console is not connected", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(items, i => i.Detail.Contains("impression", StringComparison.OrdinalIgnoreCase) && i.ObservedValue?.Any(char.IsDigit) == true);
         Assert.DoesNotContain(items, i => i.Title.Contains("rank", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(items, i => i.Title.Contains("no live reader", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

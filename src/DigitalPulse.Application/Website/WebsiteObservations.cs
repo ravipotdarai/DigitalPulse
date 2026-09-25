@@ -19,7 +19,8 @@ public static class WebsiteObservations
         string businessName,
         WebsiteSnapshot snapshot,
         HtmlSignals? signals,
-        IReadOnlyCollection<PlatformConnection> connections)
+        IReadOnlyCollection<PlatformConnection> connections,
+        IReadOnlyList<SearchConsoleQueryRow>? searchConsoleRows = null)
     {
         var items = new List<DraftSearchObservation>();
         if (snapshot.Status == WebsiteFetchStatus.Blocked)
@@ -32,7 +33,7 @@ public static class WebsiteObservations
                 "A public http(s) website",
                 snapshot.Error,
                 "Use a public website URL. DigitalPulse will not fetch private hosts."));
-            return WithSearchConsole(items, connections);
+            return WithSearchConsole(items, connections, searchConsoleRows);
         }
 
         if (snapshot.Status == WebsiteFetchStatus.Unreachable)
@@ -45,7 +46,7 @@ public static class WebsiteObservations
                 "HTTP response with HTML",
                 snapshot.Error,
                 "Confirm DNS and hosting, then run website analysis again."));
-            return WithSearchConsole(items, connections);
+            return WithSearchConsole(items, connections, searchConsoleRows);
         }
 
         if (snapshot.Status == WebsiteFetchStatus.Skipped)
@@ -58,7 +59,7 @@ public static class WebsiteObservations
                 "A fetched homepage snapshot",
                 "Skipped",
                 "Run analysis outside the test host, or set a public website on the identity record."));
-            return WithSearchConsole(items, connections);
+            return WithSearchConsole(items, connections, searchConsoleRows);
         }
 
         if (string.IsNullOrWhiteSpace(snapshot.Title))
@@ -154,12 +155,13 @@ public static class WebsiteObservations
                 "Publish the same trading name on the homepage."));
         }
 
-        return WithSearchConsole(items, connections);
+        return WithSearchConsole(items, connections, searchConsoleRows);
     }
 
     private static List<DraftSearchObservation> WithSearchConsole(
         List<DraftSearchObservation> items,
-        IReadOnlyCollection<PlatformConnection> connections)
+        IReadOnlyCollection<PlatformConnection> connections,
+        IReadOnlyList<SearchConsoleQueryRow>? searchConsoleRows)
     {
         var gsc = connections.FirstOrDefault(c => c.PlatformCode.Equals("SEARCH_CONSOLE", StringComparison.OrdinalIgnoreCase));
         if (gsc is null || gsc.Status != ConnectionStatus.Connected)
@@ -175,27 +177,57 @@ public static class WebsiteObservations
             return items;
         }
 
-        if (string.Equals(gsc.GrantKind, "Development", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(gsc.GrantKind, "Development", StringComparison.OrdinalIgnoreCase) || !gsc.HasLiveCredential)
         {
             items.Add(new(
                 SearchObservationCategory.SearchConsole,
                 SearchObservationSeverity.Medium,
                 "Search Console snapshot is unavailable",
-                "This connection uses a development grant. Clicks, impressions, and top queries are not invented.",
+                "This connection uses a development grant or has no live token. Clicks, impressions, and top queries are not invented.",
                 "A live Search Console grant",
-                gsc.GrantKind,
-                "Keep the adapter contract. Configure official Search Console later."));
+                gsc.GrantKind ?? "No live token",
+                "Complete official Google login. DigitalPulse will not invent coverage."));
             return items;
         }
 
-        items.Add(new(
-            SearchObservationCategory.SearchConsole,
-            SearchObservationSeverity.Low,
-            "Search Console has no live reader yet",
-            "The connection is authorized, but this phase does not call the Search Console API.",
-            "An evidence-backed coverage snapshot",
-            "No snapshot stored",
-            "Do not treat this as index coverage until a live reader exists."));
+        if (searchConsoleRows is null)
+        {
+            items.Add(new(
+                SearchObservationCategory.SearchConsole,
+                SearchObservationSeverity.Low,
+                "Search Console was not queried this run",
+                "The connection is live, but this analysis did not receive an official searchAnalytics body.",
+                "An official Search Console query response",
+                "Not queried",
+                "Re-analyze the website to call Search Console. Rows are not invented."));
+            return items;
+        }
+
+        if (searchConsoleRows.Count == 0)
+        {
+            items.Add(new(
+                SearchObservationCategory.SearchConsole,
+                SearchObservationSeverity.Low,
+                "Search Console returned no queries",
+                "Official searchAnalytics/query returned no rows for the last 7 days. Empty official data stays empty.",
+                "Official query rows when Google has them",
+                "0 rows",
+                "Confirm the property URL matches the identity website."));
+            return items;
+        }
+
+        foreach (var row in searchConsoleRows.Take(10))
+        {
+            items.Add(new(
+                SearchObservationCategory.SearchConsole,
+                SearchObservationSeverity.Low,
+                $"Search query observed: {row.Query}",
+                "This row came from official Search Console searchAnalytics/query. Clicks were not invented.",
+                "An official query row",
+                $"{row.Clicks:0} clicks / {row.Impressions:0} impressions / pos {row.Position:0.0}",
+                "Improve the matching page on the website. DigitalPulse cannot change a ranking."));
+        }
+
         return items;
     }
 

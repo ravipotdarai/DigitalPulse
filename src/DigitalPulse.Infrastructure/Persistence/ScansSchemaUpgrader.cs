@@ -98,5 +98,36 @@ public static class ScansSchemaUpgrader
                 CREATE INDEX [IX_FindingEvidence_FindingId] ON [dp].[FindingEvidence] ([FindingId]);
             END
             """, cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            IF COL_LENGTH('dp.Finding', 'ResolutionPath') IS NULL
+                ALTER TABLE [dp].[Finding] ADD [ResolutionPath] nvarchar(32) NOT NULL CONSTRAINT [DF_Finding_ResolutionPath] DEFAULT 'AssistedPlaybook';
+            IF COL_LENGTH('dp.Finding', 'PlaybookCode') IS NULL
+                ALTER TABLE [dp].[Finding] ADD [PlaybookCode] nvarchar(64) NULL;
+            IF COL_LENGTH('dp.Finding', 'VerifiedAtUtc') IS NULL
+                ALTER TABLE [dp].[Finding] ADD [VerifiedAtUtc] datetimeoffset NULL;
+            """, cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'dp.FindingStep', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dp].[FindingStep] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [CreatedAtUtc] datetimeoffset NOT NULL,
+                    [UpdatedAtUtc] datetimeoffset NOT NULL,
+                    [TenantId] uniqueidentifier NOT NULL,
+                    [FindingId] uniqueidentifier NOT NULL,
+                    [Ordinal] int NOT NULL,
+                    [Title] nvarchar(160) NOT NULL,
+                    [Detail] nvarchar(1000) NOT NULL,
+                    [OfficialUrl] nvarchar(2048) NULL,
+                    [CompletedAtUtc] datetimeoffset NULL,
+                    CONSTRAINT [PK_FindingStep] PRIMARY KEY ([Id])
+                );
+                CREATE INDEX [IX_FindingStep_FindingId] ON [dp].[FindingStep] ([FindingId]);
+            END
+            """, cancellationToken);
     }
 }

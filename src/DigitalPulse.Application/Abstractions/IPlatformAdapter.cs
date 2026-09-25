@@ -37,3 +37,8 @@ public interface IPlatformAuthorizationBroker
     Task<AuthorizationStart> StartAsync(PlatformConnection connection, IPlatformAdapter adapter, CancellationToken cancellationToken);
     Task CompleteAsync(PlatformConnection connection, string? code, CancellationToken cancellationToken);
 }
+
+public interface ILiveTokenRefresher
+{
+    Task EnsureFreshAsync(PlatformConnection connection, CancellationToken cancellationToken);
+}

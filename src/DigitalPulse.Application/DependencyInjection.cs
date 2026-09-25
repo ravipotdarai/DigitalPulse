@@ -83,9 +83,14 @@ public static class DependencyInjection
         services.AddScoped<GetScanHandler>();
         services.AddScoped<RunScanHandler>();
         services.AddScoped<UpdateFindingHandler>();
+        services.AddScoped<CompleteFindingStepHandler>();
+        services.AddScoped<VerifyFindingHandler>();
         services.AddScoped<GetWebsiteIntelligenceHandler>();
         services.AddScoped<AnalyzeWebsiteHandler>();
         services.AddScoped<SearchWebsiteHandler>();
+        services.AddScoped<ListTestReportsHandler>();
+        services.AddScoped<DownloadTestReportPdfHandler>();
+        services.AddScoped<SearchConsoleWriteHandler>();
         services.AddScoped<GetSocialWorkspaceHandler>();
         services.AddScoped<CreateSocialContentHandler>();
         services.AddScoped<UpdateSocialContentHandler>();

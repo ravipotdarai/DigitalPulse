@@ -1,9 +1,10 @@
 import { Button } from "../design/Button";
+import { SelectField } from "../design/Field";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ApiError, api, type ConnectionDiagnostic, type PlatformCatalogItem, type PlatformConnection } from "../lib/api";
+import { ApiError, api, type ConnectionAccountOption, type ConnectionDiagnostic, type PlatformCatalogItem, type PlatformConnection } from "../lib/api";
 import { PageState } from "../components/PageState";
 import { panelTransition, useMotionTiming } from "../design/motion";
 import { Meter, PageHeader } from "../design/PageHeader";
@@ -62,6 +63,8 @@ function ConnectionCenter({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<{ code: string; items: ConnectionDiagnostic[] } | null>(null);
+  const [accounts, setAccounts] = useState<ConnectionAccountOption[]>([]);
+  const [pickedAccount, setPickedAccount] = useState("");
   const byCode = useMemo(() => new Map(connections.map((item) => [item.platformCode, item])), [connections]);
   const [selected, setSelected] = useState<string>(
     () => focus ?? justConnected ?? connections[0]?.platformCode ?? catalog[0]?.code ?? ""
@@ -122,7 +125,18 @@ function ConnectionCenter({
           />
         }
       >
-        {justConnected ? <p className="note-ok" role="status">{justConnected} is connected with a development grant.</p> : null}
+        {justConnected ? (
+          <p className="note-ok" role="status">
+            {justConnected} is connected
+            {byCode.get(justConnected)?.hasLiveCredential
+              ? " with an official OAuth grant. Tokens stay on this host and are refreshed when they expire."
+              : byCode.get(justConnected)?.grantKind === "Assisted"
+                ? " as an assisted workspace."
+                : byCode.get(justConnected)?.grantKind === "Development"
+                  ? " with a development grant. Official OAuth is not configured on this host."
+                  : "."}
+          </p>
+        ) : null}
         {error ? <p className="note-err" role="alert">{error}</p> : null}
       </PageHeader>
 
@@ -190,11 +204,47 @@ function ConnectionCenter({
 
               <dl className="facts">
                 <div><dt>Account</dt><dd>{connection?.externalAccount ?? "—"}</dd></div>
-                <div><dt>Grant</dt><dd>{connection?.grantKind ?? "—"}</dd></div>
+                <div><dt>Grant</dt><dd>{connection?.grantKind ?? "—"}{connection?.hasLiveCredential ? " · live credential" : ""}</dd></div>
                 <div><dt>Connected</dt><dd>{relativeTime(connection?.connectedAtUtc) ?? "—"}</dd></div>
                 <div><dt>Last health check</dt><dd>{connection?.lastHealthStatus ? `${connection.lastHealthStatus} · ${relativeTime(connection.lastHealthAtUtc)}` : "—"}</dd></div>
                 {connection?.lastError ? <div><dt>Last error</dt><dd className="note-err">{connection.lastError}</dd></div> : null}
               </dl>
+
+              {connection?.hasLiveCredential && platform.code === "GOOGLE_ANALYTICS" ? (
+                <div className="conn-actions">
+                  <Button
+                    appearance="subtle"
+                    disabled={busy !== null}
+                    onClick={() => void run("accounts", async () => {
+                      const items = await api.connectionAccounts(businessId, connection.id);
+                      setAccounts(items);
+                      setPickedAccount(connection.externalAccount?.startsWith("properties/") ? connection.externalAccount : items[0]?.id ?? "");
+                      if (items.length === 0) {
+                        setError("Google returned no GA4 properties. A property was not invented.");
+                      }
+                    })}
+                  >
+                    {busy === "accounts" ? "Loading properties…" : "Load official GA4 properties"}
+                  </Button>
+                  {accounts.length > 0 ? (
+                    <>
+                      <SelectField
+                        label="GA4 property"
+                        value={pickedAccount}
+                        onChange={setPickedAccount}
+                        options={accounts.map((item) => ({ value: item.id, label: item.label }))}
+                      />
+                      <Button
+                        appearance="primary"
+                        disabled={busy !== null || !pickedAccount}
+                        onClick={() => void run("pick", () => api.selectConnectionAccount(businessId, connection.id, pickedAccount))}
+                      >
+                        {busy === "pick" ? "Saving…" : "Use this property"}
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div>
                 <p className="section-kicker">Adapter capabilities</p>

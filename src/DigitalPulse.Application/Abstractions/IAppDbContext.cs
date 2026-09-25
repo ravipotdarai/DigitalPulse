@@ -43,6 +43,9 @@ public interface IAppDbContext
     DbSet<FindingEvidence> FindingEvidence { get; }
     DbSet<WebsiteSnapshot> WebsiteSnapshots { get; }
     DbSet<SearchObservation> SearchObservations { get; }
+    DbSet<SearchConsoleQuery> SearchConsoleQueries { get; }
+    DbSet<TestReport> TestReports { get; }
+    DbSet<FindingStep> FindingSteps { get; }
     DbSet<SocialContentItem> SocialContent { get; }
     DbSet<SocialMetricSnapshot> SocialMetrics { get; }
     DbSet<DirectoryTask> DirectoryTasks { get; }

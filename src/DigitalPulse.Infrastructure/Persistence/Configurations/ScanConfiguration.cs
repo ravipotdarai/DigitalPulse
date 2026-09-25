@@ -40,6 +40,8 @@ public sealed class FindingConfiguration : IEntityTypeConfiguration<Finding>
         builder.Property(x => x.VerificationMethod).HasMaxLength(400);
         builder.Property(x => x.AutomationState).HasConversion<string>().HasMaxLength(32);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
+        builder.Property(x => x.ResolutionPath).HasMaxLength(32);
+        builder.Property(x => x.PlaybookCode).HasMaxLength(64);
         builder.HasIndex(x => x.ScanId);
         builder.HasIndex(x => new { x.BusinessId, x.Status });
         builder.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
@@ -58,6 +60,21 @@ public sealed class FindingEvidenceConfiguration : IEntityTypeConfiguration<Find
         builder.Property(x => x.Label).HasMaxLength(120).IsRequired();
         builder.Property(x => x.Value).HasMaxLength(500).IsRequired();
         builder.Property(x => x.Source).HasMaxLength(120).IsRequired();
+        builder.HasIndex(x => x.FindingId);
+        builder.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Finding>().WithMany().HasForeignKey(x => x.FindingId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public sealed class FindingStepConfiguration : IEntityTypeConfiguration<FindingStep>
+{
+    public void Configure(EntityTypeBuilder<FindingStep> builder)
+    {
+        builder.ToTable("FindingStep");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Title).HasMaxLength(160).IsRequired();
+        builder.Property(x => x.Detail).HasMaxLength(1000).IsRequired();
+        builder.Property(x => x.OfficialUrl).HasMaxLength(2048);
         builder.HasIndex(x => x.FindingId);
         builder.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Finding>().WithMany().HasForeignKey(x => x.FindingId).OnDelete(DeleteBehavior.Cascade);

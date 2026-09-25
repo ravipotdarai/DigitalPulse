@@ -271,6 +271,13 @@ export const api = {
     request<StartConnection>(`/v1/businesses/${businessId}/connections/${connectionId}/reauthorize`, { method: "POST" }),
   disconnectConnection: (businessId: string, connectionId: string) =>
     request<void>(`/v1/businesses/${businessId}/connections/${connectionId}`, { method: "DELETE" }),
+  connectionAccounts: (businessId: string, connectionId: string) =>
+    request<ConnectionAccountOption[]>(`/v1/businesses/${businessId}/connections/${connectionId}/accounts`),
+  selectConnectionAccount: (businessId: string, connectionId: string, externalAccount: string) =>
+    request<PlatformConnection>(`/v1/businesses/${businessId}/connections/${connectionId}/account`, {
+      method: "POST",
+      body: JSON.stringify({ externalAccount })
+    }),
   scans: (businessId: string) => request<ScanCenter>(`/v1/businesses/${businessId}/scans`),
   runScan: (businessId: string) =>
     request<ScanDetail>(`/v1/businesses/${businessId}/scans`, { method: "POST" }),
@@ -286,6 +293,28 @@ export const api = {
     request<WebsiteIntelligence>(`/v1/businesses/${businessId}/website/analyze`, { method: "POST" }),
   searchWebsite: (businessId: string, query: string) =>
     request<SiteSearch>(`/v1/businesses/${businessId}/website/search?q=${encodeURIComponent(query)}`),
+  listReports: (businessId: string) => request<TestReport[]>(`/v1/businesses/${businessId}/reports`),
+  completeFindingStep: (businessId: string, findingId: string, stepId: string) =>
+    request<Finding>(`/v1/businesses/${businessId}/findings/${findingId}/steps/${stepId}/complete`, { method: "POST" }),
+  verifyFinding: (businessId: string, findingId: string) =>
+    request<Finding>(`/v1/businesses/${businessId}/findings/${findingId}/verify`, { method: "POST" }),
+  downloadReportPdf: async (businessId: string, reportId: string) => {
+    const token = getStoredToken();
+    const headers = new Headers();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(`/v1/businesses/${businessId}/reports/${reportId}/pdf`, { headers });
+    if (!response.ok) {
+      throw new ApiError(response.status, "Could not download the stored report PDF.");
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const file = response.headers.get("content-disposition")?.match(/filename="?([^"]+)"?/)?.[1] ?? "digitalpulse-report.pdf";
+    link.href = url;
+    link.download = file;
+    link.click();
+    URL.revokeObjectURL(url);
+  },
   social: (businessId: string) => request<SocialWorkspace>(`/v1/businesses/${businessId}/social`),
   createSocial: (businessId: string, body: { platformCode: string; title: string; body: string }) =>
     request<SocialContent>(`/v1/businesses/${businessId}/social/content`, { method: "POST", body: JSON.stringify(body) }),
@@ -480,6 +509,7 @@ export type PlatformConnection = {
   authMode: string;
   externalAccount: string | null;
   grantKind: string | null;
+  hasLiveCredential: boolean;
   connectedAtUtc: string | null;
   lastHealthAtUtc: string | null;
   lastHealthStatus: string | null;
@@ -497,7 +527,16 @@ export type StartConnection = {
   completeInPlace: boolean;
 };
 export type ConnectionDiagnostic = { check: string; status: string; detail: string };
+export type ConnectionAccountOption = { id: string; label: string; kind: string };
 export type Evidence = { id: string; kind: string; label: string; value: string; source: string };
+export type FindingStep = {
+  id: string;
+  ordinal: number;
+  title: string;
+  detail: string;
+  officialUrl: string | null;
+  completedAtUtc: string | null;
+};
 export type Finding = {
   id: string;
   scanId: string;
@@ -513,6 +552,10 @@ export type Finding = {
   verificationMethod: string;
   automationState: string;
   status: string;
+  resolutionPath: string;
+  playbookCode: string | null;
+  verifiedAtUtc: string | null;
+  steps: FindingStep[];
   evidence: Evidence[];
 };
 export type ScanSummary = {
@@ -565,8 +608,24 @@ export type WebsiteSnapshot = {
   wordCount: number;
   containsBusinessName: boolean;
   containsPhone: boolean;
+  containsEmail: boolean;
+  containsAddress: boolean;
+  containsVision: boolean;
+  hasContactForm: boolean;
+  pageRole: string;
+  auditRunId: string | null;
   error: string | null;
   fetchedAtUtc: string;
+};
+export type TestReport = {
+  id: string;
+  kind: string;
+  title: string;
+  observedFact: string;
+  recommendation: string;
+  holdReason: string;
+  auditRunId: string | null;
+  createdAtUtc: string;
 };
 export type SearchObservation = {
   id: string;
@@ -580,8 +639,11 @@ export type SearchObservation = {
 };
 export type WebsiteIntelligence = {
   snapshot: WebsiteSnapshot | null;
+  pages: WebsiteSnapshot[];
   observations: SearchObservation[];
   searchConsole: { status: string; grantKind: string | null; detail: string };
+  searchConsoleQueries: { query: string; clicks: number; impressions: number; ctr: number; position: number }[];
+  reports: TestReport[];
   searchProvider: string;
   vectorSearchConfigured: boolean;
 };

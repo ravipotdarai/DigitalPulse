@@ -1,6 +1,8 @@
+using System.Net.Http;
 using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Application.Features.Identity;
+using DigitalPulse.Application.Website;
 using DigitalPulse.Contracts.Connections;
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Platforms;
@@ -32,6 +34,7 @@ internal static class ConnectionMap
             connection.AuthMode.ToString(),
             connection.ExternalAccount,
             connection.GrantKind,
+            connection.HasLiveCredential,
             connection.ConnectedAtUtc,
             connection.LastHealthAtUtc,
             connection.LastHealthStatus,
@@ -209,17 +212,23 @@ public sealed class ConnectionActionHandler
     private readonly ITenantContext _tenant;
     private readonly IPlatformAdapterCatalog _catalog;
     private readonly IPlatformAuthorizationBroker _broker;
+    private readonly IOfficialPlatformGateway _gateway;
+    private readonly ILiveTokenRefresher _tokens;
 
     public ConnectionActionHandler(
         IAppDbContext db,
         ITenantContext tenant,
         IPlatformAdapterCatalog catalog,
-        IPlatformAuthorizationBroker broker)
+        IPlatformAuthorizationBroker broker,
+        IOfficialPlatformGateway gateway,
+        ILiveTokenRefresher tokens)
     {
         _db = db;
         _tenant = tenant;
         _catalog = catalog;
         _broker = broker;
+        _gateway = gateway;
+        _tokens = tokens;
     }
 
     public async Task<ConnectionResponse> HealthAsync(Guid businessId, Guid connectionId, CancellationToken cancellationToken)
@@ -236,6 +245,7 @@ public sealed class ConnectionActionHandler
     {
         var (connection, adapter) = await Load(businessId, connectionId, cancellationToken);
         var checks = await adapter.DiagnoseAsync(connection, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
         return checks.Select(c => new DiagnosticResponse(c.Check, c.Status, c.Detail)).ToList();
     }
 
@@ -257,6 +267,53 @@ public sealed class ConnectionActionHandler
         var (connection, _) = await Load(businessId, connectionId, cancellationToken);
         _db.Connections.Remove(connection);
         await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ConnectionAccountOption>> ListAccountsAsync(Guid businessId, Guid connectionId, CancellationToken cancellationToken)
+    {
+        var (connection, _) = await Load(businessId, connectionId, cancellationToken);
+        await _tokens.EnsureFreshAsync(connection, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+        if (!connection.HasLiveCredential)
+        {
+            return [];
+        }
+
+        if (connection.PlatformCode.Equals("GOOGLE_ANALYTICS", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = await _gateway.SendAsync(
+                HttpMethod.Get,
+                "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
+                connection.AccessToken,
+                null,
+                null,
+                cancellationToken);
+            return result.Ok
+                ? AnalyticsProperties.Parse(result.Body).Select(p => new ConnectionAccountOption(p.Property, p.Label, "GA4")).ToList()
+                : [];
+        }
+
+        return [];
+    }
+
+    public async Task<ConnectionResponse> SelectAccountAsync(Guid businessId, Guid connectionId, string? externalAccount, CancellationToken cancellationToken)
+    {
+        var (connection, adapter) = await Load(businessId, connectionId, cancellationToken);
+        if (!connection.HasLiveCredential)
+        {
+            throw AppException.Validation("Pick an official account after a live OAuth grant. DigitalPulse will not invent a property.");
+        }
+
+        var options = await ListAccountsAsync(businessId, connectionId, cancellationToken);
+        var chosen = options.FirstOrDefault(o => o.Id.Equals(externalAccount?.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (chosen is null)
+        {
+            throw AppException.Validation("The selected account was not returned by the official API.");
+        }
+
+        connection.AssignExternalAccount(chosen.Id);
+        await _db.SaveChangesAsync(cancellationToken);
+        return connection.ToResponse(adapter);
     }
 
     private async Task<(PlatformConnection Connection, IPlatformAdapter Adapter)> Load(

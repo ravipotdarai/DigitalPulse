@@ -86,9 +86,55 @@ function SignalsWorkspace({ businessId, center }: { businessId: string; center: 
       if (scan.findings[0]) select(scan.findings[0].id);
       await queryClient.invalidateQueries({ queryKey: ["scans"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      await queryClient.invalidateQueries({ queryKey: ["reports"] });
     },
     onError: (err) => setError(err instanceof ApiError ? err.title : "DigitalPulse Check could not start.")
   });
+
+  async function verify(finding: Finding) {
+    setError(null);
+    setUpdating("verify");
+    try {
+      await api.verifyFinding(businessId, finding.id);
+      await queryClient.invalidateQueries({ queryKey: ["scans"] });
+      await queryClient.invalidateQueries({ queryKey: ["scan"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.title : "Could not verify the signal.");
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  async function completeStep(finding: Finding, stepId: string) {
+    setError(null);
+    try {
+      await api.completeFindingStep(businessId, finding.id, stepId);
+      await queryClient.invalidateQueries({ queryKey: ["scans"] });
+      await queryClient.invalidateQueries({ queryKey: ["scan"] });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.title : "Could not complete the playbook step.");
+    }
+  }
+
+  async function enqueueWrite(finding: Finding) {
+    setError(null);
+    setUpdating("write");
+    try {
+      const inspect = finding.title.toLowerCase().includes("inspect");
+      await api.enqueueAction(businessId, {
+        kind: inspect ? "inspect-search-console-url" : "submit-search-console-sitemap",
+        title: inspect ? "Inspect Search Console URL" : "Submit Search Console sitemap",
+        targetId: finding.id,
+        targetLabel: finding.title
+      });
+      await queryClient.invalidateQueries({ queryKey: ["actions"] });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.title : "Could not queue the official write.");
+    } finally {
+      setUpdating(null);
+    }
+  }
 
   async function setStatus(finding: Finding, next: string) {
     setError(null);
@@ -106,17 +152,29 @@ function SignalsWorkspace({ businessId, center }: { businessId: string; center: 
   }
 
   const remaining = Math.max(0, center.scansPerMonth - center.scansUsedThisMonth);
+  const reports = useQuery({
+    queryKey: ["reports", businessId],
+    queryFn: () => api.listReports(businessId)
+  });
+  const checkReport = reports.data?.find((item) => item.kind === "DigitalPulseCheck") ?? reports.data?.[0];
 
   return (
     <div className="page-view">
       <PageHeader
         kicker="DigitalPulse Check"
         title="Signals"
-        lead="Each check compares the canonical identity to the official website and to authorized connections. A signal exists only when evidence does. Development grants never invent live Google or Meta listings."
+        lead="Each check compares the identity to the crawled site and to official Google snapshots. Resolve waits for verify. Product descriptions are not scored. Development grants never invent listings."
         actions={
-          <Button appearance="primary" disabled={run.isPending || remaining === 0} onClick={() => run.mutate()}>
-            {run.isPending ? "Checking the presence…" : remaining === 0 ? "Monthly check limit reached" : "Run DigitalPulse Check"}
-          </Button>
+          <>
+            {checkReport ? (
+              <Button appearance="subtle" onClick={() => void api.downloadReportPdf(businessId, checkReport.id)}>
+                Download PDF
+              </Button>
+            ) : null}
+            <Button appearance="primary" disabled={run.isPending || remaining === 0} onClick={() => run.mutate()}>
+              {run.isPending ? "Checking the presence…" : remaining === 0 ? "Monthly check limit reached" : "Run DigitalPulse Check"}
+            </Button>
+          </>
         }
         aside={<Meter label="Checks this month" value={center.scansUsedThisMonth} max={center.scansPerMonth} />}
       >
@@ -243,14 +301,23 @@ function SignalsWorkspace({ businessId, center }: { businessId: string; center: 
                       provenance="Assembled from the check's stored evidence and rules. No language model generated this text."
                       footer={
                         <>
+                          {selected.resolutionPath === "OfficialWrite" ? (
+                            <Button
+                              appearance="primary"
+                              disabled={updating !== null}
+                              onClick={() => void enqueueWrite(selected)}
+                            >
+                              {updating === "write" ? "Queueing…" : "Approve write"}
+                            </Button>
+                          ) : null}
                           {selected.status !== "Acknowledged" ? (
                             <Button appearance="subtle" disabled={updating !== null} onClick={() => void setStatus(selected, "Acknowledged")}>
                               {updating === "Acknowledged" ? "Saving…" : "Acknowledge"}
                             </Button>
                           ) : null}
                           {selected.status !== "Resolved" ? (
-                            <Button appearance="primary" disabled={updating !== null} onClick={() => void setStatus(selected, "Resolved")}>
-                              {updating === "Resolved" ? "Saving…" : "Mark resolved"}
+                            <Button appearance="primary" disabled={updating !== null} onClick={() => void verify(selected)}>
+                              {updating === "verify" ? "Verifying…" : "Verify and resolve"}
                             </Button>
                           ) : null}
                           {selected.status !== "Open" ? (
@@ -261,6 +328,37 @@ function SignalsWorkspace({ businessId, center }: { businessId: string; center: 
                         </>
                       }
                     />
+
+                    <section>
+                      <SectionTitle kicker={selected.resolutionPath} title="How to resolve" />
+                      <p className="ink-muted">
+                        {selected.resolutionPath === "ConnectFirst"
+                          ? "Log in through Connection Center. DigitalPulse cannot invent a live snapshot."
+                          : selected.resolutionPath === "OfficialWrite"
+                            ? "Approve the official Google write on Actions, then verify."
+                            : "Follow the playbook, then verify. The app does not rewrite the website."}
+                      </p>
+                      {selected.steps.map((step) => (
+                        <div className="row-line" key={step.id}>
+                          <div>
+                            <strong>{step.ordinal}. {step.title}</strong>
+                            <p className="ink-muted meta-line">{step.detail}</p>
+                            {step.officialUrl ? (
+                              <a href={step.officialUrl} target="_blank" rel="noreferrer">
+                                Open
+                              </a>
+                            ) : null}
+                          </div>
+                          {step.completedAtUtc ? (
+                            <span className="sev sev-ok">Done</span>
+                          ) : (
+                            <Button appearance="subtle" onClick={() => void completeStep(selected, step.id)}>
+                              Mark step done
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </section>
 
                     <section>
                       <SectionTitle kicker={`${selected.evidence.length} item${selected.evidence.length === 1 ? "" : "s"}`} title="Evidence" />

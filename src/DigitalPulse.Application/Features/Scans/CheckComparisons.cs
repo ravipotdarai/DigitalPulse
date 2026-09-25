@@ -1,4 +1,5 @@
 using DigitalPulse.Application.Abstractions;
+using DigitalPulse.Application.Website;
 using DigitalPulse.Domain.Businesses;
 using DigitalPulse.Domain.Platforms;
 using DigitalPulse.Domain.Scans;
@@ -301,6 +302,11 @@ public static class CheckComparisons
                 continue;
             }
 
+            if (IsGoogleReader(connection.PlatformCode))
+            {
+                continue;
+            }
+
             findings.Add(new DraftFinding(
                 "Platform",
                 FindingSeverity.Low,
@@ -340,6 +346,151 @@ public static class CheckComparisons
 
         return findings;
     }
+
+    public static IReadOnlyList<DraftFinding> CompareSiteAudit(
+        IReadOnlyCollection<DigitalPulse.Domain.Website.SearchObservation> observations)
+    {
+        return observations
+            .Where(o => o.Category is DigitalPulse.Domain.Website.SearchObservationCategory.Page
+                or DigitalPulse.Domain.Website.SearchObservationCategory.Vision
+                or DigitalPulse.Domain.Website.SearchObservationCategory.Contact
+                or DigitalPulse.Domain.Website.SearchObservationCategory.Seo
+                or DigitalPulse.Domain.Website.SearchObservationCategory.Visibility)
+            .Select(o => new DraftFinding(
+                o.Category.ToString(),
+                o.Severity == DigitalPulse.Domain.Website.SearchObservationSeverity.High ? FindingSeverity.High
+                    : o.Severity == DigitalPulse.Domain.Website.SearchObservationSeverity.Medium ? FindingSeverity.Medium
+                    : FindingSeverity.Low,
+                o.Title,
+                o.Detail,
+                o.ExpectedValue,
+                o.ObservedValue,
+                o.Recommendation,
+                o.Recommendation,
+                "Re-analyze the website and confirm the official page now matches the identity record.",
+                FindingAutomationState.Assisted,
+                [
+                    new DraftEvidence(EvidenceKind.Website, o.Title, o.ObservedValue ?? o.Detail, $"SearchObservation.{o.Category}")
+                ]))
+            .ToList();
+    }
+
+    public static IReadOnlyList<DraftFinding> CompareSearch(
+        IReadOnlyCollection<DigitalPulse.Domain.Website.SearchConsoleQuery> queries)
+    {
+        if (queries.Count == 0)
+        {
+            return [];
+        }
+
+        return queries.Take(5).Select(q => new DraftFinding(
+            "SearchConsole",
+            FindingSeverity.Low,
+            Clip($"Search Console query: {q.Query}", 160),
+            "This query came from official searchAnalytics/query. Clicks were not invented.",
+            "An official query row",
+            $"{q.Clicks:0} clicks / {q.Impressions:0} impressions",
+            "Improve the matching page on the website. DigitalPulse cannot change a ranking.",
+            "Open the page editor and strengthen the copy for this query.",
+            "Re-analyze the website after the page change.",
+            FindingAutomationState.Assisted,
+            [
+                new DraftEvidence(EvidenceKind.Scan, q.Query, $"{q.Clicks:0}/{q.Impressions:0}", "SearchConsoleQuery")
+            ])).ToList();
+    }
+
+    public static IReadOnlyList<DraftFinding> CompareGoogleMetrics(
+        string category,
+        string platformName,
+        DigitalPulse.Domain.Website.TestReport? report)
+    {
+        if (report is null)
+        {
+            return [];
+        }
+
+        if (string.IsNullOrWhiteSpace(report.HoldReason))
+        {
+            if (category.Equals("Ads", StringComparison.OrdinalIgnoreCase))
+            {
+                var campaigns = GoogleAdsCampaigns.Parse(report.Body);
+                if (campaigns.Count == 0)
+                {
+                    return
+                    [
+                        new DraftFinding(
+                            category,
+                            FindingSeverity.Low,
+                            "Google Ads returned no campaigns",
+                            "Official googleAds:search returned no campaign rows. Campaigns were not invented.",
+                            "Official campaign rows",
+                            "None",
+                            "Create or enable campaigns in Google Ads. DigitalPulse does not mutate campaigns.",
+                            "Open Google Ads and review the official customer.",
+                            "Refresh Ads metrics after Google returns campaigns.",
+                            FindingAutomationState.Assisted,
+                            [new DraftEvidence(EvidenceKind.Connection, platformName, "No official campaigns", $"TestReport.{report.Kind}")])
+                    ];
+                }
+
+                return campaigns.Take(10).Select(c => new DraftFinding(
+                    category,
+                    FindingSeverity.Low,
+                    Clip($"Google Ads campaign: {c.Name}", 160),
+                    "This campaign came from official googleAds:search. Spend and status were not invented.",
+                    "An official campaign row",
+                    $"{c.Id} · {c.Status} · {c.Impressions ?? 0:0} impr / {c.Clicks ?? 0:0} clicks",
+                    "Change the campaign in the official Google Ads UI. DigitalPulse does not pause, bid, or add keywords.",
+                    "Open ads.google.com for this customer.",
+                    "Refresh Ads metrics after the official change.",
+                    FindingAutomationState.Assisted,
+                    [new DraftEvidence(EvidenceKind.Scan, c.Name, $"{c.Id}|{c.Status}", "GoogleAdsCampaign")])).ToList();
+            }
+
+            return
+            [
+                new DraftFinding(
+                    category,
+                    FindingSeverity.Low,
+                    $"{platformName} snapshot stored",
+                    report.ObservedFact,
+                    "Official adapter metrics",
+                    report.ObservedFact,
+                    report.Recommendation,
+                    report.Recommendation,
+                    "Refresh the official metrics after you change the provider UI.",
+                    FindingAutomationState.Assisted,
+                    [new DraftEvidence(EvidenceKind.Connection, platformName, report.ObservedFact, $"TestReport.{report.Kind}")])
+            ];
+        }
+
+        return
+        [
+            new DraftFinding(
+                category,
+                FindingSeverity.Medium,
+                $"{platformName} is on hold",
+                report.HoldReason,
+                "A live official grant and required tokens",
+                report.HoldReason,
+                report.Recommendation,
+                "Connect or configure the official grant. Values are not invented.",
+                "Re-analyze after a live grant is stored.",
+                report.HoldReason.Contains("Development", StringComparison.OrdinalIgnoreCase)
+                    ? FindingAutomationState.Blocked
+                    : FindingAutomationState.Assisted,
+                [new DraftEvidence(EvidenceKind.Connection, platformName, report.HoldReason, $"TestReport.{report.Kind}")])
+        ];
+    }
+
+    private static bool IsGoogleReader(string platformCode) =>
+        platformCode.Equals("SEARCH_CONSOLE", StringComparison.OrdinalIgnoreCase)
+        || platformCode.Equals("GOOGLE_ADS", StringComparison.OrdinalIgnoreCase)
+        || platformCode.Equals("GOOGLE_ANALYTICS", StringComparison.OrdinalIgnoreCase)
+        || platformCode.Equals("GOOGLE", StringComparison.OrdinalIgnoreCase);
+
+    private static string Clip(string value, int max) =>
+        value.Length <= max ? value : value[..(max - 1)] + "…";
 
     private static DraftFinding IdentityGap(
         FindingSeverity severity,

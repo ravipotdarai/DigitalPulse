@@ -12,6 +12,10 @@ public static class WebsiteEndpoints
         group.MapGet("/", GetAsync);
         group.MapPost("/analyze", AnalyzeAsync);
         group.MapGet("/search", SearchAsync);
+
+        var reports = app.MapGroup("/v1/businesses/{businessId:guid}/reports").WithTags("Reports").RequireAuthorization();
+        reports.MapGet("/", ListReportsAsync);
+        reports.MapGet("/{reportId:guid}/pdf", PdfAsync);
         return app;
     }
 
@@ -26,4 +30,15 @@ public static class WebsiteEndpoints
     private static async Task<Ok<SiteSearchResponse>> SearchAsync(
         Guid businessId, string? q, SearchWebsiteHandler handler, CancellationToken cancellationToken) =>
         TypedResults.Ok(await handler.Handle(businessId, q, cancellationToken));
+
+    private static async Task<Ok<IReadOnlyList<TestReportResponse>>> ListReportsAsync(
+        Guid businessId, ListTestReportsHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, cancellationToken));
+
+    private static async Task<IResult> PdfAsync(
+        Guid businessId, Guid reportId, DownloadTestReportPdfHandler handler, CancellationToken cancellationToken)
+    {
+        var (fileName, bytes) = await handler.Handle(businessId, reportId, cancellationToken);
+        return Results.File(bytes, "application/pdf", fileName);
+    }
 }
