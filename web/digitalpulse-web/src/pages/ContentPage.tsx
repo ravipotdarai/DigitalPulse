@@ -436,8 +436,14 @@ function ContentStudio({
           data={data}
           selected={selected}
           selectedId={selectedId}
+          busy={busy}
           onSelect={setSelectedId}
-          onDistribute={(provider) => selectedId && void run(() => api.distributeHubContent(businessId, selectedId, provider), "Distribution recorded. A hold means the provider was not written.")}
+          onVariants={() => selectedId && void run(() => api.createHubVariants(businessId, selectedId), "Platform variants drafted. Review Google before publishing.")}
+          onDistribute={(provider, locationIds) => selectedId && void run(() => api.distributeHubContent(businessId, selectedId, provider, locationIds), "Distribution recorded. A hold means the provider was not written.")}
+          onEverywhere={(locationIds) => selectedId && void run(() => api.publishEverywhere(businessId, selectedId, locationIds), "Publish Everywhere recorded each destination. Unsupported providers stay held.")}
+          onRetry={(distributionId) => selectedId && void run(() => api.retryHubDistribution(businessId, selectedId, distributionId), "Retry recorded. Published is still only set after official confirmation.")}
+          onCancel={(distributionId) => selectedId && void run(() => api.cancelHubDistribution(businessId, selectedId, distributionId), "Distribution cancelled.")}
+          onVerify={(distributionId) => selectedId && void run(() => api.verifyHubDistribution(businessId, selectedId, distributionId), "Verification stored only when an official provider ID already exists.")}
         />
       ) : null}
 
@@ -1104,17 +1110,39 @@ function DistributionDesk({
   data,
   selected,
   selectedId,
+  busy,
   onSelect,
-  onDistribute
+  onVariants,
+  onDistribute,
+  onEverywhere,
+  onRetry,
+  onCancel,
+  onVerify
 }: {
   businessId: string;
   data: ContentHubWorkspace;
   selected: HubContent | null;
   selectedId: string | null;
+  busy: boolean;
   onSelect: (id: string) => void;
-  onDistribute: (provider: string) => void;
+  onVariants: () => void;
+  onDistribute: (provider: string, locationIds?: string[]) => void;
+  onEverywhere: (locationIds?: string[]) => void;
+  onRetry: (distributionId: string) => void;
+  onCancel: (distributionId: string) => void;
+  onVerify: (distributionId: string) => void;
 }) {
-  const [provider, setProvider] = useState("HUB");
+  const [provider, setProvider] = useState("GOOGLE");
+  const locations = data.locations ?? [];
+  const [locationIds, setLocationIds] = useState<string[]>(() => locations.map((item) => item.id));
+  const google = selected?.variants.find((item) => item.kind === "GooglePost");
+  const website = selected?.variants.find((item) => item.kind === "WebsiteArticle");
+  const selectedLocations = provider === "GOOGLE" || provider === "WEBSITE" ? locationIds : undefined;
+
+  function toggleLocation(id: string) {
+    setLocationIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+
   return (
     <div className="band band-2">
       <article className="panel">
@@ -1125,10 +1153,34 @@ function DistributionDesk({
           onChange={onSelect}
           options={data.items.map((item) => ({ value: item.id, label: `${item.title} · ${item.status}` }))}
         />
+        <p className="ink-muted">Approve the article before distribution. Google is first-class: pick locations, preview the GBP pack, then publish.</p>
+      </article>
+      <article className="panel">
+        <h2>Google Business Profile</h2>
+        {locations.length === 0 ? (
+          <p className="ink-muted">No stored locations yet. Google still records one distribution row. Add locations on the business to publish per city.</p>
+        ) : (
+          <fieldset className="stack-list">
+            <legend>Locations</legend>
+            {locations.map((item) => (
+              <label key={item.id}>
+                <input
+                  type="checkbox"
+                  checked={locationIds.includes(item.id)}
+                  onChange={() => toggleLocation(item.id)}
+                /> {item.name}
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {google ? <p className="ink-muted">Google preview</p> : <p className="ink-muted">Generate variants to preview the Google post. DigitalPulse will not invent a live GBP update.</p>}
+        {google ? <pre className="ink-muted">{google.body}</pre> : null}
+        {website ? <p className="ink-muted">Website pack stays assisted until an official CMS write exists.</p> : null}
+        <Button disabled={!selectedId || busy} onClick={onVariants}>Generate variants</Button>
       </article>
       <article className="panel">
         <h2>Distribution</h2>
-        <p className="ink-muted">HUB writes the DigitalPulse public page. Other providers stay assisted or manual until an official grant exists. DigitalPulse will not invent a post.</p>
+        <p className="ink-muted">HUB writes the DigitalPulse public page. Other providers stay assisted or manual until an official grant confirms the write.</p>
         <p><Link className="text-link" to={`/hub/${businessId}`} target="_blank" rel="noreferrer">Open public hub</Link></p>
         <SelectField
           label="Provider"
@@ -1140,22 +1192,37 @@ function DistributionDesk({
           }))}
         />
         <p className="ink-muted">{(data.channels ?? []).find((item) => item.providerCode === provider)?.note}</p>
-        <Button appearance="primary" disabled={!selectedId} onClick={() => onDistribute(provider)}>Distribute</Button>
+        <Button appearance="primary" disabled={!selectedId || busy} onClick={() => onDistribute(provider, selectedLocations)}>Distribute</Button>
+        <Button disabled={!selectedId || busy} onClick={() => onEverywhere(locationIds.length ? locationIds : undefined)}>Publish Everywhere</Button>
         {selected ? (
           <>
             <DataGrid
               noun="attempt"
               empty="No distribution attempts yet."
-              columns={["Provider", "Status", "Detail"]}
+              columns={["Provider", "Location", "Status", "Verify", "Detail", "Next"]}
               rows={selected.distributions.map((item) => ({
                 id: item.id,
-                search: `${item.providerCode} ${item.status}`.toLowerCase(),
-                cells: [item.providerCode, item.status, item.failureReason ?? item.publishedAtUtc ?? ""]
+                search: `${item.providerCode} ${item.status} ${item.verificationStatus ?? ""}`.toLowerCase(),
+                cells: [
+                  item.providerCode,
+                  locations.find((location) => location.id === item.locationId)?.name ?? (item.locationId ? "Unknown location" : "All"),
+                  `${item.status}${item.attemptCount ? ` · ${item.attemptCount}` : ""}`,
+                  item.verificationStatus ?? "None",
+                  item.failureReason ?? item.verificationDetail ?? item.publishedAtUtc ?? "",
+                  ""
+                ],
+                actions: (
+                  <>
+                    <button type="button" className="grid-action" disabled={busy || item.status === "Published" || item.status === "Cancelled"} onClick={() => onRetry(item.id)}>Retry</button>
+                    <button type="button" className="grid-action" disabled={busy || item.status === "Cancelled"} onClick={() => onCancel(item.id)}>Cancel</button>
+                    <button type="button" className="grid-action" disabled={busy} onClick={() => onVerify(item.id)}>Verify</button>
+                  </>
+                )
               }))}
             />
             <DataGrid
               noun="variant"
-              empty="Make variants from the Hub editor."
+              empty="Generate variants to preview Google, website, and social packs."
               columns={["Kind", "Status", "Hold"]}
               rows={selected.variants.map((item) => ({
                 id: item.id,

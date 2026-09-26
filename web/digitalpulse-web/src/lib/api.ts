@@ -415,8 +415,22 @@ export const api = {
     request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/seo`, { method: "POST", body: JSON.stringify({ focusKeyword: focusKeyword ?? null }) }),
   createHubVariants: (businessId: string, contentId: string) =>
     request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/variants`, { method: "POST" }),
-  distributeHubContent: (businessId: string, contentId: string, providerCode: string) =>
-    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/distribute`, { method: "POST", body: JSON.stringify({ providerCode }) }),
+  distributeHubContent: (businessId: string, contentId: string, providerCode: string, locationIds?: string[]) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/distribute`, {
+      method: "POST",
+      body: JSON.stringify({ providerCode, locationIds: locationIds ?? null })
+    }),
+  publishEverywhere: (businessId: string, contentId: string, locationIds?: string[]) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/distribute/everywhere`, {
+      method: "POST",
+      body: JSON.stringify({ locationIds: locationIds ?? null })
+    }),
+  retryHubDistribution: (businessId: string, contentId: string, distributionId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/distributions/${distributionId}/retry`, { method: "POST" }),
+  cancelHubDistribution: (businessId: string, contentId: string, distributionId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/distributions/${distributionId}/cancel`, { method: "POST" }),
+  verifyHubDistribution: (businessId: string, contentId: string, distributionId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/distributions/${distributionId}/verify`, { method: "POST" }),
   discoverContentOpportunities: (businessId: string) =>
     request<ContentHubWorkspace>(`/v1/businesses/${businessId}/content/opportunities/discover`, { method: "POST" }),
   createContentOpportunity: (businessId: string, topic: string, description?: string) =>
@@ -938,6 +952,7 @@ export type ContentHubWorkspace = {
   entities?: string[];
   projects?: ContentNamed[];
   channels?: { providerCode: string; mode: string; note: string }[];
+  locations?: ContentNamed[];
 };
 export type HubMediaAsset = { id: string; label: string; kind: string; sourceUrl: string | null };
 export type HubAssist = { action: string; suggestion: string; hold: string; providerName: string; isLive: boolean; target: string };
@@ -963,7 +978,18 @@ export type HubContent = {
   seo: ContentSeo;
   revisions: { id: string; versionNumber: number; title: string; changeSummary: string; createdAtUtc: string }[];
   variants: { id: string; kind: string; title: string; body: string; status: string; publicationHold: string }[];
-  distributions: { id: string; providerCode: string; status: string; failureReason: string | null; publishedAtUtc: string | null }[];
+  distributions: {
+    id: string;
+    providerCode: string;
+    status: string;
+    failureReason: string | null;
+    publishedAtUtc: string | null;
+    locationId?: string | null;
+    idempotencyKey?: string | null;
+    attemptCount?: number;
+    verificationStatus?: string;
+    verificationDetail?: string | null;
+  }[];
   metrics: ContentMetricRow[];
   media?: { id: string; mediaAssetId: string; role: string; displayOrder: number; label: string | null; sourceUrl: string | null }[];
 };

@@ -1540,7 +1540,7 @@ This should become a continuous improvement loop rather than a one-time publishi
 
 # 41. IMPLEMENTATION ORDER
 
-**Overall: 50% (5/10 phases).**
+**Overall: 60% (6/10 phases).**
 
 Implement in this order:
 
@@ -1558,11 +1558,11 @@ Inspected 2026-09-26 against the live tree (CodeGraph). Content Hub already owns
 | Hub publication | Existing | `PublishHubContentHandler`, public hub | Keep | Phase 12 |
 | Website publication | Existing | `WEBSITE` channel + Assisted adapter | CMS write only if official adapter confirms | — |
 | Assisted/Manual fallback | Existing | `DistributeHubContentHandler.Hold` | Keep honest hold | Phase 11 |
-| GBP first-class | Partial | Social Google + adapter `LivePublish` | Location-aware distributions + dedicated UI | Phase C/F |
+| GBP first-class | Existing | Distribution desk + location rows | Keep | — |
 | Google capability real | Existing | Adapter returns null without `locations/` | Do not hard-code success | LivePlatformPathTests |
 | Google location selection | Existing | `ResolveLocationsAsync` | UI selection | Phase F |
 | Google-specific generation | Existing | `GenerateSocialDraftHandler` + social agent | Keep through orchestrator | AiPhase9 |
-| Google preview | Partial | Social + HubArticleView | Show GBP draft on distribution pane | Phase F |
+| Google preview | Existing | Distribution desk Google pack | Keep | — |
 | Google approval | Existing | Social approve + hub submit/approve | Reuse | Phase 10 |
 | Google official publish | Existing | `GoogleAdapter.LivePublish` | Call only with live location path; never fake Published | Phase D |
 | Google verification | Partial | `VerificationStatus` on distribution | Official confirm before Verified | Phase C/D |
@@ -1628,7 +1628,10 @@ AI
 
 `CreateHubVariantsHandler` now retrieves Graphify context through `IAiContextBuilder` and may replace the Google pack with a live orchestrator draft. Restricted output is discarded. Variants stay shorter than the canonical article. Graphify is updated via `AttachContentAsync`.
 
-## Phase F — Frontend
+## Phase F — completed (100%)
+Frontend
+
+Distribution desk is Google-first: location checkboxes, GBP preview, Publish Everywhere, retry/cancel/verify, and honest holds.
 
 Implement:
 
@@ -1676,11 +1679,11 @@ The feature is complete only when all are true:
 - [x] DigitalPulse Content Hub publication works.
 - [ ] Customer website publication works where an official provider is connected.
 - [x] Assisted/Manual fallback works where automatic website publication is unsupported.
-- [ ] Google Business Profile is treated as a first-class publishing destination.
+- [x] Google Business Profile is treated as a first-class publishing destination.
 - [x] Google capability detection is real and not hard-coded.
 - [x] Google location selection works.
 - [x] Google-specific post generation works.
-- [ ] Google preview works.
+- [x] Google preview works.
 - [x] Google approval works.
 - [x] Google publication uses the official supported provider API/capability.
 - [x] Google publication is not falsely marked successful.
