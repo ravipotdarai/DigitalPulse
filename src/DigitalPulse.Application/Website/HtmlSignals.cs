@@ -39,36 +39,43 @@ public static class HtmlSignalParser
             return new HtmlSignals(null, null, null, null, null, false, false, false, false, [], string.Empty, 0);
         }
 
-        var title = Decode(FirstGroup(TitleRegex, html));
-        var meta = ReadMeta(html);
-        var h1 = Decode(StripTags(FirstGroup(H1Regex, html)));
-        var canonical = ReadCanonical(html);
-        var jsonLd = string.Join('\n', JsonLdRegex.Matches(html).Select(m => m.Groups[1].Value));
-        var hasJsonLd = jsonLd.Length > 0;
-        var text = Decode(TagRegex.Replace(html, " ")) ?? string.Empty;
-        text = Regex.Replace(text, @"\s+", " ", RegexOptions.None, TimeSpan.FromMilliseconds(200)).Trim();
-        var words = text.Length == 0 ? 0 : text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-        var questions = HeadingRegex.Matches(html)
-            .Select(m => Decode(StripTags(m.Groups[1].Value)) ?? string.Empty)
-            .Where(h => h.Contains('?', StringComparison.Ordinal))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .ToList();
+        try
+        {
+            var title = Decode(FirstGroup(TitleRegex, html));
+            var meta = ReadMeta(html);
+            var h1 = Decode(StripTags(FirstGroup(H1Regex, html)));
+            var canonical = ReadCanonical(html);
+            var jsonLd = string.Join('\n', SafeMatches(JsonLdRegex, html).Select(m => m.Groups[1].Value));
+            var hasJsonLd = jsonLd.Length > 0;
+            var text = Decode(TagRegex.Replace(html, " ")) ?? string.Empty;
+            text = Regex.Replace(text, @"\s+", " ", RegexOptions.None, TimeSpan.FromMilliseconds(200)).Trim();
+            var words = text.Length == 0 ? 0 : text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+            var questions = SafeMatches(HeadingRegex, html)
+                .Select(m => Decode(StripTags(m.Groups[1].Value)) ?? string.Empty)
+                .Where(h => h.Contains('?', StringComparison.Ordinal))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(8)
+                .ToList();
 
-        return new HtmlSignals(
-            title,
-            meta.Description,
-            h1,
-            canonical,
-            meta.Robots,
-            hasJsonLd,
-            ContainsType(jsonLd, "FAQPage"),
-            ContainsType(jsonLd, "Organization") || ContainsType(jsonLd, "LocalBusiness"),
-            !string.IsNullOrWhiteSpace(meta.OgTitle),
-            questions,
-            text.Length > 4000 ? text[..4000] : text,
-            words,
-            FormRegex.IsMatch(html));
+            return new HtmlSignals(
+                title,
+                meta.Description,
+                h1,
+                canonical,
+                meta.Robots,
+                hasJsonLd,
+                ContainsType(jsonLd, "FAQPage"),
+                ContainsType(jsonLd, "Organization") || ContainsType(jsonLd, "LocalBusiness"),
+                !string.IsNullOrWhiteSpace(meta.OgTitle),
+                questions,
+                text.Length > 4000 ? text[..4000] : text,
+                words,
+                FormRegex.IsMatch(html));
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return new HtmlSignals(null, null, null, null, null, false, false, false, false, [], string.Empty, 0);
+        }
     }
 
     public static IReadOnlyList<string> ExtractHrefs(string? html)
@@ -78,7 +85,7 @@ public static class HtmlSignalParser
             return [];
         }
 
-        return HrefRegex.Matches(html)
+        return SafeMatches(HrefRegex, html)
             .Select(m => WebUtility.HtmlDecode(m.Groups["href"].Value)?.Trim())
             .Where(h => !string.IsNullOrWhiteSpace(h))
             .Cast<string>()
@@ -93,7 +100,7 @@ public static class HtmlSignalParser
             return [];
         }
 
-        return LocRegex.Matches(xml)
+        return SafeMatches(LocRegex, xml)
             .Select(m => WebUtility.HtmlDecode(m.Groups["url"].Value)?.Trim())
             .Where(u => !string.IsNullOrWhiteSpace(u))
             .Cast<string>()
@@ -211,10 +218,29 @@ public static class HtmlSignalParser
         jsonLd.Contains($"\"{type}\"", StringComparison.OrdinalIgnoreCase)
         || jsonLd.Contains($"'{type}'", StringComparison.OrdinalIgnoreCase);
 
+    private static IEnumerable<Match> SafeMatches(Regex regex, string value)
+    {
+        try
+        {
+            return regex.Matches(value);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return [];
+        }
+    }
+
     private static string? FirstGroup(Regex regex, string html)
     {
-        var match = regex.Match(html);
-        return match.Success ? match.Groups[1].Value : null;
+        try
+        {
+            var match = regex.Match(html);
+            return match.Success ? match.Groups[1].Value : null;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return null;
+        }
     }
 
     private static string? StripTags(string? value) =>

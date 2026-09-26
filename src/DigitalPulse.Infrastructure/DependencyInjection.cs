@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.AddSingleton<IPlatformAdapter, GoogleAnalyticsAdapter>();
         services.AddSingleton<ITestReportPdf, TestReportPdf>();
         services.AddSingleton<IPlatformAdapterCatalog, PlatformAdapterCatalog>();
+        services.AddSingleton<IOfficialOAuthApps, OfficialOAuthApps>();
         services.AddSingleton<OfficialOAuthBroker>();
         services.AddSingleton<IPlatformAuthorizationBroker>(sp => sp.GetRequiredService<OfficialOAuthBroker>());
         services.AddSingleton<ILiveTokenRefresher>(sp => sp.GetRequiredService<OfficialOAuthBroker>());

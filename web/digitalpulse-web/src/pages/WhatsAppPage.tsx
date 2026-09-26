@@ -62,7 +62,7 @@ function WhatsAppWorkspaceView({ businessId, data }: { businessId: string; data:
     mutationFn: () => api.connectWhatsApp(businessId, { displayName, phoneNumber: phone }),
     onSuccess: async () => {
       setError(null);
-      setSuccess("WhatsApp Business connected with a development grant. Phone verification still waits for Cloud API.");
+      setSuccess("WhatsApp Business number saved. Cloud API verification still waits for an official token.");
       await refresh();
     },
     onError: (err) => {

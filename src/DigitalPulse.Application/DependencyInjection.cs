@@ -87,6 +87,8 @@ public static class DependencyInjection
         services.AddScoped<CompleteConnectionHandler>();
         services.AddScoped<CompleteConnectionByStateHandler>();
         services.AddScoped<ConnectionActionHandler>();
+        services.AddScoped<GetOfficialOAuthAppsHandler>();
+        services.AddScoped<SaveOfficialOAuthAppsHandler>();
         services.AddScoped<GetScanCenterHandler>();
         services.AddScoped<GetScanHandler>();
         services.AddScoped<RunScanHandler>();

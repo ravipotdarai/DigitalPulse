@@ -187,20 +187,17 @@ public sealed class ConnectWhatsAppHandler
     private readonly ITenantContext _tenant;
     private readonly IWhatsAppCloudApi _cloud;
     private readonly StartConnectionHandler _start;
-    private readonly CompleteConnectionHandler _complete;
 
     public ConnectWhatsAppHandler(
         IAppDbContext db,
         ITenantContext tenant,
         IWhatsAppCloudApi cloud,
-        StartConnectionHandler start,
-        CompleteConnectionHandler complete)
+        StartConnectionHandler start)
     {
         _db = db;
         _tenant = tenant;
         _cloud = cloud;
         _start = start;
-        _complete = complete;
     }
 
     public async Task<WhatsAppWorkspaceResponse> Handle(Guid businessId, ConnectWhatsAppRequest request, CancellationToken cancellationToken)
@@ -227,7 +224,6 @@ public sealed class ConnectWhatsAppHandler
         if (connection is null || connection.Status != ConnectionStatus.Connected)
         {
             var started = await _start.Handle(businessId, "WHATSAPP", cancellationToken);
-            await _complete.Handle(businessId, started.Connection.Id, "development", cancellationToken);
             connection = await _db.Connections.FirstAsync(c => c.Id == started.Connection.Id, cancellationToken);
         }
 

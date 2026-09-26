@@ -261,7 +261,7 @@ export const api = {
     request<ConnectionCenter>(`/v1/businesses/${businessId}/connections`),
   startConnection: (businessId: string, platformCode: string) =>
     request<StartConnection>(`/v1/businesses/${businessId}/connections`, { method: "POST", body: JSON.stringify({ platformCode }) }),
-  completeConnection: (businessId: string, connectionId: string, code = "development") =>
+  completeConnection: (businessId: string, connectionId: string, code: string) =>
     request<PlatformConnection>(`/v1/businesses/${businessId}/connections/${connectionId}/complete`, { method: "POST", body: JSON.stringify({ code }) }),
   healthConnection: (businessId: string, connectionId: string) =>
     request<PlatformConnection>(`/v1/businesses/${businessId}/connections/${connectionId}/health`, { method: "POST" }),
@@ -271,6 +271,9 @@ export const api = {
     request<StartConnection>(`/v1/businesses/${businessId}/connections/${connectionId}/reauthorize`, { method: "POST" }),
   disconnectConnection: (businessId: string, connectionId: string) =>
     request<void>(`/v1/businesses/${businessId}/connections/${connectionId}`, { method: "DELETE" }),
+  oauthApps: () => request<OfficialOAuthApps>(`/v1/connections/oauth-apps`),
+  saveOAuthApps: (body: SaveOfficialOAuthApps) =>
+    request<OfficialOAuthApps>(`/v1/connections/oauth-apps`, { method: "PUT", body: JSON.stringify(body) }),
   connectionAccounts: (businessId: string, connectionId: string) =>
     request<ConnectionAccountOption[]>(`/v1/businesses/${businessId}/connections/${connectionId}/accounts`),
   selectConnectionAccount: (businessId: string, connectionId: string, externalAccount: string) =>
@@ -592,6 +595,7 @@ export type PlatformCatalogItem = {
   authMode: string;
   summary: string;
   capabilities: PlatformCapabilities;
+  officialLoginReady: boolean;
 };
 export type PlatformConnection = {
   id: string;
@@ -610,15 +614,27 @@ export type PlatformConnection = {
   lastError: string | null;
   capabilities: PlatformCapabilities;
 };
+export type OfficialOAuthAppState = { provider: string; ready: boolean; clientIdMasked: string | null };
+export type OfficialOAuthApps = { redirectUri: string; apps: OfficialOAuthAppState[] };
+export type SaveOfficialOAuthApps = {
+  googleClientId?: string;
+  googleClientSecret?: string;
+  metaClientId?: string;
+  metaClientSecret?: string;
+  linkedInClientId?: string;
+  linkedInClientSecret?: string;
+};
 export type ConnectionCenter = {
   catalog: PlatformCatalogItem[];
   connections: PlatformConnection[];
   maxConnections: number;
+  officialApps: OfficialOAuthApps;
 };
 export type StartConnection = {
   connection: PlatformConnection;
   authorizationUrl: string | null;
   completeInPlace: boolean;
+  needsOfficialApp: boolean;
 };
 export type ConnectionDiagnostic = { check: string; status: string; detail: string };
 export type ConnectionAccountOption = { id: string; label: string; kind: string };

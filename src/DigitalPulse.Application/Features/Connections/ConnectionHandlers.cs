@@ -15,10 +15,10 @@ internal static class ConnectionMap
     public static PlatformCapabilityResponse Caps(PlatformCapabilities caps) =>
         new(caps.CanRead, caps.CanCreate, caps.CanUpdate, caps.CanDelete, caps.CanPublish, caps.CanGetMetrics, caps.AssistedOnly);
 
-    public static PlatformCatalogItem Catalog(IPlatformAdapter adapter)
+    public static PlatformCatalogItem Catalog(IPlatformAdapter adapter, bool officialLoginReady)
     {
         var d = adapter.Describe();
-        return new(d.Code, d.Name, d.Category, d.AuthMode.ToString(), d.Summary, Caps(d.Capabilities));
+        return new(d.Code, d.Name, d.Category, d.AuthMode.ToString(), d.Summary, Caps(d.Capabilities), officialLoginReady);
     }
 
     public static ConnectionResponse ToResponse(this PlatformConnection connection, IPlatformAdapter adapter)
@@ -41,6 +41,11 @@ internal static class ConnectionMap
             connection.LastError,
             Caps(d.Capabilities));
     }
+
+    public static bool IsSignedIn(PlatformConnection connection) =>
+        connection.Status == ConnectionStatus.Connected &&
+        (connection.HasLiveCredential ||
+         string.Equals(connection.GrantKind, "Assisted", StringComparison.OrdinalIgnoreCase));
 }
 
 public sealed class GetConnectionCenterHandler
@@ -48,12 +53,14 @@ public sealed class GetConnectionCenterHandler
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IPlatformAdapterCatalog _catalog;
+    private readonly IOfficialOAuthApps _oauth;
 
-    public GetConnectionCenterHandler(IAppDbContext db, ITenantContext tenant, IPlatformAdapterCatalog catalog)
+    public GetConnectionCenterHandler(IAppDbContext db, ITenantContext tenant, IPlatformAdapterCatalog catalog, IOfficialOAuthApps oauth)
     {
         _db = db;
         _tenant = tenant;
         _catalog = catalog;
+        _oauth = oauth;
     }
 
     public async Task<ConnectionCenterResponse> Handle(Guid businessId, CancellationToken cancellationToken)
@@ -67,9 +74,15 @@ public sealed class GetConnectionCenterHandler
             .ToListAsync(cancellationToken);
 
         return new ConnectionCenterResponse(
-            _catalog.All().Select(ConnectionMap.Catalog).ToList(),
+            _catalog.All().Select(adapter =>
+            {
+                var mode = adapter.Describe().AuthMode;
+                var ready = mode != PlatformAuthMode.OAuth || _oauth.Resolve(adapter.Describe().Code) is not null;
+                return ConnectionMap.Catalog(adapter, ready);
+            }).ToList(),
             connections.Select(c => c.ToResponse(_catalog.Get(c.PlatformCode))).ToList(),
-            plan.MaxConnections);
+            plan.MaxConnections,
+            _oauth.Status());
     }
 
     internal static async Task<SubscriptionPlan> CurrentPlan(IAppDbContext db, Guid tenantId, CancellationToken cancellationToken)
@@ -109,7 +122,7 @@ public sealed class StartConnectionHandler
 
         var existing = await _db.Connections.FirstOrDefaultAsync(
             c => c.BusinessId == businessId && c.PlatformCode == descriptor.Code, cancellationToken);
-        if (existing is { Status: ConnectionStatus.Connected })
+        if (existing is not null && ConnectionMap.IsSignedIn(existing))
         {
             throw AppException.Conflict($"{descriptor.Name} is already connected.");
         }
@@ -147,7 +160,10 @@ public sealed class StartConnectionHandler
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        return new StartConnectionResponse(connection.ToResponse(adapter), start.CompleteInPlace ? null : start.AuthorizationUrl, start.CompleteInPlace);
+        var needsApp = !start.CompleteInPlace &&
+                       string.IsNullOrWhiteSpace(start.AuthorizationUrl) &&
+                       descriptor.AuthMode == PlatformAuthMode.OAuth;
+        return new StartConnectionResponse(connection.ToResponse(adapter), start.CompleteInPlace ? null : start.AuthorizationUrl, start.CompleteInPlace, needsApp);
     }
 }
 
@@ -259,7 +275,8 @@ public sealed class ConnectionActionHandler
             await _broker.CompleteAsync(connection, "development", cancellationToken);
         }
         await _db.SaveChangesAsync(cancellationToken);
-        return new StartConnectionResponse(connection.ToResponse(adapter), start.CompleteInPlace ? null : start.AuthorizationUrl, start.CompleteInPlace);
+        var needsApp = !start.CompleteInPlace && string.IsNullOrWhiteSpace(start.AuthorizationUrl);
+        return new StartConnectionResponse(connection.ToResponse(adapter), start.CompleteInPlace ? null : start.AuthorizationUrl, start.CompleteInPlace, needsApp);
     }
 
     public async Task DisconnectAsync(Guid businessId, Guid connectionId, CancellationToken cancellationToken)
@@ -274,26 +291,93 @@ public sealed class ConnectionActionHandler
         var (connection, _) = await Load(businessId, connectionId, cancellationToken);
         await _tokens.EnsureFreshAsync(connection, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+        var choices = await ListOfficialAsync(connection, cancellationToken);
+        return OfficialAccounts.Public(choices);
+    }
+
+    internal async Task<IReadOnlyList<OfficialAccountChoice>> ListOfficialAsync(
+        PlatformConnection connection,
+        CancellationToken cancellationToken)
+    {
         if (!connection.HasLiveCredential)
         {
             return [];
         }
 
-        if (connection.PlatformCode.Equals("GOOGLE_ANALYTICS", StringComparison.OrdinalIgnoreCase))
+        var code = connection.PlatformCode.ToUpperInvariant();
+        return code switch
+        {
+            "FACEBOOK" => await OfficialGet(
+                connection,
+                "https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token",
+                OfficialAccounts.FacebookPages,
+                cancellationToken),
+            "INSTAGRAM" => await OfficialGet(
+                connection,
+                "https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}",
+                OfficialAccounts.InstagramAccounts,
+                cancellationToken),
+            "YOUTUBE" => await OfficialGet(
+                connection,
+                "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",
+                OfficialAccounts.YouTubeChannels,
+                cancellationToken),
+            "SEARCH_CONSOLE" => await OfficialGet(
+                connection,
+                "https://searchconsole.googleapis.com/webmasters/v3/sites",
+                OfficialAccounts.SearchConsoleSites,
+                cancellationToken),
+            "GOOGLE_ANALYTICS" => await OfficialGet(
+                connection,
+                "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
+                body => AnalyticsProperties.Parse(body).Select(p => new OfficialAccountChoice(p.Property, p.Label, "GA4", null)).ToList(),
+                cancellationToken),
+            "GOOGLE" => await GoogleLocationsAsync(connection, cancellationToken),
+            "LINKEDIN" => await OfficialGet(
+                connection,
+                "https://api.linkedin.com/v2/userinfo",
+                OfficialAccounts.LinkedInPerson,
+                cancellationToken),
+            _ => []
+        };
+    }
+
+    private async Task<IReadOnlyList<OfficialAccountChoice>> OfficialGet(
+        PlatformConnection connection,
+        string url,
+        Func<string?, IReadOnlyList<OfficialAccountChoice>> parse,
+        CancellationToken cancellationToken)
+    {
+        var result = await _gateway.SendAsync(HttpMethod.Get, url, connection.AccessToken, null, null, cancellationToken);
+        return result.Ok ? parse(result.Body) : [];
+    }
+
+    private async Task<IReadOnlyList<OfficialAccountChoice>> GoogleLocationsAsync(
+        PlatformConnection connection,
+        CancellationToken cancellationToken)
+    {
+        var accounts = await OfficialGet(
+            connection,
+            "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+            OfficialAccounts.GoogleAccounts,
+            cancellationToken);
+        var locations = new List<OfficialAccountChoice>();
+        foreach (var account in accounts.Take(8))
         {
             var result = await _gateway.SendAsync(
                 HttpMethod.Get,
-                "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
+                $"https://mybusinessbusinessinformation.googleapis.com/v1/{account.Id}/locations?readMask=name,title",
                 connection.AccessToken,
                 null,
                 null,
                 cancellationToken);
-            return result.Ok
-                ? AnalyticsProperties.Parse(result.Body).Select(p => new ConnectionAccountOption(p.Property, p.Label, "GA4")).ToList()
-                : [];
+            if (result.Ok)
+            {
+                locations.AddRange(OfficialAccounts.GoogleLocations(result.Body));
+            }
         }
 
-        return [];
+        return locations.Count > 0 ? locations : accounts;
     }
 
     public async Task<ConnectionResponse> SelectAccountAsync(Guid businessId, Guid connectionId, string? externalAccount, CancellationToken cancellationToken)
@@ -304,7 +388,7 @@ public sealed class ConnectionActionHandler
             throw AppException.Validation("Pick an official account after a live OAuth grant. DigitalPulse will not invent a property.");
         }
 
-        var options = await ListAccountsAsync(businessId, connectionId, cancellationToken);
+        var options = await ListOfficialAsync(connection, cancellationToken);
         var chosen = options.FirstOrDefault(o => o.Id.Equals(externalAccount?.Trim(), StringComparison.OrdinalIgnoreCase));
         if (chosen is null)
         {
@@ -312,6 +396,11 @@ public sealed class ConnectionActionHandler
         }
 
         connection.AssignExternalAccount(chosen.Id);
+        if (!string.IsNullOrWhiteSpace(chosen.AccessToken))
+        {
+            connection.ApplyRefreshedTokens(chosen.AccessToken, connection.RefreshToken, connection.TokenExpiresAtUtc, connection.TokenScope);
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
         return connection.ToResponse(adapter);
     }
@@ -324,5 +413,19 @@ public sealed class ConnectionActionHandler
         var connection = await _db.Connections.FirstOrDefaultAsync(c => c.Id == connectionId && c.BusinessId == businessId, cancellationToken)
             ?? throw AppException.NotFound("Connection was not found.");
         return (connection, _catalog.Get(connection.PlatformCode));
+    }
+}
+
+public sealed class GetOfficialOAuthAppsHandler(IOfficialOAuthApps apps)
+{
+    public OfficialOAuthAppsStatus Handle() => apps.Status();
+}
+
+public sealed class SaveOfficialOAuthAppsHandler(IOfficialOAuthApps apps)
+{
+    public async Task<OfficialOAuthAppsStatus> Handle(SaveOfficialOAuthAppsRequest request, CancellationToken cancellationToken)
+    {
+        await apps.SaveAsync(request, cancellationToken);
+        return apps.Status();
     }
 }

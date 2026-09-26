@@ -101,7 +101,7 @@ public static class WebsiteSiteCrawler
             return false;
         }
 
-        var ext = Path.GetExtension(safe.AbsolutePath);
+        var ext = ExtensionOf(safe.AbsolutePath);
         if (ext is ".pdf" or ".jpg" or ".jpeg" or ".png" or ".gif" or ".svg" or ".webp" or ".zip" or ".css" or ".js")
         {
             return false;
@@ -109,5 +109,13 @@ public static class WebsiteSiteCrawler
 
         url = safe.GetLeftPart(UriPartial.Path).TrimEnd('/') + "/";
         return true;
+    }
+
+    private static string ExtensionOf(string path)
+    {
+        var slash = path.LastIndexOf('/');
+        var leaf = slash >= 0 ? path[(slash + 1)..] : path;
+        var dot = leaf.LastIndexOf('.');
+        return dot >= 0 ? leaf[dot..].ToLowerInvariant() : string.Empty;
     }
 }

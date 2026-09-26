@@ -112,14 +112,14 @@ public sealed class WebsiteSnapshot : TenantOwnedEntity
         {
             TenantId = tenantId,
             BusinessId = businessId,
-            Url = NullIfEmpty(url),
+            Url = Clip(url, 2048),
             Status = status,
             StatusCode = statusCode,
-            Title = NullIfEmpty(title),
-            MetaDescription = NullIfEmpty(metaDescription),
-            H1 = NullIfEmpty(h1),
-            CanonicalUrl = NullIfEmpty(canonicalUrl),
-            Robots = NullIfEmpty(robots),
+            Title = Clip(title, 240),
+            MetaDescription = Clip(metaDescription, 400),
+            H1 = Clip(h1, 240),
+            CanonicalUrl = Clip(canonicalUrl, 2048),
+            Robots = Clip(robots, 160),
             HasJsonLd = hasJsonLd,
             HasFaqSchema = hasFaqSchema,
             HasOrganizationSchema = hasOrganizationSchema,
@@ -133,13 +133,21 @@ public sealed class WebsiteSnapshot : TenantOwnedEntity
             HasContactForm = extras.HasContactForm,
             PageRole = extras.Role,
             AuditRunId = extras.AuditRunId,
-            Error = NullIfEmpty(error),
+            Error = Clip(error, 500),
             FetchedAtUtc = DateTimeOffset.UtcNow
         };
     }
 
-    private static string? NullIfEmpty(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string? Clip(string? value, int max)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= max ? trimmed : trimmed[..max];
+    }
 }
 
 public sealed class SearchObservation : TenantOwnedEntity
@@ -181,12 +189,29 @@ public sealed class SearchObservation : TenantOwnedEntity
             SnapshotId = snapshotId,
             Category = category,
             Severity = severity,
-            Title = title.Trim(),
-            Detail = detail.Trim(),
-            ExpectedValue = string.IsNullOrWhiteSpace(expectedValue) ? null : expectedValue.Trim(),
-            ObservedValue = string.IsNullOrWhiteSpace(observedValue) ? null : observedValue.Trim(),
-            Recommendation = recommendation.Trim()
+            Title = ClipRequired(title, 160),
+            Detail = ClipRequired(detail, 1000),
+            ExpectedValue = Clip(expectedValue, 400),
+            ObservedValue = Clip(observedValue, 400),
+            Recommendation = ClipRequired(recommendation, 500)
         };
+    }
+
+    private static string? Clip(string? value, int max)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= max ? trimmed : trimmed[..max];
+    }
+
+    private static string ClipRequired(string value, int max)
+    {
+        var trimmed = value.Trim();
+        return trimmed.Length <= max ? trimmed : trimmed[..max];
     }
 }
 
@@ -222,7 +247,7 @@ public sealed class SearchConsoleQuery : TenantOwnedEntity
             TenantId = tenantId,
             BusinessId = businessId,
             AuditRunId = auditRunId,
-            Query = query.Trim(),
+            Query = query.Trim().Length <= 400 ? query.Trim() : query.Trim()[..400],
             Clicks = Math.Max(0, clicks),
             Impressions = Math.Max(0, impressions),
             Ctr = Math.Clamp(ctr, 0, 1),
@@ -265,12 +290,18 @@ public sealed class TestReport : TenantOwnedEntity
             TenantId = tenantId,
             BusinessId = businessId,
             Kind = kind,
-            Title = title.Trim(),
-            ObservedFact = observedFact.Trim(),
-            Recommendation = recommendation.Trim(),
-            HoldReason = holdReason.Trim(),
-            Body = body.Trim(),
+            Title = Clip(title, 160),
+            ObservedFact = Clip(observedFact, 2000),
+            Recommendation = Clip(recommendation, 1000),
+            HoldReason = Clip(holdReason, 1000),
+            Body = Clip(body, 8000),
             AuditRunId = auditRunId
         };
+    }
+
+    private static string Clip(string value, int max)
+    {
+        var trimmed = (value ?? string.Empty).Trim();
+        return trimmed.Length <= max ? trimmed : trimmed[..max];
     }
 }

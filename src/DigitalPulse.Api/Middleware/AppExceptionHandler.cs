@@ -13,6 +13,7 @@ public sealed class AppExceptionHandler : IExceptionHandler
             AppException app => (app.StatusCode, app.Code, app.Message),
             ValidationException validation => (400, "validation_failed", string.Join(" ", validation.Errors.Select(e => e.ErrorMessage))),
             InvalidOperationException invalid => (400, "validation_failed", invalid.Message),
+            ArgumentException argument => (400, "validation_failed", argument.Message),
             _ => (500, "server_error", "An unexpected error occurred.")
         };
 

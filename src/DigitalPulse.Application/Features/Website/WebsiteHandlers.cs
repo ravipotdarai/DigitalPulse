@@ -276,6 +276,26 @@ public sealed class AnalyzeWebsiteHandler
             throw AppException.Validation("Add the official website on the identity record before running website analysis.");
         }
 
+        try
+        {
+            return await AnalyzeAsync(tenantId, businessId, business, cancellationToken);
+        }
+        catch (AppException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            throw AppException.Validation("Website analysis could not finish. DigitalPulse did not invent a snapshot. Confirm the public URL and retry.");
+        }
+    }
+
+    private async Task<WebsiteIntelligenceResponse> AnalyzeAsync(
+        Guid tenantId,
+        Guid businessId,
+        Business business,
+        CancellationToken cancellationToken)
+    {
         var phones = await _db.ContactPoints.AsNoTracking()
             .Where(c => c.BusinessId == businessId && c.Kind == ContactPointKind.Phone)
             .ToListAsync(cancellationToken);
@@ -307,7 +327,7 @@ public sealed class AnalyzeWebsiteHandler
         var location = locations.FirstOrDefault();
 
         var auditRunId = Guid.NewGuid();
-        var crawled = await WebsiteSiteCrawler.CrawlAsync(_fetcher, business.Website, cancellationToken);
+        var crawled = await WebsiteSiteCrawler.CrawlAsync(_fetcher, business.Website!, cancellationToken);
         var snapshots = new List<WebsiteSnapshot>();
         var observations = new List<SearchObservation>();
 
@@ -352,7 +372,7 @@ public sealed class AnalyzeWebsiteHandler
                     "Website",
                     signals.Title ?? business.Name,
                     signals.Text,
-                    snapshot.Url ?? business.Website);
+                    snapshot.Url ?? business.Website!);
                 await _search.IndexAsync(document, cancellationToken);
                 if (_vectors.IsConfigured)
                 {
@@ -460,7 +480,20 @@ public sealed class AnalyzeWebsiteHandler
             return;
         }
 
-        var result = await _catalog.Get(platform).MetricsAsync(connection, cancellationToken);
+        var adapter = _catalog.All().FirstOrDefault(item => item.Describe().Code.Equals(platform, StringComparison.OrdinalIgnoreCase));
+        if (adapter is null)
+        {
+            _db.TestReports.Add(TestReport.Assemble(
+                tenantId, businessId, kind, title,
+                $"{title} adapter is not registered. Metrics were not invented.",
+                $"Connect {title} in Connection Center.",
+                "Adapter missing",
+                "Adapter missing",
+                auditRunId));
+            return;
+        }
+
+        var result = await adapter.MetricsAsync(connection, cancellationToken);
         var held = !result.Status.Equals("Observed", StringComparison.OrdinalIgnoreCase);
         var observed = result.Detail;
         var recommendation = held

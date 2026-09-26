@@ -2,15 +2,19 @@ import { Button } from "../design/Button";
 import { SelectField } from "../design/Field";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ApiError, api, type ConnectionAccountOption, type ConnectionDiagnostic, type PlatformCatalogItem, type PlatformConnection } from "../lib/api";
+import { ApiError, api, type ConnectionAccountOption, type ConnectionDiagnostic, type OfficialOAuthApps, type PlatformCatalogItem, type PlatformConnection } from "../lib/api";
 import { PageState } from "../components/PageState";
 import { panelTransition, useMotionTiming } from "../design/motion";
 import { Meter, PageHeader } from "../design/PageHeader";
 import { PlatformEcosystem } from "../design/PlatformEcosystem";
 import { BrandMark } from "../design/BrandMark";
-import { LINK_LABEL, linkState, relativeTime } from "../design/platforms";
+import { Field } from "../design/Field";
+import { isSignedIn, LINK_LABEL, linkState, relativeTime } from "../design/platforms";
+import { notifyOAuthOpener, openOAuthWindow, watchOAuthPopup } from "../lib/platformOAuth";
+
+const ACCOUNT_PICKERS = new Set(["FACEBOOK", "INSTAGRAM", "YOUTUBE", "GOOGLE", "SEARCH_CONSOLE", "GOOGLE_ANALYTICS", "LINKEDIN"]);
 
 export function ConnectionsPage() {
   const businesses = useQuery({ queryKey: ["businesses"], queryFn: api.listBusinesses });
@@ -21,6 +25,11 @@ export function ConnectionsPage() {
     enabled: Boolean(businessId)
   });
   const [params] = useSearchParams();
+  const justConnected = params.get("connected");
+
+  useEffect(() => {
+    if (justConnected) notifyOAuthOpener(justConnected);
+  }, [justConnected]);
 
   if (businesses.isLoading) return <PageState mode="loading" title="Opening connection center" />;
   if (businesses.isError) return <PageState mode="error" title="Businesses unavailable" />;
@@ -35,7 +44,8 @@ export function ConnectionsPage() {
       catalog={query.data.catalog}
       connections={query.data.connections}
       maxConnections={query.data.maxConnections}
-      justConnected={params.get("connected")}
+      officialApps={query.data.officialApps}
+      justConnected={justConnected}
       focus={params.get("platform")}
     />
   );
@@ -47,6 +57,7 @@ function ConnectionCenter({
   catalog,
   connections,
   maxConnections,
+  officialApps,
   justConnected,
   focus
 }: {
@@ -55,6 +66,7 @@ function ConnectionCenter({
   catalog: PlatformCatalogItem[];
   connections: PlatformConnection[];
   maxConnections: number;
+  officialApps: OfficialOAuthApps;
   justConnected: string | null;
   focus: string | null;
 }) {
@@ -62,6 +74,7 @@ function ConnectionCenter({
   const { reduce, base } = useMotionTiming();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [appsOpen, setAppsOpen] = useState(() => officialApps.apps.every((app) => !app.ready));
   const [diagnostics, setDiagnostics] = useState<{ code: string; items: ConnectionDiagnostic[] } | null>(null);
   const [accounts, setAccounts] = useState<ConnectionAccountOption[]>([]);
   const [pickedAccount, setPickedAccount] = useState("");
@@ -77,11 +90,26 @@ function ConnectionCenter({
     mutationFn: (code: string) => api.startConnection(businessId, code),
     onSuccess: async (result) => {
       setError(null);
-      if (result.authorizationUrl) {
-        window.location.assign(result.authorizationUrl);
+      if (result.completeInPlace) {
+        await queryClient.invalidateQueries({ queryKey: ["connections"] });
         return;
       }
-      await queryClient.invalidateQueries({ queryKey: ["connections"] });
+      if (result.authorizationUrl) {
+        const popup = openOAuthWindow(result.authorizationUrl);
+        if (!popup) {
+          window.location.assign(result.authorizationUrl);
+          return;
+        }
+        await watchOAuthPopup(popup, window.location.origin);
+        await queryClient.invalidateQueries({ queryKey: ["connections"] });
+        return;
+      }
+      if (result.needsOfficialApp) {
+        setAppsOpen(true);
+        setError(`Save official ${platform?.name ?? "platform"} app credentials below, then sign in again. DigitalPulse opens the real ${platform?.name ?? "provider"} login.`);
+        return;
+      }
+      setError(`Sign in to ${platform?.name ?? "this platform"} did not open.`);
     },
     onError: (err) => setError(err instanceof ApiError ? err.title : "Could not start the connection.")
   });
@@ -115,7 +143,7 @@ function ConnectionCenter({
       <PageHeader
         kicker="Connection center"
         title="The ecosystem around the business"
-        lead="DigitalPulse sits between the business and every platform it is present on. Each link is an authorized adapter. Development grants prove the contract; live Google, Meta, or WhatsApp APIs are not invented here."
+        lead="Sign in opens the official Google, Meta, or LinkedIn login. Save those official app credentials once on this host, then connect each platform."
         aside={
           <Meter
             label="Connections on this plan"
@@ -125,19 +153,23 @@ function ConnectionCenter({
           />
         }
       >
-        {justConnected ? (
+        {justConnected && isSignedIn(byCode.get(justConnected)) ? (
           <p className="note-ok" role="status">
             {justConnected} is connected
             {byCode.get(justConnected)?.hasLiveCredential
-              ? " with an official OAuth grant. Tokens stay on this host and are refreshed when they expire."
+              ? " with an official login. Tokens stay on this host and are refreshed when they expire."
               : byCode.get(justConnected)?.grantKind === "Assisted"
                 ? " as an assisted workspace."
-                : byCode.get(justConnected)?.grantKind === "Development"
-                  ? " with a development grant. Official OAuth is not configured on this host."
-                  : "."}
+                : "."}
           </p>
         ) : null}
         {error ? <p className="note-err" role="alert">{error}</p> : null}
+        <OfficialAppsForm
+          open={appsOpen}
+          apps={officialApps}
+          onToggle={() => setAppsOpen((value) => !value)}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ["connections"] })}
+        />
       </PageHeader>
 
       <div className="conn">
@@ -210,7 +242,7 @@ function ConnectionCenter({
                 {connection?.lastError ? <div><dt>Last error</dt><dd className="note-err">{connection.lastError}</dd></div> : null}
               </dl>
 
-              {connection?.hasLiveCredential && platform.code === "GOOGLE_ANALYTICS" ? (
+              {connection?.hasLiveCredential && ACCOUNT_PICKERS.has(platform.code) ? (
                 <div className="conn-actions">
                   <Button
                     appearance="subtle"
@@ -218,18 +250,20 @@ function ConnectionCenter({
                     onClick={() => void run("accounts", async () => {
                       const items = await api.connectionAccounts(businessId, connection.id);
                       setAccounts(items);
-                      setPickedAccount(connection.externalAccount?.startsWith("properties/") ? connection.externalAccount : items[0]?.id ?? "");
+                      setPickedAccount(connection.externalAccount && items.some((item) => item.id === connection.externalAccount)
+                        ? connection.externalAccount
+                        : items[0]?.id ?? "");
                       if (items.length === 0) {
-                        setError("Google returned no GA4 properties. A property was not invented.");
+                        setError(`${platform.name} returned no official accounts. An account was not invented.`);
                       }
                     })}
                   >
-                    {busy === "accounts" ? "Loading properties…" : "Load official GA4 properties"}
+                    {busy === "accounts" ? "Loading accounts…" : `Load official ${platform.name} accounts`}
                   </Button>
                   {accounts.length > 0 ? (
                     <>
                       <SelectField
-                        label="GA4 property"
+                        label={`${platform.name} account`}
                         value={pickedAccount}
                         onChange={setPickedAccount}
                         options={accounts.map((item) => ({ value: item.id, label: item.label }))}
@@ -239,7 +273,7 @@ function ConnectionCenter({
                         disabled={busy !== null || !pickedAccount}
                         onClick={() => void run("pick", () => api.selectConnectionAccount(businessId, connection.id, pickedAccount))}
                       >
-                        {busy === "pick" ? "Saving…" : "Use this property"}
+                        {busy === "pick" ? "Saving…" : "Use this account"}
                       </Button>
                     </>
                   ) : null}
@@ -256,14 +290,21 @@ function ConnectionCenter({
               </div>
 
               <div className="conn-actions">
-                {!connection ? (
-                  <Button
-                    appearance="primary"
-                    disabled={start.isPending || connections.length >= maxConnections}
-                    onClick={() => start.mutate(platform.code)}
-                  >
-                    {start.isPending ? "Authorizing…" : platform.authMode === "Assisted" ? "Enable assisted" : "Connect"}
-                  </Button>
+                {!isSignedIn(connection) ? (
+                  <>
+                    <Button
+                      appearance="primary"
+                      disabled={start.isPending || (!connection && connections.length >= maxConnections)}
+                      onClick={() => start.mutate(platform.code)}
+                    >
+                      {start.isPending ? "Opening official login…" : platform.authMode === "Assisted" ? "Enable assisted" : `Sign in to ${platform.name}`}
+                    </Button>
+                    {connection ? (
+                      <Button appearance="subtle" disabled={busy !== null} onClick={() => void run("disconnect", () => api.disconnectConnection(businessId, connection.id))}>
+                        Discard
+                      </Button>
+                    ) : null}
+                  </>
                 ) : (
                   <>
                     <Button appearance="primary" disabled={busy !== null} onClick={() => void run("health", () => api.healthConnection(businessId, connection.id))}>
@@ -288,12 +329,8 @@ function ConnectionCenter({
                     </Button>
                     <Button
                       appearance="subtle"
-                      disabled={busy !== null}
-                      onClick={async () => {
-                        const result = await api.reauthorizeConnection(businessId, connection.id);
-                        if (result.authorizationUrl) window.location.assign(result.authorizationUrl);
-                        else await queryClient.invalidateQueries({ queryKey: ["connections"] });
-                      }}
+                      disabled={busy !== null || start.isPending}
+                      onClick={() => start.mutate(platform.code)}
                     >
                       Reauthorize
                     </Button>
@@ -324,6 +361,84 @@ function ConnectionCenter({
           ) : null}
         </AnimatePresence>
       </div>
+
+    </div>
+  );
+}
+
+function OfficialAppsForm({
+  open,
+  apps,
+  onToggle,
+  onSaved
+}: {
+  open: boolean;
+  apps: OfficialOAuthApps;
+  onToggle: () => void;
+  onSaved: () => Promise<unknown> | void;
+}) {
+  const [googleId, setGoogleId] = useState("");
+  const [googleSecret, setGoogleSecret] = useState("");
+  const [metaId, setMetaId] = useState("");
+  const [metaSecret, setMetaSecret] = useState("");
+  const [linkedId, setLinkedId] = useState("");
+  const [linkedSecret, setLinkedSecret] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const google = apps.apps.find((app) => app.provider === "GOOGLE");
+  const meta = apps.apps.find((app) => app.provider === "META");
+  const linked = apps.apps.find((app) => app.provider === "LINKEDIN");
+
+  return (
+    <div className="oauth-apps">
+      <Button appearance="subtle" onClick={onToggle}>
+        {open ? "Hide official OAuth apps" : "Official OAuth apps"}
+      </Button>
+      {open ? (
+        <form
+          className="id-form oauth-apps-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            setError(null);
+            try {
+              await api.saveOAuthApps({
+                googleClientId: googleId || undefined,
+                googleClientSecret: googleSecret || undefined,
+                metaClientId: metaId || undefined,
+                metaClientSecret: metaSecret || undefined,
+                linkedInClientId: linkedId || undefined,
+                linkedInClientSecret: linkedSecret || undefined
+              });
+              setGoogleSecret("");
+              setMetaSecret("");
+              setLinkedSecret("");
+              await onSaved();
+            } catch (err) {
+              setError(err instanceof ApiError ? err.title : "Official app credentials were not saved.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <p>
+            Create apps at Google Cloud, Meta Developers, and LinkedIn Developers. Register this exact redirect URI:
+            <code> {apps.redirectUri}</code>
+          </p>
+          <Field label="Google client id" value={googleId} onChange={setGoogleId} hint={google?.ready ? `Saved ${google.clientIdMasked}` : "Used for Google, YouTube, Search Console, Ads, Analytics"} />
+          <Field label="Google client secret" type="password" value={googleSecret} onChange={setGoogleSecret} />
+          <Field label="Meta client id" value={metaId} onChange={setMetaId} hint={meta?.ready ? `Saved ${meta.clientIdMasked}` : "Used for Facebook and Instagram"} />
+          <Field label="Meta client secret" type="password" value={metaSecret} onChange={setMetaSecret} />
+          <Field label="LinkedIn client id" value={linkedId} onChange={setLinkedId} hint={linked?.ready ? `Saved ${linked.clientIdMasked}` : undefined} />
+          <Field label="LinkedIn client secret" type="password" value={linkedSecret} onChange={setLinkedSecret} />
+          {error ? <p className="note-err" role="alert">{error}</p> : null}
+          <div className="id-form-actions">
+            <Button appearance="primary" disabled={busy}>
+              {busy ? "Saving…" : "Save official apps"}
+            </Button>
+          </div>
+        </form>
+      ) : null}
     </div>
   );
 }

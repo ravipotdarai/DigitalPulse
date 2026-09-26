@@ -66,5 +66,22 @@ public static class ConnectionsSchemaUpgrader
             IF COL_LENGTH('dp.PlatformConnection', 'TokenScope') IS NULL
                 ALTER TABLE [dp].[PlatformConnection] ADD [TokenScope] nvarchar(500) NULL;
             """, cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID(N'dp.HostOAuthApp', N'U') IS NULL
+            BEGIN
+                CREATE TABLE [dp].[HostOAuthApp] (
+                    [Id] uniqueidentifier NOT NULL,
+                    [CreatedAtUtc] datetimeoffset NOT NULL,
+                    [UpdatedAtUtc] datetimeoffset NOT NULL,
+                    [Provider] nvarchar(32) NOT NULL,
+                    [ClientId] nvarchar(256) NOT NULL,
+                    [ClientSecret] nvarchar(512) NOT NULL,
+                    CONSTRAINT [PK_HostOAuthApp] PRIMARY KEY ([Id])
+                );
+                CREATE UNIQUE INDEX [IX_HostOAuthApp_Provider] ON [dp].[HostOAuthApp] ([Provider]);
+            END
+            """, cancellationToken);
     }
 }

@@ -39,6 +39,7 @@ public interface IAppDbContext
     DbSet<Customer> Customers { get; }
     DbSet<CustomerContact> CustomerContacts { get; }
     DbSet<PlatformConnection> Connections { get; }
+    DbSet<HostOAuthApp> HostOAuthApps { get; }
     DbSet<Scan> Scans { get; }
     DbSet<Finding> Findings { get; }
     DbSet<FindingEvidence> FindingEvidence { get; }

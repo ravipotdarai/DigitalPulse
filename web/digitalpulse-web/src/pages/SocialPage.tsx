@@ -9,7 +9,8 @@ import { ChannelCard, ChannelChip } from "../design/ChannelCard";
 import { DataGrid } from "../design/DataGrid";
 import { AreaField, Field } from "../design/Field";
 import { reviewDraft, type LiveReview } from "../lib/postChecks";
-import { LINK_LABEL, linkState } from "../design/platforms";
+import { isSignedIn, LINK_LABEL, linkState } from "../design/platforms";
+import { openOAuthWindow, watchOAuthPopup } from "../lib/platformOAuth";
 
 type Pane = "login" | "presence" | "compose";
 type DraftFields = {
@@ -226,12 +227,25 @@ function LoginPane({
     mutationFn: () => api.startConnection(businessId, studio.code),
     onSuccess: async (result) => {
       setError(null);
-      if (result.authorizationUrl) {
-        window.location.assign(result.authorizationUrl);
+      if (result.completeInPlace) {
+        await queryClient.invalidateQueries({ queryKey: ["connections"] });
+        await queryClient.invalidateQueries({ queryKey: ["social"] });
         return;
       }
-      await queryClient.invalidateQueries({ queryKey: ["connections"] });
-      await queryClient.invalidateQueries({ queryKey: ["social"] });
+      if (result.authorizationUrl) {
+        const popup = openOAuthWindow(result.authorizationUrl);
+        if (!popup) {
+          window.location.assign(result.authorizationUrl);
+          return;
+        }
+        await watchOAuthPopup(popup, window.location.origin);
+        await queryClient.invalidateQueries({ queryKey: ["connections"] });
+        await queryClient.invalidateQueries({ queryKey: ["social"] });
+        return;
+      }
+      setError(result.needsOfficialApp
+        ? `Save official ${studio.name} app credentials in Connection Center, then sign in again.`
+        : `Sign in to ${studio.name} did not open.`);
     },
     onError: (err) => setError(err instanceof ApiError ? err.title : "Could not start login.")
   });
@@ -242,17 +256,17 @@ function LoginPane({
       <p className="hero-kicker">Official login</p>
       <h2>Connect {studio.name}</h2>
       <p className="ink-muted">
-        Login uses the official adapter for this platform. Development grants stay labelled as development. Live tokens are not invented.
+        Sign in opens the official {studio.name} login. DigitalPulse does not invent a grant.
       </p>
       <dl className="facts">
         <div><dt>Status</dt><dd>{LINK_LABEL[state]}</dd></div>
-        <div><dt>Grant</dt><dd>{linked?.grantKind ?? channel?.grantKind ?? "None"}</dd></div>
-        <div><dt>Account</dt><dd>{linked?.externalAccount ?? "—"}</dd></div>
+        <div><dt>Grant</dt><dd>{isSignedIn(linked) ? linked?.grantKind : "None"}</dd></div>
+        <div><dt>Account</dt><dd>{isSignedIn(linked) ? linked?.externalAccount ?? "—" : "—"}</dd></div>
       </dl>
       {error ? <p className="note-err" role="alert">{error}</p> : null}
       <div className="id-form-actions">
         <Button appearance="primary" disabled={start.isPending} onClick={() => start.mutate()}>
-          {start.isPending ? "Opening…" : linked ? "Reauthorize" : `Log in with ${studio.name}`}
+          {start.isPending ? "Opening official login…" : isSignedIn(linked) ? "Reauthorize" : `Sign in to ${studio.name}`}
         </Button>
         <Link className="text-link" to={`/app/connections?platform=${studio.code}`}>Open connection center</Link>
       </div>
@@ -282,7 +296,7 @@ function PresencePane({
           { label: "Login", value: LINK_LABEL[state], tone: state === "live" ? "ok" : "hold" },
           { label: "Publish", value: channel?.canPublish ? "Official capability listed" : "Assisted only", tone: "hold" },
           { label: "Metrics", value: channel?.metricStatus ?? "Not captured", tone: channel?.metricStatus === "Hold" ? "warn" : "hold" },
-          { label: "Grant", value: linked?.grantKind ?? channel?.grantKind ?? "None", tone: "hold" }
+          { label: "Grant", value: isSignedIn(linked) ? linked?.grantKind ?? channel?.grantKind ?? "None" : "None", tone: "hold" }
         ]}
       >
         {channel?.metricDetail ? <p className="ink-muted meta-line">{channel.metricDetail}</p> : null}

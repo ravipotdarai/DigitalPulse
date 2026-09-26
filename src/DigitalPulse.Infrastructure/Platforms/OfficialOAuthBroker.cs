@@ -2,32 +2,66 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Domain.Platforms;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 
 namespace DigitalPulse.Infrastructure.Platforms;
 
-public sealed record OAuthApp(string ClientId, string ClientSecret, string AuthorizeUrl, string TokenUrl, string Scopes);
-
 public static class OfficialOAuthCatalog
 {
-    public static OAuthApp? TryGet(string platformCode, IConfiguration configuration)
+    public static OAuthApp? TryGet(string platformCode, IConfiguration configuration) =>
+        TryGet(
+            platformCode,
+            configuration["Connections:Google:ClientId"],
+            configuration["Connections:Google:ClientSecret"],
+            configuration["Connections:Meta:ClientId"] ?? configuration["Connections:Facebook:ClientId"],
+            configuration["Connections:Meta:ClientSecret"] ?? configuration["Connections:Facebook:ClientSecret"],
+            configuration["Connections:LinkedIn:ClientId"],
+            configuration["Connections:LinkedIn:ClientSecret"]);
+
+    public static OAuthApp? TryGet(string platformCode, string? clientId, string? clientSecret)
     {
-        var code = platformCode.Trim().ToUpperInvariant();
-        return code switch
+        var provider = platformCode.Trim().ToUpperInvariant() switch
         {
-            "GOOGLE" or "SEARCH_CONSOLE" or "YOUTUBE" or "GOOGLE_ADS" or "GOOGLE_ANALYTICS" => Google(code, configuration),
-            "FACEBOOK" or "INSTAGRAM" => Pair(
-                configuration["Connections:Meta:ClientId"] ?? configuration["Connections:Facebook:ClientId"],
-                configuration["Connections:Meta:ClientSecret"] ?? configuration["Connections:Facebook:ClientSecret"],
+            "GOOGLE" or "SEARCH_CONSOLE" or "YOUTUBE" or "GOOGLE_ADS" or "GOOGLE_ANALYTICS" => "GOOGLE",
+            "FACEBOOK" or "INSTAGRAM" => "META",
+            "LINKEDIN" => "LINKEDIN",
+            _ => null
+        };
+        return provider switch
+        {
+            "GOOGLE" => Google(platformCode.Trim().ToUpperInvariant(), clientId, clientSecret),
+            "META" => Pair(
+                clientId,
+                clientSecret,
                 "https://www.facebook.com/v21.0/dialog/oauth",
                 "https://graph.facebook.com/v21.0/oauth/access_token",
                 "pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish,public_profile"),
             "LINKEDIN" => Pair(
-                configuration["Connections:LinkedIn:ClientId"],
-                configuration["Connections:LinkedIn:ClientSecret"],
+                clientId,
+                clientSecret,
                 "https://www.linkedin.com/oauth/v2/authorization",
                 "https://www.linkedin.com/oauth/v2/accessToken",
                 "openid profile w_member_social"),
+            _ => null
+        };
+    }
+
+    public static OAuthApp? TryGet(
+        string platformCode,
+        string? googleId,
+        string? googleSecret,
+        string? metaId,
+        string? metaSecret,
+        string? linkedInId,
+        string? linkedInSecret)
+    {
+        var code = platformCode.Trim().ToUpperInvariant();
+        return code switch
+        {
+            "GOOGLE" or "SEARCH_CONSOLE" or "YOUTUBE" or "GOOGLE_ADS" or "GOOGLE_ANALYTICS" => Google(code, googleId, googleSecret),
+            "FACEBOOK" or "INSTAGRAM" => TryGet(code, metaId, metaSecret),
+            "LINKEDIN" => TryGet(code, linkedInId, linkedInSecret),
             _ => null
         };
     }
@@ -40,7 +74,7 @@ public static class OfficialOAuthCatalog
             _ => null
         };
 
-    private static OAuthApp? Google(string platform, IConfiguration configuration)
+    private static OAuthApp? Google(string platform, string? clientId, string? clientSecret)
     {
         var scopes = platform switch
         {
@@ -51,8 +85,8 @@ public static class OfficialOAuthCatalog
             _ => "openid email https://www.googleapis.com/auth/business.manage"
         };
         return Pair(
-            configuration["Connections:Google:ClientId"],
-            configuration["Connections:Google:ClientSecret"],
+            clientId,
+            clientSecret,
             "https://accounts.google.com/o/oauth2/v2/auth",
             "https://oauth2.googleapis.com/token",
             scopes);
@@ -69,41 +103,50 @@ public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker, ILiveTok
     private static readonly TimeSpan RefreshSkew = TimeSpan.FromMinutes(2);
     private readonly IHttpClientFactory _http;
     private readonly IConfiguration _configuration;
+    private readonly IHttpContextAccessor? _httpContext;
+    private readonly IOfficialOAuthApps? _apps;
 
-    public OfficialOAuthBroker(IHttpClientFactory http, IConfiguration configuration)
+    public OfficialOAuthBroker(
+        IHttpClientFactory http,
+        IConfiguration configuration,
+        IHttpContextAccessor? httpContext = null,
+        IOfficialOAuthApps? apps = null)
     {
         _http = http;
         _configuration = configuration;
+        _httpContext = httpContext;
+        _apps = apps;
     }
 
     public Task<AuthorizationStart> StartAsync(PlatformConnection connection, IPlatformAdapter adapter, CancellationToken cancellationToken)
     {
-        var app = OfficialOAuthCatalog.TryGet(connection.PlatformCode, _configuration);
+        var app = App(connection.PlatformCode);
         if (app is not null)
         {
             var redirect = RedirectUri();
+            var popup = connection.PlatformCode is "FACEBOOK" or "INSTAGRAM" ? "&display=popup" : string.Empty;
             var url =
                 $"{app.AuthorizeUrl}?response_type=code&client_id={Uri.EscapeDataString(app.ClientId)}" +
                 $"&redirect_uri={Uri.EscapeDataString(redirect)}" +
                 $"&scope={Uri.EscapeDataString(app.Scopes)}" +
                 $"&state={Uri.EscapeDataString(connection.AuthorizationState ?? string.Empty)}" +
-                "&access_type=offline&prompt=consent";
+                "&access_type=offline&prompt=consent" +
+                popup;
             return Task.FromResult(new AuthorizationStart(url, false));
         }
 
-        if (!string.IsNullOrWhiteSpace(OfficialOAuthCatalog.ApiKey(connection.PlatformCode, _configuration)) ||
+        if (!string.IsNullOrWhiteSpace((_apps?.ApiKey(connection.PlatformCode) ?? OfficialOAuthCatalog.ApiKey(connection.PlatformCode, _configuration))) ||
             adapter.Describe().AuthMode == PlatformAuthMode.Assisted)
         {
             return Task.FromResult(new AuthorizationStart(string.Empty, true));
         }
 
-        var fallback = $"/v1/connections/callback?state={Uri.EscapeDataString(connection.AuthorizationState!)}&code=development";
-        return Task.FromResult(new AuthorizationStart(fallback, false));
+        return Task.FromResult(new AuthorizationStart(string.Empty, false));
     }
 
     public async Task CompleteAsync(PlatformConnection connection, string? code, CancellationToken cancellationToken)
     {
-        var app = OfficialOAuthCatalog.TryGet(connection.PlatformCode, _configuration);
+        var app = App(connection.PlatformCode);
         if (app is not null && !string.Equals(code, "development", StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(code))
@@ -116,7 +159,7 @@ public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker, ILiveTok
             return;
         }
 
-        var apiKey = OfficialOAuthCatalog.ApiKey(connection.PlatformCode, _configuration);
+        var apiKey = _apps?.ApiKey(connection.PlatformCode) ?? OfficialOAuthCatalog.ApiKey(connection.PlatformCode, _configuration);
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
             connection.AttachLiveGrant("ApiKey", connection.PlatformCode.ToLowerInvariant(), connection.PlatformCode, apiKey, null, null, connection.PlatformCode);
@@ -129,14 +172,7 @@ public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker, ILiveTok
             return;
         }
 
-        if (connection.AuthMode != PlatformAuthMode.Assisted &&
-            !string.Equals(code, "development", StringComparison.OrdinalIgnoreCase))
-        {
-            connection.MarkError("Authorization code was not a development grant, and official OAuth is not configured.");
-            return;
-        }
-
-        connection.MarkConnected("Development", Guid.NewGuid().ToString("N")[..16], $"Development · {connection.PlatformCode}");
+        connection.MarkError("Sign in on the official platform to connect. A development grant is not accepted.");
     }
 
     public async Task EnsureFreshAsync(PlatformConnection connection, CancellationToken cancellationToken)
@@ -163,7 +199,7 @@ public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker, ILiveTok
             return;
         }
 
-        var app = OfficialOAuthCatalog.TryGet(connection.PlatformCode, _configuration);
+        var app = App(connection.PlatformCode);
         if (app is null)
         {
             connection.MarkNeedsReauth("Official OAuth is not configured on this host. The stored token cannot be refreshed.");
@@ -228,6 +264,16 @@ public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker, ILiveTok
             return;
         }
 
+        if (connection.PlatformCode is "FACEBOOK" or "INSTAGRAM")
+        {
+            var exchanged = await TryMetaLongLivedAsync(app, access, cancellationToken);
+            if (exchanged is not null)
+            {
+                access = exchanged.Value.Access;
+                expires = exchanged.Value.Expires;
+            }
+        }
+
         var account = await TryIdentityAsync(connection.PlatformCode, access, cancellationToken)
             ?? connection.PlatformCode;
         connection.AttachLiveGrant(
@@ -239,6 +285,38 @@ public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker, ILiveTok
             expires,
             scope);
     }
+
+    private async Task<(string Access, DateTimeOffset? Expires)?> TryMetaLongLivedAsync(
+        OAuthApp app,
+        string shortLived,
+        CancellationToken cancellationToken)
+    {
+        var url =
+            "https://graph.facebook.com/v21.0/oauth/access_token" +
+            $"?grant_type=fb_exchange_token&client_id={Uri.EscapeDataString(app.ClientId)}" +
+            $"&client_secret={Uri.EscapeDataString(app.ClientSecret)}" +
+            $"&fb_exchange_token={Uri.EscapeDataString(shortLived)}";
+        try
+        {
+            using var response = await _http.CreateClient("official-platforms").GetAsync(url, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode ||
+                !TryReadAccessToken(body, app.Scopes, out var access, out _, out var expires, out _) ||
+                string.IsNullOrWhiteSpace(access))
+            {
+                return null;
+            }
+
+            return (access, expires);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return null;
+        }
+    }
+
+    private OAuthApp? App(string platformCode) =>
+        _apps?.Resolve(platformCode) ?? OfficialOAuthCatalog.TryGet(platformCode, _configuration);
 
     private async Task<string?> TryIdentityAsync(string platformCode, string accessToken, CancellationToken cancellationToken)
     {
@@ -308,6 +386,30 @@ public sealed class OfficialOAuthBroker : IPlatformAuthorizationBroker, ILiveTok
         }
     }
 
-    private string RedirectUri() =>
-        _configuration["Connections:RedirectUri"] ?? "http://localhost:5088/v1/connections/callback";
+    private string RedirectUri()
+    {
+        if (_apps is not null)
+        {
+            return _apps.RedirectUri();
+        }
+
+        var configured = _configuration["Connections:RedirectUri"];
+        var request = _httpContext?.HttpContext?.Request;
+        if (request is not null)
+        {
+            var fromRequest = $"{request.Scheme}://{request.Host}/v1/connections/callback";
+            if (string.IsNullOrWhiteSpace(configured))
+            {
+                return fromRequest;
+            }
+
+            var configuredIsLocal = configured.Contains("localhost", StringComparison.OrdinalIgnoreCase);
+            var requestIsLocal = request.Host.Host is "localhost" or "127.0.0.1";
+            return configuredIsLocal && !requestIsLocal ? fromRequest : configured;
+        }
+
+        return string.IsNullOrWhiteSpace(configured)
+            ? "http://localhost:5088/v1/connections/callback"
+            : configured;
+    }
 }

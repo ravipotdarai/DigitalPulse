@@ -21,6 +21,10 @@ public static class ConnectionEndpoints
         group.MapDelete("/{connectionId:guid}", DisconnectAsync);
 
         app.MapGet("/v1/connections/callback", CallbackAsync).WithTags("Connections").AllowAnonymous();
+        var oauth = app.MapGroup("/v1/connections/oauth-apps").WithTags("Connections").RequireAuthorization();
+        oauth.MapGet("/", (GetOfficialOAuthAppsHandler handler) => TypedResults.Ok(handler.Handle()));
+        oauth.MapPut("/", async (SaveOfficialOAuthAppsRequest request, SaveOfficialOAuthAppsHandler handler, CancellationToken cancellationToken) =>
+            TypedResults.Ok(await handler.Handle(request, cancellationToken)));
         return app;
     }
 

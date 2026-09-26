@@ -12,17 +12,46 @@ namespace DigitalPulse.UnitTests;
 public sealed class LivePlatformPathTests
 {
     [Fact]
-    public async Task Official_oauth_falls_back_to_development_without_keys()
+    public async Task Official_oauth_does_not_issue_a_development_grant_without_keys()
     {
         var broker = new OfficialOAuthBroker(new UnusedHttpFactory(), EmptyConfig());
         var connection = PlatformConnection.Start(Guid.NewGuid(), Guid.NewGuid(), "GOOGLE", PlatformAuthMode.OAuth, "state-dev");
         var start = await broker.StartAsync(connection, new GoogleAdapter(new FakeGateway()), CancellationToken.None);
-        Assert.Contains("code=development", start.AuthorizationUrl, StringComparison.Ordinal);
+        Assert.True(string.IsNullOrWhiteSpace(start.AuthorizationUrl));
         Assert.False(start.CompleteInPlace);
 
         await broker.CompleteAsync(connection, "development", CancellationToken.None);
-        Assert.Equal("Development", connection.GrantKind);
+        Assert.NotEqual("Development", connection.GrantKind);
+        Assert.Equal(ConnectionStatus.Error, connection.Status);
         Assert.False(connection.HasLiveCredential);
+        Assert.Contains("official", connection.LastError, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Official_accounts_parse_facebook_pages()
+    {
+        var pages = DigitalPulse.Application.Features.Connections.OfficialAccounts.FacebookPages(
+            """{"data":[{"id":"111","name":"Harbour","access_token":"page-token"}]}""");
+        Assert.Single(pages);
+        Assert.Equal("111", pages[0].Id);
+        Assert.Equal("page-token", pages[0].AccessToken);
+    }
+
+    [Fact]
+    public async Task Official_oauth_opens_facebook_login_when_keys_exist()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Connections:Meta:ClientId"] = "meta-app-id",
+            ["Connections:Meta:ClientSecret"] = "meta-app-secret"
+        }).Build();
+        var broker = new OfficialOAuthBroker(new UnusedHttpFactory(), config);
+        var connection = PlatformConnection.Start(Guid.NewGuid(), Guid.NewGuid(), "FACEBOOK", PlatformAuthMode.OAuth, "state-fb");
+        var start = await broker.StartAsync(connection, new FacebookAdapter(new FakeGateway()), CancellationToken.None);
+        Assert.Contains("facebook.com", start.AuthorizationUrl, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("meta-app-id", start.AuthorizationUrl, StringComparison.Ordinal);
+        Assert.Contains("display=popup", start.AuthorizationUrl, StringComparison.Ordinal);
+        Assert.False(start.CompleteInPlace);
     }
 
     [Fact]

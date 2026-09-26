@@ -16,23 +16,18 @@ public sealed class DevelopmentAuthorizationBroker : IPlatformAuthorizationBroke
             return Task.FromResult(new AuthorizationStart(string.Empty, true));
         }
 
-        var url = $"/v1/connections/callback?state={Uri.EscapeDataString(connection.AuthorizationState!)}&code=development";
-        return Task.FromResult(new AuthorizationStart(url, false));
+        return Task.FromResult(new AuthorizationStart(string.Empty, false));
     }
 
     public Task CompleteAsync(PlatformConnection connection, string? code, CancellationToken cancellationToken)
     {
-        if (connection.AuthMode != PlatformAuthMode.Assisted &&
-            !string.Equals(code, "development", StringComparison.OrdinalIgnoreCase))
+        if (connection.AuthMode == PlatformAuthMode.Assisted)
         {
-            connection.MarkError("Authorization code was not a development grant.");
+            connection.MarkConnected("Assisted", "assisted", "Assisted workspace");
             return Task.CompletedTask;
         }
 
-        var account = connection.AuthMode == PlatformAuthMode.Assisted
-            ? "Assisted workspace"
-            : $"Development · {connection.PlatformCode}";
-        connection.MarkConnected("Development", Guid.NewGuid().ToString("N"), account);
+        connection.MarkError("Sign in on the official platform to connect. A development grant is not accepted.");
         return Task.CompletedTask;
     }
 }

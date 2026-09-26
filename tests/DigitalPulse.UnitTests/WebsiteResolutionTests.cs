@@ -27,6 +27,16 @@ public sealed class WebsiteResolutionTests
         Assert.Contains("harbour.example", about, StringComparison.OrdinalIgnoreCase);
         Assert.False(WebsiteSiteCrawler.TryNormalize(origin, "https://other.example/about", out _));
         Assert.False(WebsiteSiteCrawler.TryNormalize(origin, "mailto:hi@harbour.example", out _));
+        Assert.Null(Record.Exception(() => WebsiteSiteCrawler.TryNormalize(origin, "/files/quote*sheet.pdf", out _)));
+        Assert.False(WebsiteSiteCrawler.TryNormalize(origin, "/brand.jpg", out _));
+    }
+
+    [Fact]
+    public void Html_parse_survives_empty_and_does_not_require_windows_paths()
+    {
+        var signals = HtmlSignalParser.Parse("<html><title>Harbour Coffee</title><h1>Welcome</h1><a href=\"/about\">About</a></html>");
+        Assert.Equal("Harbour Coffee", signals.Title);
+        Assert.Contains("/about*team", HtmlSignalParser.ExtractHrefs("<a href=\"/about*team\">About</a>"));
     }
 
     [Fact]

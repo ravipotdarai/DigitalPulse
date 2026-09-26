@@ -110,7 +110,7 @@ public sealed class GetSocialWorkspaceHandler
         return new SocialWorkspaceResponse(
             channels,
             items.Select(i => i.ToResponse(SocialChannels.AnalyticsLive(connections))).ToList(),
-            "After you log in and approve, DigitalPulse posts the draft — including the attached image or short video — through the official API. Development grants stay on hold. WhatsApp is not a social post.");
+            "After you sign in on the official platform and approve, DigitalPulse posts the draft — including the attached image or short video — through the official API. WhatsApp is not a social post.");
     }
 
 }

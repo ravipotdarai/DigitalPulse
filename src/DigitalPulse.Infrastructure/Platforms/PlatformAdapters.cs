@@ -37,9 +37,9 @@ public abstract class PlatformAdapter : IPlatformAdapter
             return await CallAsync(connection, LiveHealth(connection), "Healthy", "NeedsReauth", cancellationToken);
         }
 
-        if (connection.Status == ConnectionStatus.Connected && connection.GrantKind == "Development")
+        if (connection.GrantKind == "Development")
         {
-            return new PlatformHealthResult("Healthy", "Development grant is present. Official OAuth is not configured for this host.");
+            return new PlatformHealthResult("NeedsReauth", "Sign in on the official platform to connect. A development grant is not a live login.");
         }
 
         if (connection.Status == ConnectionStatus.Connected && connection.GrantKind == "Assisted")

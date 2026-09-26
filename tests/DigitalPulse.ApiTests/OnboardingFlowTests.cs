@@ -263,7 +263,8 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
             new CompleteConnectionRequest("development"));
         completed.EnsureSuccessStatusCode();
         var google = await completed.Content.ReadFromJsonAsync<ConnectionResponse>();
-        Assert.Equal("Connected", google!.Status);
+        Assert.Equal("Error", google!.Status);
+        Assert.Contains("official", google.LastError, StringComparison.OrdinalIgnoreCase);
 
         var health = await _client.PostAsync(
             $"/v1/businesses/{session.BusinessId}/connections/{google.Id}/health", null);
@@ -406,8 +407,8 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
             new CompleteConnectionRequest("development"));
         var withGsc = await _client.PostAsync($"/v1/businesses/{session.BusinessId}/website/analyze", null);
         var gscBody = await withGsc.Content.ReadFromJsonAsync<WebsiteIntelligenceResponse>();
-        Assert.Contains(gscBody!.Observations, o => o.Title.Contains("Search Console snapshot is unavailable", StringComparison.OrdinalIgnoreCase));
-        Assert.Equal("Hold", gscBody.SearchConsole.Status);
+        Assert.Contains(gscBody!.Observations, o => o.Title.Contains("Search Console is not connected", StringComparison.OrdinalIgnoreCase));
+        Assert.NotEqual("Observed", gscBody.SearchConsole.Status);
 
         var search = await _client.GetFromJsonAsync<SiteSearchResponse>($"/v1/businesses/{session.BusinessId}/website/search?q=Welcome");
         Assert.Contains(search!.Hits, h => h.Snippet.Contains("Welcome", StringComparison.OrdinalIgnoreCase));
@@ -488,7 +489,7 @@ public sealed class OnboardingFlowTests : IClassFixture<DigitalPulseApiFactory>
         metrics.EnsureSuccessStatusCode();
         var workspace = await metrics.Content.ReadFromJsonAsync<SocialWorkspaceResponse>();
         Assert.DoesNotContain(workspace!.Channels, c => c.PlatformCode == "WHATSAPP");
-        Assert.Contains(workspace.Channels, c => c.PlatformCode == "FACEBOOK" && c.MetricStatus == "Hold");
+        Assert.Contains(workspace.Channels, c => c.PlatformCode == "FACEBOOK" && (c.MetricStatus == "Hold" || c.MetricStatus == "Unavailable"));
         Assert.DoesNotContain(workspace.Channels, c => c.MetricDetail?.Any(char.IsDigit) == true && c.MetricDetail!.Contains("likes", StringComparison.OrdinalIgnoreCase));
 
         var dashboard = await _client.GetFromJsonAsync<DashboardResponse>("/v1/dashboard");

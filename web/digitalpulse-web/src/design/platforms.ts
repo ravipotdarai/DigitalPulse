@@ -20,12 +20,19 @@ export function monogram(code: string, name: string) {
   return MONOGRAMS[code.toUpperCase()] ?? name.slice(0, 2);
 }
 
+export function isSignedIn(
+  connection?: Pick<PlatformConnection, "status" | "hasLiveCredential" | "grantKind"> | null
+) {
+  if (!connection || connection.grantKind === "Development") return false;
+  return connection.status === "Connected" && (connection.hasLiveCredential || connection.grantKind === "Assisted");
+}
+
 export function linkState(connection?: Pick<PlatformConnection, "status" | "lastHealthStatus" | "hasLiveCredential" | "grantKind"> | null): LinkState {
-  if (!connection) return "idle";
+  if (!connection || connection.grantKind === "Development") return "idle";
   if (connection.status === "Error" || connection.lastHealthStatus === "Error" || connection.lastHealthStatus === "Failing") return "failing";
   if (connection.status === "NeedsReauth" || connection.lastHealthStatus === "Degraded") return "warning";
   if (connection.status === "Connecting") return "syncing";
-  if (connection.status === "Connected" && (connection.hasLiveCredential || connection.grantKind === "Assisted")) return "live";
+  if (isSignedIn(connection)) return "live";
   if (connection.status === "Connected") return "warning";
   return "idle";
 }

@@ -51,6 +51,7 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<CustomerContact> CustomerContacts => Set<CustomerContact>();
     public DbSet<PlatformConnection> Connections => Set<PlatformConnection>();
+    public DbSet<HostOAuthApp> HostOAuthApps => Set<HostOAuthApp>();
     public DbSet<Scan> Scans => Set<Scan>();
     public DbSet<Finding> Findings => Set<Finding>();
     public DbSet<FindingEvidence> FindingEvidence => Set<FindingEvidence>();
