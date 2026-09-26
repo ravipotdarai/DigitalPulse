@@ -29,18 +29,20 @@ public sealed class GetContentHubHandler
 {
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IPlatformAdapterCatalog? _catalog;
 
-    public GetContentHubHandler(IAppDbContext db, ITenantContext tenant)
+    public GetContentHubHandler(IAppDbContext db, ITenantContext tenant, IPlatformAdapterCatalog? catalog = null)
     {
         _db = db;
         _tenant = tenant;
+        _catalog = catalog;
     }
 
     public async Task<ContentHubWorkspace> Handle(Guid businessId, CancellationToken cancellationToken)
     {
         var tenantId = _tenant.RequireTenantId();
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
-        return await ContentComposer.WorkspaceAsync(_db, businessId, cancellationToken);
+        return await ContentComposer.WorkspaceAsync(_db, businessId, cancellationToken, _catalog);
     }
 }
 
@@ -562,11 +564,13 @@ public sealed class DistributeHubContentHandler
 {
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IPlatformAdapterCatalog? _catalog;
 
-    public DistributeHubContentHandler(IAppDbContext db, ITenantContext tenant)
+    public DistributeHubContentHandler(IAppDbContext db, ITenantContext tenant, IPlatformAdapterCatalog? catalog = null)
     {
         _db = db;
         _tenant = tenant;
+        _catalog = catalog;
     }
 
     public Task<HubContentResponse> Handle(Guid businessId, Guid contentId, string providerCode, CancellationToken cancellationToken) =>
@@ -585,7 +589,7 @@ public sealed class DistributeHubContentHandler
             _db, businessId, code, request.LocationId, request.LocationIds, cancellationToken);
         foreach (var location in locations)
         {
-            await ContentDistributionEngine.PlaceAsync(_db, tenantId, businessId, item, code, location, request.IdempotencyKey, cancellationToken);
+            await ContentDistributionEngine.PlaceAsync(_db, tenantId, businessId, item, code, location, request.IdempotencyKey, _catalog, cancellationToken);
         }
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -597,11 +601,13 @@ public sealed class PublishEverywhereHubContentHandler
 {
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IPlatformAdapterCatalog? _catalog;
 
-    public PublishEverywhereHubContentHandler(IAppDbContext db, ITenantContext tenant)
+    public PublishEverywhereHubContentHandler(IAppDbContext db, ITenantContext tenant, IPlatformAdapterCatalog? catalog = null)
     {
         _db = db;
         _tenant = tenant;
+        _catalog = catalog;
     }
 
     public async Task<HubContentResponse> Handle(Guid businessId, Guid contentId, PublishEverywhereRequest request, CancellationToken cancellationToken)
@@ -618,7 +624,7 @@ public sealed class PublishEverywhereHubContentHandler
                 _db, businessId, code, null, request.LocationIds, cancellationToken);
             foreach (var location in locations)
             {
-                await ContentDistributionEngine.PlaceAsync(_db, tenantId, businessId, item, code, location, request.IdempotencyKey, cancellationToken);
+                await ContentDistributionEngine.PlaceAsync(_db, tenantId, businessId, item, code, location, request.IdempotencyKey, _catalog, cancellationToken);
             }
         }
 
@@ -631,11 +637,13 @@ public sealed class RetryHubDistributionHandler
 {
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IPlatformAdapterCatalog? _catalog;
 
-    public RetryHubDistributionHandler(IAppDbContext db, ITenantContext tenant)
+    public RetryHubDistributionHandler(IAppDbContext db, ITenantContext tenant, IPlatformAdapterCatalog? catalog = null)
     {
         _db = db;
         _tenant = tenant;
+        _catalog = catalog;
     }
 
     public async Task<HubContentResponse> Handle(Guid businessId, Guid contentId, Guid distributionId, CancellationToken cancellationToken)
@@ -657,7 +665,7 @@ public sealed class RetryHubDistributionHandler
 
         var link = await _db.Connections.FirstOrDefaultAsync(
             c => c.BusinessId == businessId && c.PlatformCode == row.ProviderCode, cancellationToken);
-        ContentDistributionEngine.ApplyOutcome(row, item, link, row.ProviderCode);
+        await ContentDistributionEngine.ApplyOutcomeAsync(row, item, link, row.ProviderCode, _db, _catalog, cancellationToken);
         _db.OperationsAudits.Add(OperationsAudit.Record(
             tenantId,
             "content.distribute.retry",
@@ -2003,7 +2011,7 @@ internal static class ContentComposer
             cancellationToken);
     }
 
-    public static async Task<ContentHubWorkspace> WorkspaceAsync(IAppDbContext db, Guid businessId, CancellationToken cancellationToken)
+    public static async Task<ContentHubWorkspace> WorkspaceAsync(IAppDbContext db, Guid businessId, CancellationToken cancellationToken, IPlatformAdapterCatalog? catalog = null)
     {
         var items = await db.ContentItems.AsNoTracking()
             .Where(c => c.BusinessId == businessId && (c.ProjectId == null || c.ContentTypeCode == "CASE_STUDY"))
@@ -2052,7 +2060,7 @@ internal static class ContentComposer
             (await db.Projects.AsNoTracking().Where(p => p.BusinessId == businessId).OrderBy(p => p.Name).ToListAsync(cancellationToken))
                 .Select(p => new ContentNamedResponse(p.Id, p.Name, ContentSlug.From(null, p.Name)))
                 .ToList(),
-            await ChannelsAsync(db, businessId, cancellationToken),
+            await ChannelsAsync(db, businessId, catalog, cancellationToken),
             (await db.Locations.AsNoTracking().Where(l => l.BusinessId == businessId).OrderBy(l => l.Name).ToListAsync(cancellationToken))
                 .Select(l => new ContentNamedResponse(l.Id, l.Name, ContentSlug.From(null, l.Name)))
                 .ToList());
@@ -2174,7 +2182,11 @@ internal static class ContentComposer
     private static ContentSeoCheckResponse ToCheck(ContentSeoCheck check) =>
         new(check.Code, check.Label, check.Passed, check.Note);
 
-    private static async Task<IReadOnlyList<HubDistributionChannelResponse>> ChannelsAsync(IAppDbContext db, Guid businessId, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<HubDistributionChannelResponse>> ChannelsAsync(
+        IAppDbContext db,
+        Guid businessId,
+        IPlatformAdapterCatalog? adapters,
+        CancellationToken cancellationToken)
     {
         var links = await db.Connections.AsNoTracking().Where(c => c.BusinessId == businessId).ToListAsync(cancellationToken);
         (string Code, string Mode, string Note)[] catalog =
@@ -2192,13 +2204,31 @@ internal static class ContentComposer
         ];
         return catalog.Select(item =>
         {
+            var adapter = ContentDistributionEngine.Find(adapters, item.Code);
+            var caps = adapter?.Describe().Capabilities;
+            var mode = item.Code == "HUB"
+                ? "Supported"
+                : caps is null
+                    ? item.Mode
+                    : caps.AssistedOnly && !caps.CanPublish && item.Code != "WEBSITE"
+                        ? "Manual"
+                        : caps.CanPublish
+                            ? "Assisted"
+                            : item.Code == "WEBSITE"
+                                ? "Assisted"
+                                : "Manual";
+            var capability = adapter is null
+                ? item.Note
+                : caps is { CanPublish: true, AssistedOnly: false }
+                    ? $"{adapter.Describe().Name} official publish is capability-driven. Live write waits for a confirmed grant and provider response."
+                    : adapter.Describe().Summary;
             var link = links.FirstOrDefault(c => string.Equals(c.PlatformCode, item.Code, StringComparison.OrdinalIgnoreCase));
             var note = item.Code == "HUB"
                 ? item.Note
                 : link is { HasLiveCredential: true }
-                    ? $"{item.Note} Connected. Long-form hub publish is still held; use Social compose for short posts."
-                    : item.Note;
-            return new HubDistributionChannelResponse(item.Code, item.Mode, note);
+                    ? $"{capability} Connected. DigitalPulse still will not invent a posted update."
+                    : capability;
+            return new HubDistributionChannelResponse(item.Code, mode, note);
         }).ToList();
     }
 

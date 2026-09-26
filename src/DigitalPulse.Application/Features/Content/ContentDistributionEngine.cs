@@ -112,6 +112,7 @@ internal static class ContentDistributionEngine
         string providerCode,
         Guid? locationId,
         string? idempotencyKey,
+        IPlatformAdapterCatalog? catalog,
         CancellationToken cancellationToken)
     {
         var code = Normalize(providerCode);
@@ -129,7 +130,7 @@ internal static class ContentDistributionEngine
             cancellationToken);
         var variantId = await MatchVariantAsync(db, item.Id, code, cancellationToken);
         var row = ContentDistribution.Start(tenantId, businessId, item.Id, code, variantId, link?.Id, locationId, key);
-        ApplyOutcome(row, item, link, code);
+        await ApplyOutcomeAsync(row, item, link, code, db, catalog, cancellationToken);
         db.ContentDistributions.Add(row);
         db.OperationsAudits.Add(OperationsAudit.Record(
             tenantId,
@@ -137,7 +138,14 @@ internal static class ContentDistributionEngine
             $"{code} {row.Status} location {(locationId?.ToString("N") ?? "none")} attempts {row.AttemptCount}."));
     }
 
-    public static void ApplyOutcome(ContentDistribution row, ContentItem item, PlatformConnection? link, string code)
+    public static async Task ApplyOutcomeAsync(
+        ContentDistribution row,
+        ContentItem item,
+        PlatformConnection? link,
+        string code,
+        IAppDbContext db,
+        IPlatformAdapterCatalog? catalog,
+        CancellationToken cancellationToken)
     {
         if (code == "HUB")
         {
@@ -156,9 +164,18 @@ internal static class ContentDistributionEngine
             return;
         }
 
-        if (code == "WEBSITE")
+        var adapter = Find(catalog, code);
+        var caps = adapter?.Describe().Capabilities;
+        if (code == "WEBSITE" || caps is { AssistedOnly: true })
         {
-            row.Hold("Customer website publish stays assisted until an official CMS write exists. DigitalPulse will not invent a CMS post.");
+            row.Hold(adapter?.Describe().Summary
+                ?? "Customer website publish stays assisted until an official CMS write exists. DigitalPulse will not invent a CMS post.");
+            return;
+        }
+
+        if (caps is { CanPublish: false })
+        {
+            row.Hold($"{code} does not expose an official publish in this catalog. Distribution stays assisted.");
             return;
         }
 
@@ -168,8 +185,27 @@ internal static class ContentDistributionEngine
             return;
         }
 
-        row.Hold("Official write for long-form hub articles is not confirmed on this provider. Use Social compose for short posts.");
+        if (adapter is null)
+        {
+            row.Hold("Official write for long-form hub articles is not confirmed on this provider. Use Social compose for short posts.");
+            return;
+        }
+
+        var body = await BodyForAsync(db, item, row, cancellationToken);
+        var result = await adapter.PublishAsync(link, item.Title, body, cancellationToken);
+        if (result.Status.Equals("Published", StringComparison.OrdinalIgnoreCase))
+        {
+            row.MarkPublished(result.Detail);
+            return;
+        }
+
+        row.Hold(string.IsNullOrWhiteSpace(result.Detail)
+            ? "Official provider did not confirm publication. DigitalPulse will not invent a post."
+            : result.Detail);
     }
+
+    public static IPlatformAdapter? Find(IPlatformAdapterCatalog? catalog, string code) =>
+        catalog?.All().FirstOrDefault(adapter => string.Equals(adapter.Describe().Code, code, StringComparison.OrdinalIgnoreCase));
 
     public static async Task<ContentDistribution> RequireRowAsync(
         IAppDbContext db,
@@ -195,6 +231,21 @@ internal static class ContentDistributionEngine
         }
 
         return row;
+    }
+
+    private static async Task<string> BodyForAsync(IAppDbContext db, ContentItem item, ContentDistribution row, CancellationToken cancellationToken)
+    {
+        if (row.ContentVariantId is Guid variantId)
+        {
+            var variant = await db.ContentVariants.AsNoTracking().FirstOrDefaultAsync(v => v.Id == variantId, cancellationToken);
+            if (variant is not null && !string.IsNullOrWhiteSpace(variant.Body))
+            {
+                return variant.Body;
+            }
+        }
+
+        var excerpt = string.IsNullOrWhiteSpace(item.Excerpt) ? item.Title : item.Excerpt;
+        return excerpt.Length <= 240 ? excerpt : excerpt[..240];
     }
 
     private static async Task<Guid?> MatchVariantAsync(IAppDbContext db, Guid contentItemId, string code, CancellationToken cancellationToken)

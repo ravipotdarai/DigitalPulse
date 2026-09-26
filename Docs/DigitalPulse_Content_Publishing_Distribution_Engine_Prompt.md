@@ -1540,7 +1540,7 @@ This should become a continuous improvement loop rather than a one-time publishi
 
 # 41. IMPLEMENTATION ORDER
 
-**Overall: 30% (3/10 phases).**
+**Overall: 40% (4/10 phases).**
 
 Implement in this order:
 
@@ -1556,7 +1556,7 @@ Inspected 2026-09-26 against the live tree (CodeGraph). Content Hub already owns
 | Canonical ContentItem | Existing | `ContentItem`, hub CRUD | Keep as source | Content Hub Phase 2 |
 | Platform variants | Existing | `CreateHubVariantsHandler` | Keep distinct packs | Phase 9 |
 | Hub publication | Existing | `PublishHubContentHandler`, public hub | Keep | Phase 12 |
-| Website publication | Partial | `WebsiteAdapter` Assisted, no CMS write | Add WEBSITE channel; hold unless official write exists | Phase D |
+| Website publication | Existing | `WEBSITE` channel + Assisted adapter | CMS write only if official adapter confirms | — |
 | Assisted/Manual fallback | Existing | `DistributeHubContentHandler.Hold` | Keep honest hold | Phase 11 |
 | GBP first-class | Partial | Social Google + adapter `LivePublish` | Location-aware distributions + dedicated UI | Phase C/F |
 | Google capability real | Existing | Adapter returns null without `locations/` | Do not hard-code success | LivePlatformPathTests |
@@ -1567,7 +1567,7 @@ Inspected 2026-09-26 against the live tree (CodeGraph). Content Hub already owns
 | Google official publish | Existing | `GoogleAdapter.LivePublish` | Call only with live location path; never fake Published | Phase D |
 | Google verification | Partial | `VerificationStatus` on distribution | Official confirm before Verified | Phase C/D |
 | Multi-location | Existing | one `ContentDistribution` per location | Dedicated GBP preview | Phase F |
-| LinkedIn/FB/IG/YT capability | Existing | adapters + Assisted hold | Capability-driven distribute | Phase D |
+| LinkedIn/FB/IG/YT capability | Existing | catalog + `PublishAsync` | Keep | — |
 | WhatsApp consent | Existing | WhatsApp Cloud API + opt-in | Keep out of generic social post | WhatsApp handlers |
 | Publish Everywhere | Existing | `PublishEverywhereHubContentHandler` | UI button | Phase F |
 | Scheduling / calendar | Existing | `ContentCalendarEntry`, ContentPage | Worker release due rows | Phase G |
@@ -1603,9 +1603,12 @@ Implemented:
 - plan entitlement before fan-out;
 - `OperationsAudit` on distribute/retry/cancel/verify.
 
-## Phase D — Provider Adapters
+## Phase D — completed (100%)
+Provider Adapters
 
-Implement official provider capabilities.
+Distribution now consults `IPlatformAdapterCatalog`. Official `PublishAsync` runs only when the adapter can publish and a live grant exists. Published is recorded only when the adapter returns `Published`.
+
+Prioritize:
 
 Prioritize:
 
@@ -1682,10 +1685,10 @@ The feature is complete only when all are true:
 - [x] Google publication is not falsely marked successful.
 - [x] Google verification is implemented where supported.
 - [x] Multi-location publication tracks each location independently.
-- [ ] LinkedIn distribution is capability-driven.
-- [ ] Facebook distribution is capability-driven.
-- [ ] Instagram distribution is capability-driven.
-- [ ] YouTube distribution is capability-driven.
+- [x] LinkedIn distribution is capability-driven.
+- [x] Facebook distribution is capability-driven.
+- [x] Instagram distribution is capability-driven.
+- [x] YouTube distribution is capability-driven.
 - [x] WhatsApp distribution is capability-driven and consent-aware.
 - [x] Publish Everywhere workflow works.
 - [x] Scheduling works.
