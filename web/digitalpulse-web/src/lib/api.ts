@@ -924,7 +924,7 @@ export type ContentCalendarItem = {
   channel: string;
 };
 export type ContentNamed = { id: string; name: string; slug: string };
-export type ContentMetricRow = { providerCode: string; metricDate: string; views: number | null; detail: string };
+export type ContentMetricRow = { providerCode: string; metricDate: string; views: number | null; detail: string; clicks?: number | null; engagements?: number | null; leads?: number | null; conversions?: number | null; contentItemId?: string | null };
 export type ContentHubWorkspace = {
   types: ContentTypeOption[];
   items: HubContentSummary[];

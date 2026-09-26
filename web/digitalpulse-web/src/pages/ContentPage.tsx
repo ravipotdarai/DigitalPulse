@@ -1170,20 +1170,39 @@ function DistributionDesk({
 }
 
 function AnalyticsDesk({ data }: { data: ContentHubWorkspace }) {
+  const published = data.items.filter((item) => item.status === "Published");
+  const viewed = data.metrics.filter((item) => item.views != null);
+  const top = [...viewed].sort((a, b) => (b.views ?? 0) - (a.views ?? 0)).slice(0, 5);
+  const under = published.filter((item) => !data.metrics.some((metric) => metric.contentItemId === item.id && metric.views != null));
   return (
     <article className="panel">
-      <h2>Analytics</h2>
-      <p className="ink-muted">Rows appear only after publish or an official provider returns views. Empty views are a hold, not a zero invented for the chart.</p>
+      <h2>Content performance</h2>
+      <p className="ink-muted">Published {published.length}. Official metric rows {viewed.length}. Empty views are a hold, not an invented 4,820.</p>
       <DataGrid
         noun="metric"
-        empty="Publish an article first. Views stay blank until a provider returns them."
-        columns={["Provider", "Date", "Views", "Detail"]}
+        empty="No official provider has returned views, clicks, or leads yet."
+        columns={["Provider", "Date", "Views", "Clicks", "Leads", "Detail"]}
         rows={data.metrics.map((item, index) => ({
           id: `${item.providerCode}-${item.metricDate}-${index}`,
           search: `${item.providerCode} ${item.detail}`.toLowerCase(),
-          cells: [item.providerCode, item.metricDate, item.views ?? "—", item.detail]
+          cells: [item.providerCode, item.metricDate, item.views ?? "—", item.clicks ?? "—", item.leads ?? "—", item.detail]
         }))}
       />
+      <h3>Top content</h3>
+      {top.length === 0 ? <p className="ink-muted">Top content stays empty until an official provider returns views.</p> : (
+        <ul className="stack-list">{top.map((item) => <li key={`${item.providerCode}-${item.metricDate}`}>{item.detail || item.providerCode}: {item.views} views</li>)}</ul>
+      )}
+      <h3>Underperforming</h3>
+      {under.length === 0 ? <p className="ink-muted">No published article is waiting on official metrics.</p> : (
+        <ul className="stack-list">{under.map((item) => <li key={item.id}>{item.title} — no official views yet</li>)}</ul>
+      )}
+      <h3>Growing topics</h3>
+      <p className="ink-muted">These are coverage gaps from stored ideas, not search-volume growth.</p>
+      <ul className="stack-list">
+        {data.opportunities.length === 0 ? <li>Discover ideas first. Growth is not invented.</li> : data.opportunities.slice(0, 5).map((item) => (
+          <li key={item.id}>{item.topic} · coverage {item.coverageScore ?? "—"}</li>
+        ))}
+      </ul>
     </article>
   );
 }

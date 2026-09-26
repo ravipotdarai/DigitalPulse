@@ -2003,6 +2003,6 @@ internal static class ContentComposer
             .OrderByDescending(m => m.MetricDate)
             .Take(40)
             .ToListAsync(cancellationToken);
-        return rows.Select(m => new ContentMetricResponse(m.ProviderCode, m.MetricDate, m.Views, m.Detail)).ToList();
+        return rows.Select(m => new ContentMetricResponse(m.ProviderCode, m.MetricDate, m.Views, m.Detail, m.Clicks, m.Engagements, m.Leads, m.Conversions, m.ContentItemId)).ToList();
     }
 }

@@ -33,7 +33,16 @@ public sealed record ContentVariantHubResponse(Guid Id, string Kind, string Titl
 
 public sealed record ContentDistributionResponse(Guid Id, string ProviderCode, string Status, string? FailureReason, DateTimeOffset? PublishedAtUtc);
 
-public sealed record ContentMetricResponse(string ProviderCode, DateOnly MetricDate, long? Views, string Detail);
+public sealed record ContentMetricResponse(
+    string ProviderCode,
+    DateOnly MetricDate,
+    long? Views,
+    string Detail,
+    long? Clicks = null,
+    long? Engagements = null,
+    long? Leads = null,
+    long? Conversions = null,
+    Guid? ContentItemId = null);
 
 public sealed record ContentMediaResponse(Guid Id, Guid MediaAssetId, string Role, int DisplayOrder, string? Label, string? SourceUrl);
 
