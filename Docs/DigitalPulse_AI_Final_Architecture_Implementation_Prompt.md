@@ -1787,7 +1787,7 @@ Create ADRs for significant decisions such as:
 
 # 47. IMPLEMENTATION ORDER
 
-**Overall: 10% (1/10 phases).**
+**Overall: 20% (2/10 phases).**
 
 Implement in this order after auditing existing code.
 
@@ -1841,7 +1841,8 @@ Inspected 2026-09-26 against the live DigitalPulse tree (CodeGraph + source). Fe
 - Do not invent Search Console volume, views, or unofficial scrapes inside agents.
 - TypeSafe/Jev is not a live provider in this repo; do not wire it as production intelligence.
 
-## Phase 2 — Provider Abstraction
+## Phase 2 — completed (100%)
+Provider Abstraction
 
 Implement/complete:
 
@@ -1947,8 +1948,8 @@ The AI architecture is complete only when all applicable items are PASS:
 - [x] AI provider abstraction exists.
 - [x] Feature modules do not directly call vendor SDKs.
 - [x] OpenAI integration is provider-isolated.
-- [ ] Azure OpenAI integration is provider-isolated where configured.
-- [ ] Provider selection is configurable.
+- [x] Azure OpenAI integration is provider-isolated where configured.
+- [x] Provider selection is configurable.
 - [ ] Model selection is server-controlled.
 - [x] Secrets are protected.
 - [ ] AI Orchestrator is implemented.
@@ -1970,7 +1971,7 @@ The AI architecture is complete only when all applicable items are PASS:
 - [x] Usage metering exists.
 - [x] AI entitlement enforcement exists.
 - [ ] Token/cost controls exist.
-- [ ] Retry handling exists.
+- [x] Retry handling exists.
 - [x] Timeout/cancellation exists.
 - [ ] Background execution exists where required.
 - [x] Observability exists.

@@ -68,14 +68,37 @@ public static class DependencyInjection
         services.AddSingleton<ILiveTokenRefresher>(sp => sp.GetRequiredService<OfficialOAuthBroker>());
         services.AddSingleton<ISearchProvider, InMemorySearchProvider>();
         services.AddSingleton<IVectorSearchProvider, LocalHashVectorSearchProvider>();
+        var timeout = TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue("Ai:TimeoutSeconds", 60), 5, 180));
+        var selected = (configuration["Ai:Provider"] ?? string.Empty).Trim();
         var openAiKey = configuration["Ai:OpenAi:ApiKey"];
-        if (!string.IsNullOrWhiteSpace(openAiKey))
+        var azureKey = configuration["Ai:AzureOpenAi:ApiKey"];
+        var azureEndpoint = configuration["Ai:AzureOpenAi:Endpoint"];
+        var useAzure = selected.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(azureKey)
+            && !string.IsNullOrWhiteSpace(azureEndpoint);
+        var useOpenAi = !useAzure
+            && (string.IsNullOrWhiteSpace(selected) || selected.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+            && !string.IsNullOrWhiteSpace(openAiKey);
+
+        if (useAzure)
         {
-            services.AddHttpClient<IAiProvider, OpenAiProvider>(client =>
+            services.AddHttpClient<AzureOpenAiProvider>(client =>
             {
-                client.Timeout = TimeSpan.FromSeconds(30);
+                client.Timeout = timeout;
                 client.DefaultRequestHeaders.UserAgent.ParseAdd("DigitalPulse-Ai/1.0");
             });
+            services.AddTransient<IAiProvider>(sp =>
+                new RetryingAiProvider(sp.GetRequiredService<AzureOpenAiProvider>(), configuration));
+        }
+        else if (useOpenAi)
+        {
+            services.AddHttpClient<OpenAiProvider>(client =>
+            {
+                client.Timeout = timeout;
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("DigitalPulse-Ai/1.0");
+            });
+            services.AddTransient<IAiProvider>(sp =>
+                new RetryingAiProvider(sp.GetRequiredService<OpenAiProvider>(), configuration));
         }
         else
         {

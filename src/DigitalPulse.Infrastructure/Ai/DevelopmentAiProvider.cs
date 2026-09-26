@@ -1,6 +1,4 @@
 using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
 using DigitalPulse.Application.Abstractions;
 using Microsoft.Extensions.Configuration;
 
@@ -63,13 +61,15 @@ public sealed class DevelopmentAiProvider : IAiProvider
 public sealed class OpenAiProvider : IAiProvider
 {
     private readonly HttpClient _http;
+    private readonly IConfiguration _configuration;
     private readonly string _model;
 
     public OpenAiProvider(HttpClient http, IConfiguration configuration)
     {
         _http = http;
+        _configuration = configuration;
         ProviderName = "OpenAI";
-        _model = configuration["Ai:OpenAi:Model"] ?? "gpt-4o-mini";
+        _model = configuration["Ai:OpenAi:Model"] ?? configuration["Ai:DefaultModel"] ?? "gpt-4o-mini";
         var key = configuration["Ai:OpenAi:ApiKey"];
         if (!string.IsNullOrWhiteSpace(key))
         {
@@ -82,40 +82,9 @@ public sealed class OpenAiProvider : IAiProvider
 
     public async Task<AiCompletionResponse> CompleteAsync(AiCompletionRequest request, CancellationToken cancellationToken)
     {
-        using var payload = new StringContent(JsonSerializer.Serialize(new
-        {
-            model = _model,
-            temperature = 0.2,
-            messages = new object[]
-            {
-                new
-                {
-                    role = "system",
-                    content = "You are a DigitalPulse agent. Use only the supplied evidence. Never invent facts. Never publish restricted facts. If evidence conflicts, say so and ask for review."
-                },
-                new { role = "user", content = request.Prompt }
-            }
-        }), Encoding.UTF8, "application/json");
-
+        var model = request.Model ?? _model;
+        using var payload = ChatCompletions.Request(_configuration, request, model);
         using var response = await _http.PostAsync("https://api.openai.com/v1/chat/completions", payload, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            return new AiCompletionResponse(
-                $"OpenAI returned {(int)response.StatusCode}. The run stays held. DigitalPulse did not invent a completion.",
-                ProviderName,
-                false);
-        }
-
-        using var doc = JsonDocument.Parse(body);
-        var text = doc.RootElement
-            .GetProperty("choices")[0]
-            .GetProperty("message")
-            .GetProperty("content")
-            .GetString();
-        return new AiCompletionResponse(
-            string.IsNullOrWhiteSpace(text) ? "The provider returned an empty completion." : text.Trim(),
-            ProviderName,
-            true);
+        return await ChatCompletions.ReadAsync(response, ProviderName, model, cancellationToken);
     }
 }

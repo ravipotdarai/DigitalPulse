@@ -6,9 +6,17 @@ public sealed record AiCompletionRequest(
     string AgentCode,
     string Prompt,
     IReadOnlyList<AiEvidence> Evidence,
-    IReadOnlyList<string> GraphContext);
+    IReadOnlyList<string> GraphContext,
+    string? Model = null,
+    int? MaxOutputTokens = null);
 
-public sealed record AiCompletionResponse(string Output, string ProviderName, bool IsLive);
+public sealed record AiCompletionResponse(
+    string Output,
+    string ProviderName,
+    bool IsLive,
+    string? Model = null,
+    int? PromptTokens = null,
+    int? CompletionTokens = null);
 
 public interface IAiProvider
 {
