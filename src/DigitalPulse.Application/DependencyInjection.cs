@@ -119,6 +119,7 @@ public static class DependencyInjection
         services.AddScoped<GetContentHubHandler>();
         services.AddScoped<GetHubContentHandler>();
         services.AddScoped<CreateHubContentHandler>();
+        services.AddScoped<CreateHubCaseStudyHandler>();
         services.AddScoped<UpdateHubContentHandler>();
         services.AddScoped<DeleteHubContentHandler>();
         services.AddScoped<ApproveHubContentHandler>();

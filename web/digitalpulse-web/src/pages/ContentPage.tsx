@@ -359,6 +359,7 @@ function ContentStudio({
           onRestore={(revisionId) => selectedId && void run(() => api.restoreHubRevision(businessId, selectedId, revisionId), "Restored that revision as a new draft.")}
           onCancelSchedule={() => selectedId && void run(() => api.cancelHubSchedule(businessId, selectedId), "Schedule cancelled. The article is still approved.")}
           onVariants={() => selectedId && void run(() => api.createHubVariants(businessId, selectedId), "Platform variants drafted. Writes stay on hold without a live grant.")}
+          onCaseStudy={(projectId) => void run(() => api.createHubCaseStudy(businessId, projectId), "Case study assembled from the stored project.")}
           onDelete={() => selectedId && void run(async () => {
             await api.deleteHubContent(businessId, selectedId);
             setDraft(emptyDraft(data.types[0]?.code));
@@ -519,6 +520,7 @@ function HubDesk({
   onRestore,
   onCancelSchedule,
   onVariants,
+  onCaseStudy,
   onDelete,
   onMediaRegistered,
   scheduleAt,
@@ -542,6 +544,7 @@ function HubDesk({
   onRestore: (revisionId: string) => void;
   onCancelSchedule: () => void;
   onVariants: () => void;
+  onCaseStudy: (projectId: string) => void;
   onDelete: () => void;
   onMediaRegistered: () => void;
   scheduleAt: string;
@@ -549,6 +552,7 @@ function HubDesk({
   onSchedule: () => void;
 }) {
   const [mode, setMode] = useState<"write" | "preview">("write");
+  const [projectId, setProjectId] = useState(data.projects?.[0]?.id ?? "");
   const href = selected ? publicHref(selected.businessId, selected) : null;
   const canPublish = selected?.status === "Approved" || selected?.status === "Scheduled";
   const media = data.media ?? [];
@@ -572,6 +576,17 @@ function HubDesk({
       <article className="panel">
         <h2>{selected ? selected.title : "New article"}</h2>
         {selected ? <p className="ink-muted">{selected.sourceNote}</p> : <p className="ink-muted">Save a draft, Approve it, then Publish. Public articles appear at /hub/{businessId} without signing in.</p>}
+        {(data.projects?.length ?? 0) > 0 ? (
+          <div className="row-actions">
+            <SelectField
+              label="Project"
+              value={projectId}
+              onChange={setProjectId}
+              options={(data.projects ?? []).map((item) => ({ value: item.id, label: item.name }))}
+            />
+            <Button appearance="subtle" disabled={busy || !projectId} onClick={() => onCaseStudy(projectId)}>Case study from project</Button>
+          </div>
+        ) : null}
         <AuthorLine />
         {selected ? <PipelineStatus status={selected.status} /> : null}
         <div className="studio-panes" role="tablist" aria-label="Article editor">

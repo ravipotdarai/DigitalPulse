@@ -120,6 +120,72 @@ public sealed class CreateHubContentHandler
     }
 }
 
+public sealed class CreateHubCaseStudyHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+    private readonly ICurrentUser _user;
+    private readonly ISearchProvider _search;
+
+    public CreateHubCaseStudyHandler(IAppDbContext db, ITenantContext tenant, ICurrentUser user, ISearchProvider search)
+    {
+        _db = db;
+        _tenant = tenant;
+        _user = user;
+        _search = search;
+    }
+
+    public async Task<HubContentResponse> Handle(Guid businessId, Guid projectId, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && p.BusinessId == businessId, cancellationToken)
+            ?? throw AppException.NotFound("Project was not found.");
+        var existing = await _db.ContentItems.FirstOrDefaultAsync(
+            c => c.BusinessId == businessId && c.ProjectId == project.Id && c.ContentTypeCode == "CASE_STUDY",
+            cancellationToken);
+        if (existing is not null)
+        {
+            return (await ContentComposer.LoadAsync(_db, businessId, existing.Id, cancellationToken))!;
+        }
+
+        var serviceIds = await _db.ProjectServices.AsNoTracking().Where(l => l.ProjectId == project.Id).Select(l => l.ServiceId).ToListAsync(cancellationToken);
+        var services = await _db.Services.AsNoTracking().Where(s => serviceIds.Contains(s.Id)).Select(s => s.Name).ToListAsync(cancellationToken);
+        var pack = ProjectContentFactory.Build(project, services).First(item => item.Kind == ContentVariantKind.WebsiteCaseStudy);
+        ContentItem item;
+        try
+        {
+            item = ContentItem.Draft(
+                tenantId,
+                businessId,
+                "CASE_STUDY",
+                pack.Title,
+                null,
+                ContentComposer.ExcerptOf(null, pack.Body),
+                pack.Body,
+                ContentVisibility.Private,
+                project.Id,
+                _user.IsAuthenticated ? _user.UserId : null,
+                null,
+                null);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+        {
+            throw AppException.Validation(ex.Message);
+        }
+
+        item.MarkHold("Assembled from the stored project record. Review before approval. Outcomes were not invented.");
+        await ContentComposer.EnsureUniqueSlugAsync(_db, businessId, item.Slug, null, cancellationToken);
+        await ContentComposer.AssignTypeAsync(_db, item, "CASE_STUDY", cancellationToken);
+        _db.ContentItems.Add(item);
+        await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, project.Name, null, null, cancellationToken);
+        ContentComposer.Revise(_db, tenantId, item, 1, "Project case study", _user.IsAuthenticated ? _user.UserId : null);
+        await ContentComposer.IndexAsync(_db, _search, tenantId, item, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+        return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
+    }
+}
+
 public sealed class UpdateHubContentHandler
 {
     private readonly IAppDbContext _db;
@@ -1670,7 +1736,7 @@ internal static class ContentComposer
     public static async Task<ContentHubWorkspace> WorkspaceAsync(IAppDbContext db, Guid businessId, CancellationToken cancellationToken)
     {
         var items = await db.ContentItems.AsNoTracking()
-            .Where(c => c.BusinessId == businessId && c.ProjectId == null)
+            .Where(c => c.BusinessId == businessId && (c.ProjectId == null || c.ContentTypeCode == "CASE_STUDY"))
             .OrderByDescending(c => c.UpdatedAtUtc)
             .ToListAsync(cancellationToken);
         var seo = await db.ContentSeoAnalyses.AsNoTracking()
@@ -1712,7 +1778,10 @@ internal static class ContentComposer
             await MetricsAsync(db, businessId, null, cancellationToken),
             media.Select(m => new HubMediaAssetResponse(m.Id, m.Label, m.Kind.ToString(), ContentHubPaths.DisplayMedia(businessId, m.Id, m.SourceUrl))).ToList(),
             "SEO score is checks passed ÷ checks run. Entity coverage is stored facts, services, and projects named in the article. Analytics stay empty until an official provider returns them.",
-            await EntitiesAsync(db, businessId, cancellationToken));
+            await EntitiesAsync(db, businessId, cancellationToken),
+            (await db.Projects.AsNoTracking().Where(p => p.BusinessId == businessId).OrderBy(p => p.Name).ToListAsync(cancellationToken))
+                .Select(p => new ContentNamedResponse(p.Id, p.Name, ContentSlug.From(null, p.Name)))
+                .ToList());
     }
 
     public static async Task<HubContentResponse?> LoadAsync(IAppDbContext db, Guid businessId, Guid contentId, CancellationToken cancellationToken)

@@ -370,6 +370,8 @@ export const api = {
     request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}`),
   createHubContent: (businessId: string, body: HubContentDraft) =>
     request<HubContent>(`/v1/businesses/${businessId}/content`, { method: "POST", body: JSON.stringify(body) }),
+  createHubCaseStudy: (businessId: string, projectId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/from-project`, { method: "POST", body: JSON.stringify({ projectId }) }),
   updateHubContent: (businessId: string, contentId: string, body: HubContentDraft & { changeSummary?: string | null }) =>
     request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}`, { method: "PUT", body: JSON.stringify(body) }),
   deleteHubContent: (businessId: string, contentId: string) =>
@@ -932,6 +934,7 @@ export type ContentHubWorkspace = {
   media?: HubMediaAsset[];
   note: string;
   entities?: string[];
+  projects?: ContentNamed[];
 };
 export type HubMediaAsset = { id: string; label: string; kind: string; sourceUrl: string | null };
 export type HubAssist = { action: string; suggestion: string; hold: string; providerName: string; isLive: boolean; target: string };

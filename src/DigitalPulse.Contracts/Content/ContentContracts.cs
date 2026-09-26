@@ -103,7 +103,8 @@ public sealed record ContentHubWorkspace(
     IReadOnlyList<ContentMetricResponse> Metrics,
     IReadOnlyList<HubMediaAssetResponse> Media,
     string Note,
-    IReadOnlyList<string> Entities);
+    IReadOnlyList<string> Entities,
+    IReadOnlyList<ContentNamedResponse> Projects);
 
 public sealed record CreateHubContentRequest(
     string ContentTypeCode,
@@ -146,6 +147,7 @@ public sealed record AnalyzeHubSeoRequest(string? FocusKeyword);
 public sealed record DistributeHubContentRequest(string ProviderCode);
 public sealed record DiscoverOpportunitiesRequest();
 public sealed record CreateContentOpportunityRequest(string Topic, string? Description);
+public sealed record CreateHubCaseStudyRequest(Guid ProjectId);
 public sealed record RejectHubContentRequest(string? Note);
 public sealed record AttachHubMediaRequest(Guid MediaAssetId, string Role);
 public sealed record RegisterHubMediaRequest(string Label, string Kind, string SourceUrl);
