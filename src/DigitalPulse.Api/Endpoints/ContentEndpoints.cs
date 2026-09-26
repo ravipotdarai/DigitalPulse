@@ -23,6 +23,7 @@ public static class ContentEndpoints
         group.MapPost("/{contentId:guid}/revisions/{revisionId:guid}/restore", RestoreAsync);
         group.MapPost("/{contentId:guid}/media", AttachMediaAsync);
         group.MapPost("/media", RegisterMediaAsync);
+        group.MapPost("/media/upload", UploadMediaAsync).DisableAntiforgery();
         group.MapPost("/calendar/release", ReleaseAsync);
         group.MapPost("/{contentId:guid}/seo", AnalyzeAsync);
         group.MapPost("/{contentId:guid}/variants", VariantsAsync);
@@ -31,6 +32,7 @@ public static class ContentEndpoints
         group.MapPost("/generate", GenerateAsync);
 
         app.MapGet("/v1/hub/{businessId:guid}", GetPublicIndexAsync).WithTags("Content").AllowAnonymous();
+        app.MapGet("/v1/hub/{businessId:guid}/media/{assetId:guid}", GetPublicMediaAsync).WithTags("Content").AllowAnonymous();
         app.MapGet("/v1/hub/{businessId:guid}/{slug}", GetPublicAsync).WithTags("Content").AllowAnonymous();
         return app;
     }
@@ -81,6 +83,29 @@ public static class ContentEndpoints
     private static async Task<Ok<HubMediaAssetResponse>> RegisterMediaAsync(
         Guid businessId, RegisterHubMediaRequest request, RegisterHubMediaHandler handler, CancellationToken cancellationToken) =>
         TypedResults.Ok(await handler.Handle(businessId, request, cancellationToken));
+
+    private static async Task<Ok<HubMediaAssetResponse>> UploadMediaAsync(
+        Guid businessId,
+        IFormFile file,
+        UploadHubMediaHandler handler,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = file.OpenReadStream();
+        return TypedResults.Ok(await handler.Handle(
+            businessId,
+            file.FileName,
+            file.ContentType ?? string.Empty,
+            file.Length,
+            stream,
+            cancellationToken));
+    }
+
+    private static async Task<IResult> GetPublicMediaAsync(
+        Guid businessId, Guid assetId, GetHubMediaFileHandler handler, CancellationToken cancellationToken)
+    {
+        var file = await handler.Handle(businessId, assetId, cancellationToken);
+        return Results.File(file.Bytes, file.ContentType, file.FileName);
+    }
 
     private static async Task<Ok<HubContentResponse>> ScheduleAsync(
         Guid businessId, Guid contentId, ScheduleHubContentRequest request, ScheduleHubContentHandler handler, CancellationToken cancellationToken) =>

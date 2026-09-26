@@ -18,7 +18,15 @@ public sealed record ContentSeoResult(
 
 public static class ContentSeo
 {
-    public static ContentSeoResult Evaluate(string title, string excerpt, string body, string? focusKeyword, string? canonicalUrl, string? slug = null)
+    public static ContentSeoResult Evaluate(
+        string title,
+        string excerpt,
+        string body,
+        string? focusKeyword,
+        string? canonicalUrl,
+        string? slug = null,
+        string? metaTitle = null,
+        string? metaDescription = null)
     {
         var notes = new List<string>();
         var heading = title.Trim();
@@ -61,10 +69,16 @@ public static class ContentSeo
                 ? "Commercial"
                 : "Informational";
 
-        var metaTitle = heading.Length <= 60 ? heading : heading[..60];
-        var metaDescription = blurb.Length >= 40
-            ? (blurb.Length <= 160 ? blurb : blurb[..160])
-            : (text.Length <= 160 ? text : text[..160]);
+        var storedTitle = string.IsNullOrWhiteSpace(metaTitle)
+            ? (heading.Length <= 60 ? heading : heading[..60])
+            : metaTitle.Trim();
+        var storedDescription = string.IsNullOrWhiteSpace(metaDescription)
+            ? (blurb.Length >= 40
+                ? (blurb.Length <= 160 ? blurb : blurb[..160])
+                : (text.Length <= 160 ? text : text[..160]))
+            : metaDescription.Trim();
+        if (storedTitle.Length is < 12 or > 70) notes.Add("Meta title should be 12–70 characters.");
+        if (storedDescription.Length is < 40 or > 160) notes.Add("Meta description should be 40–160 characters.");
 
         var readability = avg is >= 8 and <= 24 ? 100 : 0;
         var aeo = HasAnswerStructure(text) ? 100 : 0;
@@ -82,8 +96,8 @@ public static class ContentSeo
             passed,
             total,
             total == 0 ? 0 : (int)Math.Round(100d * passed / total),
-            metaTitle,
-            metaDescription,
+            storedTitle,
+            storedDescription,
             notes,
             readability,
             aeo,

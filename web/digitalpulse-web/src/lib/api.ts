@@ -390,6 +390,19 @@ export const api = {
     request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/media`, { method: "POST", body: JSON.stringify({ mediaAssetId, role }) }),
   registerHubMedia: (businessId: string, body: { label: string; kind: string; sourceUrl: string }) =>
     request<HubMediaAsset>(`/v1/businesses/${businessId}/content/media`, { method: "POST", body: JSON.stringify(body) }),
+  uploadHubMedia: async (businessId: string, file: File) => {
+    const token = getStoredToken();
+    const body = new FormData();
+    body.append("file", file);
+    const headers = new Headers();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(`/v1/businesses/${businessId}/content/media/upload`, { method: "POST", headers, body });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new ApiError(response.status, typeof payload.title === "string" ? payload.title : "The image could not be stored.");
+    }
+    return payload as HubMediaAsset;
+  },
   archiveHubContent: (businessId: string, contentId: string) =>
     request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/archive`, { method: "POST" }),
   releaseHubCalendar: (businessId: string) =>
@@ -948,6 +961,8 @@ export type HubContentDraft = {
   categories?: string[];
   tags?: string[];
   featuredMediaAssetId?: string | null;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
 };
 export type PublicHubArticle = {
   businessName: string;

@@ -130,6 +130,8 @@ public static class DependencyInjection
         services.AddScoped<RestoreHubRevisionHandler>();
         services.AddScoped<AttachHubMediaHandler>();
         services.AddScoped<RegisterHubMediaHandler>();
+        services.AddScoped<UploadHubMediaHandler>();
+        services.AddScoped<GetHubMediaFileHandler>();
         services.AddScoped<ReleaseScheduledHubContentHandler>();
         services.AddScoped<AnalyzeHubSeoHandler>();
         services.AddScoped<CreateHubVariantsHandler>();

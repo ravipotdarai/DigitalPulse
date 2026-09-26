@@ -52,6 +52,24 @@ public static class ContentHubPaths
         status == ContentItemStatus.Published && visibility == ContentVisibility.Public
             ? $"/hub/{businessId:D}/{slug}"
             : $"hub://{contentId:N}";
+
+    public static string PublicMedia(Guid businessId, Guid assetId) =>
+        $"/v1/hub/{businessId:D}/media/{assetId:D}";
+
+    public static string? DisplayMedia(Guid businessId, Guid? assetId, string? sourceUrl)
+    {
+        if (assetId is null) return null;
+        var value = sourceUrl?.Trim();
+        if (string.IsNullOrWhiteSpace(value)) return PublicMedia(businessId, assetId.Value);
+        if (value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("/v1/hub/", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("/hub/", StringComparison.OrdinalIgnoreCase))
+        {
+            return value;
+        }
+
+        return PublicMedia(businessId, assetId.Value);
+    }
 }
 
 public static class ContentSlug

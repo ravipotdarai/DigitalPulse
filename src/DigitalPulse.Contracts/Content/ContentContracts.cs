@@ -110,7 +110,9 @@ public sealed record CreateHubContentRequest(
     string? CanonicalUrl,
     IReadOnlyList<string>? Categories,
     IReadOnlyList<string>? Tags,
-    Guid? FeaturedMediaAssetId = null);
+    Guid? FeaturedMediaAssetId = null,
+    string? MetaTitle = null,
+    string? MetaDescription = null);
 
 public sealed record UpdateHubContentRequest(
     string ContentTypeCode,
@@ -125,7 +127,9 @@ public sealed record UpdateHubContentRequest(
     string? ChangeSummary,
     IReadOnlyList<string>? Categories,
     IReadOnlyList<string>? Tags,
-    Guid? FeaturedMediaAssetId = null);
+    Guid? FeaturedMediaAssetId = null,
+    string? MetaTitle = null,
+    string? MetaDescription = null);
 
 public sealed record ScheduleHubContentRequest(DateTimeOffset ScheduledAtUtc, string? Channel);
 public sealed record GenerateHubContentRequest(string? OpportunityId, string Prompt);

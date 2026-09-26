@@ -1,13 +1,15 @@
-import { Textarea } from "@fluentui/react-components";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ApiError, api, type BusinessResponse, type ContentHubWorkspace, type HubContent, type HubContentDraft, type HubContentSummary, type HubMediaAsset } from "../lib/api";
 import { HubArticleView } from "../components/HubArticleView";
+import { HubRichEditor } from "../components/HubRichEditor";
+import { liveHubSeo } from "../lib/hubSeo";
 import { PageState } from "../components/PageState";
 import { Button } from "../design/Button";
 import { DataGrid } from "../design/DataGrid";
 import { AreaField, Field, SelectField } from "../design/Field";
+import { useSession } from "../state/session";
 
 const PANES = [
   ["overview", "Overview"],
@@ -42,7 +44,9 @@ function emptyDraft(type = "ARTICLE"): HubContentDraft {
     canonicalUrl: "",
     categories: [],
     tags: [],
-    featuredMediaAssetId: null
+    featuredMediaAssetId: null,
+    metaTitle: "",
+    metaDescription: ""
   };
 }
 
@@ -58,7 +62,9 @@ function fromSelected(item: HubContent): HubContentDraft {
     canonicalUrl: item.canonicalUrl ?? "",
     categories: item.categories,
     tags: item.tags,
-    featuredMediaAssetId: item.featuredMediaAssetId
+    featuredMediaAssetId: item.featuredMediaAssetId,
+    metaTitle: item.seo.metaTitle ?? "",
+    metaDescription: item.seo.metaDescription ?? ""
   };
 }
 
@@ -94,6 +100,8 @@ function payload(draft: HubContentDraft) {
     slug: draft.slug || null,
     focusKeyword: draft.focusKeyword || null,
     canonicalUrl: draft.canonicalUrl || null,
+    metaTitle: draft.metaTitle || null,
+    metaDescription: draft.metaDescription || null,
     categories: csv(draft.categories),
     tags: csv(draft.tags)
   };
@@ -560,6 +568,7 @@ function HubDesk({
       <article className="panel">
         <h2>{selected ? selected.title : "New article"}</h2>
         {selected ? <p className="ink-muted">{selected.sourceNote}</p> : <p className="ink-muted">Save a draft, Approve it, then Publish. Public articles appear at /hub/{businessId} without signing in.</p>}
+        <AuthorLine />
         {selected ? <PipelineStatus status={selected.status} /> : null}
         <div className="studio-panes" role="tablist" aria-label="Article editor">
           <button type="button" role="tab" aria-selected={mode === "write"} className={mode === "write" ? "studio-tab is-on" : "studio-tab"} onClick={() => setMode("write")}>Write</button>
@@ -586,10 +595,21 @@ function HubDesk({
           <Field label="Title" value={draft.title} onChange={(title) => onChange({ title })} required />
           <Field label="Slug" value={draft.slug ?? ""} onChange={(slug) => onChange({ slug })} hint="Unique on this business. Leave blank to build it from the title." />
           <Field label="Excerpt" value={draft.excerpt} onChange={(excerpt) => onChange({ excerpt })} hint="If empty, the first lines of the body are stored." />
-          <label className="dp-field">
-            <span>Body</span>
-            <Textarea value={draft.body} onChange={(_, next) => onChange({ body: next.value })} />
-          </label>
+          <div className="dp-field">
+            <span>Article</span>
+            <HubRichEditor
+              value={draft.body}
+              onChange={(body) => onChange({ body })}
+              media={media}
+              articles={data.items.filter((item) => item.id !== selectedId)}
+              businessId={businessId}
+              onUpload={async (file) => {
+                const asset = await api.uploadHubMedia(businessId, file);
+                onMediaRegistered();
+                return asset;
+              }}
+            />
+          </div>
           <SelectField
             label="Visibility"
             value={draft.visibility}
@@ -605,9 +625,22 @@ function HubDesk({
             onRegistered={onMediaRegistered}
           />
           <Field label="Focus keyword" value={draft.focusKeyword ?? ""} onChange={(focusKeyword) => onChange({ focusKeyword })} />
+          <Field label="Meta title" value={draft.metaTitle ?? ""} onChange={(metaTitle) => onChange({ metaTitle })} hint="Stored snippet title. 12–70 characters." />
+          <Field label="Meta description" value={draft.metaDescription ?? ""} onChange={(metaDescription) => onChange({ metaDescription })} hint="Stored snippet. 40–160 characters." />
           <Field label="Canonical URL" value={draft.canonicalUrl ?? ""} onChange={(canonicalUrl) => onChange({ canonicalUrl })} />
-          <Field label="Categories" value={(draft.categories ?? []).join(", ")} onChange={(value) => onChange({ categories: value.split(",") })} hint="Comma separated." />
-          <Field label="Tags" value={(draft.tags ?? []).join(", ")} onChange={(value) => onChange({ tags: value.split(",") })} />
+          <SeoHealth draft={draft} />
+          <ChipField
+            label="Categories"
+            values={draft.categories ?? []}
+            suggestions={data.categories.map((item) => item.name)}
+            onChange={(categories) => onChange({ categories })}
+          />
+          <ChipField
+            label="Tags"
+            values={draft.tags ?? []}
+            suggestions={data.tags.map((item) => item.name)}
+            onChange={(tags) => onChange({ tags })}
+          />
           <div className="row-actions">
             <Button appearance="primary" type="submit" disabled={busy}>{selected ? "Save changes" : "Save draft"}</Button>
           </div>
@@ -647,6 +680,52 @@ function HubDesk({
         ) : null}
         {selected?.seo ? <SeoCard seo={selected.seo} /> : null}
       </article>
+    </div>
+  );
+}
+
+function AuthorLine() {
+  const profile = useSession((state) => state.profile);
+  return <p className="ink-muted">Author · {profile?.displayName || profile?.email || "Signed-in user"}</p>;
+}
+
+function ChipField({
+  label,
+  values,
+  suggestions,
+  onChange
+}: {
+  label: string;
+  values: string[];
+  suggestions: string[];
+  onChange: (values: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const clean = values.map((value) => value.trim()).filter(Boolean);
+  const unused = suggestions.filter((item) => !clean.some((value) => value.toLowerCase() === item.toLowerCase()));
+
+  function add(value: string) {
+    const next = value.trim();
+    if (!next || clean.some((item) => item.toLowerCase() === next.toLowerCase())) return;
+    onChange([...clean, next]);
+    setDraft("");
+  }
+
+  return (
+    <div className="dp-field">
+      <span>{label}</span>
+      <div className="hub-chips">
+        {clean.map((item) => (
+          <button key={item} type="button" className="hub-chip is-on" onClick={() => onChange(clean.filter((value) => value !== item))}>
+            {item} ×
+          </button>
+        ))}
+        {unused.slice(0, 8).map((item) => (
+          <button key={item} type="button" className="hub-chip" onClick={() => add(item)}>{item}</button>
+        ))}
+      </div>
+      <Field label={`Add ${label.toLowerCase()}`} value={draft} onChange={setDraft} hint="Press add after each name. Stored on this business." />
+      <Button appearance="subtle" type="button" disabled={draft.trim().length < 2} onClick={() => add(draft)}>Add</Button>
     </div>
   );
 }
@@ -708,6 +787,37 @@ function FeaturedMediaField({
       <Field label="Image label" value={label} onChange={setLabel} />
       <Button appearance="subtle" disabled={busy || url.trim().length < 12} onClick={() => void register()}>Register image</Button>
       {note ? <p className="ink-muted">{note}</p> : null}
+      <label className="dp-field">
+        <span>Upload featured image</span>
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            void api.uploadHubMedia(businessId, file).then((asset) => {
+              onChange(asset.id);
+              onRegistered();
+              setNote("Image stored on this host. Save the article to attach it.");
+            }).catch((err) => {
+              setNote(err instanceof ApiError ? err.title : "The image could not be stored.");
+            });
+          }}
+        />
+      </label>
+    </div>
+  );
+}
+
+function SeoHealth({ draft }: { draft: HubContentDraft }) {
+  const seo = liveHubSeo(draft);
+  return (
+    <div className="seo-card">
+      <p className="hero-kicker">SEO health</p>
+      <p><strong>{seo.seoScore}</strong> / 100 · {seo.passed}/{seo.total} checks. Informational — not a ranking promise.</p>
+      <p className="ink-muted">Snippet title: {seo.metaTitle || "—"}</p>
+      <p className="ink-muted">Snippet: {seo.metaDescription || "—"}</p>
+      <ul>{seo.notes.map((note) => <li key={note}>{note}</li>)}</ul>
     </div>
   );
 }

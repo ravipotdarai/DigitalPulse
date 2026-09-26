@@ -112,7 +112,7 @@ public sealed class CreateHubContentHandler
         _db.ContentItems.Add(item);
         await ContentComposer.EnsureFeaturedAsync(_db, tenantId, businessId, item, request.FeaturedMediaAssetId, cancellationToken);
         await ContentComposer.SyncTaxonomyAsync(_db, tenantId, businessId, item.Id, request.Categories, request.Tags, cancellationToken);
-        await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, request.FocusKeyword, cancellationToken);
+        await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, request.FocusKeyword, request.MetaTitle, request.MetaDescription, cancellationToken);
         ContentComposer.Revise(_db, tenantId, item, 1, "Initial draft", _user.IsAuthenticated ? _user.UserId : null);
         await ContentComposer.IndexAsync(_db, _search, tenantId, item, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
@@ -168,7 +168,7 @@ public sealed class UpdateHubContentHandler
         await ContentComposer.AssignTypeAsync(_db, item, request.ContentTypeCode, cancellationToken);
         await ContentComposer.EnsureFeaturedAsync(_db, tenantId, businessId, item, request.FeaturedMediaAssetId ?? item.FeaturedMediaAssetId, cancellationToken);
         await ContentComposer.SyncTaxonomyAsync(_db, tenantId, businessId, item.Id, request.Categories, request.Tags, cancellationToken);
-        await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, request.FocusKeyword, cancellationToken);
+        await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, request.FocusKeyword, request.MetaTitle, request.MetaDescription, cancellationToken);
         var version = await _db.ContentRevisions.CountAsync(r => r.ContentItemId == item.Id, cancellationToken) + 1;
         ContentComposer.Revise(_db, tenantId, item, version, request.ChangeSummary ?? "Edited", _user.IsAuthenticated ? _user.UserId : null);
         await ContentComposer.IndexAsync(_db, _search, tenantId, item, cancellationToken);
@@ -386,7 +386,7 @@ public sealed class AnalyzeHubSeoHandler
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
         var item = await _db.ContentItems.FirstOrDefaultAsync(c => c.Id == contentId && c.BusinessId == businessId, cancellationToken)
             ?? throw AppException.NotFound("Content was not found.");
-        await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, focusKeyword, cancellationToken);
+        await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, focusKeyword, null, null, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
     }
@@ -598,7 +598,7 @@ public sealed class GenerateHubContentHandler
         await ContentComposer.EnsureUniqueSlugAsync(_db, businessId, item.Slug, null, cancellationToken);
         await ContentComposer.AssignTypeAsync(_db, item, item.ContentTypeCode, cancellationToken);
         _db.ContentItems.Add(item);
-        await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, null, cancellationToken);
+        await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, null, null, null, cancellationToken);
         ContentComposer.Revise(_db, tenantId, item, 1, completion.IsLive ? "AI draft" : "Assembled draft", _user.IsAuthenticated ? _user.UserId : null);
         await ContentComposer.IndexAsync(_db, _search, tenantId, item, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
@@ -682,7 +682,7 @@ public sealed class RestoreHubRevisionHandler
 
         var version = await _db.ContentRevisions.CountAsync(r => r.ContentItemId == item.Id, cancellationToken) + 1;
         ContentComposer.Revise(_db, tenantId, item, version, $"Restored version {revision.VersionNumber}", _user.IsAuthenticated ? _user.UserId : null);
-        await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, null, cancellationToken);
+        await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, null, null, null, cancellationToken);
         await ContentComposer.IndexAsync(_db, _search, tenantId, item, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
@@ -761,9 +761,93 @@ public sealed class RegisterHubMediaHandler
         var asset = MediaAsset.Register(tenantId, businessId, request.Label, kind, uri.AbsoluteUri);
         _db.MediaAssets.Add(asset);
         await _db.SaveChangesAsync(cancellationToken);
-        return new HubMediaAssetResponse(asset.Id, asset.Label, asset.Kind.ToString(), asset.SourceUrl);
+        return new HubMediaAssetResponse(asset.Id, asset.Label, asset.Kind.ToString(), ContentHubPaths.DisplayMedia(businessId, asset.Id, asset.SourceUrl));
     }
 }
+
+public sealed class UploadHubMediaHandler
+{
+    private static readonly HashSet<string> Allowed = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/png", "image/webp", "image/gif"
+    };
+
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+    private readonly ISocialMediaStore _store;
+
+    public UploadHubMediaHandler(IAppDbContext db, ITenantContext tenant, ISocialMediaStore store)
+    {
+        _db = db;
+        _tenant = tenant;
+        _store = store;
+    }
+
+    public async Task<HubMediaAssetResponse> Handle(
+        Guid businessId,
+        string fileName,
+        string contentType,
+        long length,
+        Stream content,
+        CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(fileName) || !Allowed.Contains(contentType))
+        {
+            throw AppException.Validation("Upload a JPEG, PNG, WebP, or GIF under 8 MB.");
+        }
+
+        if (length <= 0 || length > 8L * 1024 * 1024)
+        {
+            throw AppException.Validation("Keep the image under 8 MB.");
+        }
+
+        var id = Guid.NewGuid();
+        var stored = await _store.SaveAsync(tenantId, id, fileName, contentType, content, cancellationToken);
+        var asset = MediaAsset.Register(tenantId, businessId, Path.GetFileNameWithoutExtension(fileName), MediaKind.Image, stored.RelativePath, id);
+        _db.MediaAssets.Add(asset);
+        await _db.SaveChangesAsync(cancellationToken);
+        return new HubMediaAssetResponse(asset.Id, asset.Label, asset.Kind.ToString(), ContentHubPaths.PublicMedia(businessId, asset.Id));
+    }
+}
+
+public sealed class GetHubMediaFileHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ISocialMediaStore _store;
+
+    public GetHubMediaFileHandler(IAppDbContext db, ISocialMediaStore store)
+    {
+        _db = db;
+        _store = store;
+    }
+
+    public async Task<HubMediaFile> Handle(Guid businessId, Guid assetId, CancellationToken cancellationToken)
+    {
+        var asset = await _db.MediaAssets.IgnoreQueryFilters().AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == assetId && a.BusinessId == businessId, cancellationToken)
+            ?? throw AppException.NotFound("Media was not found.");
+        if (string.IsNullOrWhiteSpace(asset.SourceUrl) || asset.SourceUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+        {
+            throw AppException.NotFound("That asset is a remote URL, not a stored file.");
+        }
+
+        var bytes = await _store.ReadAsync(asset.SourceUrl, cancellationToken)
+            ?? throw AppException.NotFound("Stored image was not found.");
+        return new HubMediaFile(bytes, ContentTypeOf(asset.SourceUrl), asset.Label);
+    }
+
+    private static string ContentTypeOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".png" => "image/png",
+        ".webp" => "image/webp",
+        ".gif" => "image/gif",
+        _ => "image/jpeg"
+    };
+}
+
+public sealed record HubMediaFile(byte[] Bytes, string ContentType, string FileName);
 
 public sealed class CancelHubScheduleHandler
 {
@@ -898,7 +982,7 @@ internal static class ContentComposer
             .ToListAsync(cancellationToken);
         return items.ToDictionary(
             item => item.Id,
-            item => assets.FirstOrDefault(a => a.Id == item.FeaturedMediaAssetId)?.SourceUrl);
+            item => ContentHubPaths.DisplayMedia(item.BusinessId, item.FeaturedMediaAssetId, assets.FirstOrDefault(a => a.Id == item.FeaturedMediaAssetId)?.SourceUrl));
     }
 
     public static async Task AssignTypeAsync(IAppDbContext db, ContentItem item, string contentTypeCode, CancellationToken cancellationToken)
@@ -916,9 +1000,16 @@ internal static class ContentComposer
         if (clash) throw AppException.Conflict("That slug is already used on this business.");
     }
 
-    public static async Task AnalyzeAndStoreAsync(IAppDbContext db, Guid tenantId, ContentItem item, string? focusKeyword, CancellationToken cancellationToken)
+    public static async Task AnalyzeAndStoreAsync(
+        IAppDbContext db,
+        Guid tenantId,
+        ContentItem item,
+        string? focusKeyword,
+        string? metaTitle,
+        string? metaDescription,
+        CancellationToken cancellationToken)
     {
-        var result = ContentSeo.Evaluate(item.Title, item.Excerpt, item.Body, focusKeyword, item.CanonicalUrl, item.Slug);
+        var result = ContentSeo.Evaluate(item.Title, item.Excerpt, item.Body, focusKeyword, item.CanonicalUrl, item.Slug, metaTitle, metaDescription);
         var captured = ContentSeoAnalysis.Capture(
             tenantId,
             item.Id,
@@ -1115,7 +1206,7 @@ internal static class ContentComposer
             categories.Select(c => new ContentNamedResponse(c.Id, c.Name, c.Slug)).ToList(),
             tags.Select(t => new ContentNamedResponse(t.Id, t.Name, t.Slug)).ToList(),
             await MetricsAsync(db, businessId, null, cancellationToken),
-            media.Select(m => new HubMediaAssetResponse(m.Id, m.Label, m.Kind.ToString(), m.SourceUrl)).ToList(),
+            media.Select(m => new HubMediaAssetResponse(m.Id, m.Label, m.Kind.ToString(), ContentHubPaths.DisplayMedia(businessId, m.Id, m.SourceUrl))).ToList(),
             "SEO score is checks passed ÷ checks run. Opportunity scores are coverage of existing titles. Analytics stay empty until an official provider returns them.");
     }
 
@@ -1165,7 +1256,7 @@ internal static class ContentComposer
             mediaRows.Select(m =>
             {
                 var asset = assets.FirstOrDefault(a => a.Id == m.MediaAssetId);
-                return new ContentMediaResponse(m.Id, m.MediaAssetId, m.Role.ToString(), m.DisplayOrder, asset?.Label, asset?.SourceUrl);
+                return new ContentMediaResponse(m.Id, m.MediaAssetId, m.Role.ToString(), m.DisplayOrder, asset?.Label, ContentHubPaths.DisplayMedia(businessId, m.MediaAssetId, asset?.SourceUrl));
             }).ToList());
     }
 

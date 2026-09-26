@@ -125,4 +125,47 @@ public sealed class ContentHubTests
     {
         Assert.True(ContentSafety.Assess("How to choose a conference room", "A practical guide from the stored service.").Allowed);
     }
+
+    [Fact]
+    public void Markup_round_trips_editorial_blocks()
+    {
+        var businessId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        var body = string.Join("\n\n",
+            "# How to choose",
+            "A conference room system should match the stored service.",
+            $"[Related guide](/hub/{businessId:D}/public-guide)",
+            "- Room size",
+            "- Display size",
+            "> Keep the claim inside the stored record.",
+            "![Hero](https://example.com/hero.jpg)",
+            "!video[Walkthrough](https://www.youtube.com/watch?v=abcdefghijk)");
+        var parsed = ContentMarkup.Parse(body);
+        Assert.Equal(ContentBlockKind.Heading, parsed[0].Kind);
+        Assert.Equal(ContentBlockKind.List, parsed.First(block => block.Kind == ContentBlockKind.List).Kind);
+        Assert.Equal(ContentBlockKind.Image, parsed.First(block => block.Kind == ContentBlockKind.Image).Kind);
+        Assert.Equal(ContentBlockKind.Video, parsed.First(block => block.Kind == ContentBlockKind.Video).Kind);
+        Assert.Equal(body, ContentMarkup.Serialize(parsed));
+        Assert.True(ContentMarkup.IsSafeHref($"https://example.com/hero.jpg"));
+        Assert.True(ContentMarkup.IsSafeHref($"/hub/{businessId:D}/public-guide"));
+        Assert.False(ContentMarkup.IsSafeHref("http://example.com/hero.jpg"));
+        Assert.False(ContentMarkup.IsSafeHref("https://127.0.0.1/hero.jpg"));
+        Assert.True(ContentMarkup.TryVideoEmbed("https://www.youtube.com/watch?v=abcdefghijk", out var youtube, out var provider));
+        Assert.Equal("YouTube", provider);
+        Assert.Equal("https://www.youtube-nocookie.com/embed/abcdefghijk", youtube);
+        Assert.True(ContentMarkup.TryVideoEmbed("https://vimeo.com/123456789", out var vimeo, out var vimeoProvider));
+        Assert.Equal("Vimeo", vimeoProvider);
+        Assert.Equal("https://player.vimeo.com/video/123456789", vimeo);
+        Assert.False(ContentMarkup.TryVideoEmbed("https://example.com/watch", out _, out _));
+        var seo = ContentSeo.Evaluate(
+            "How to choose a conference room system",
+            "A practical excerpt for the hub checklist snippet.",
+            "# How\n\nA conference room system should match the stored service and keep sentences readable for the checklist.",
+            "conference",
+            "https://example.com/guide",
+            "how-to-choose",
+            "Conference room systems",
+            "A stored meta description that is long enough for a search snippet on this business.");
+        Assert.Equal("Conference room systems", seo.MetaTitle);
+        Assert.StartsWith("A stored meta description", seo.MetaDescription);
+    }
 }
