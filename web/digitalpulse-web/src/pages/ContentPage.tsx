@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ApiError, api, type BusinessResponse, type ContentHubWorkspace, type HubContent, type HubContentDraft, type HubContentSummary, type HubMediaAsset } from "../lib/api";
 import { HubArticleView } from "../components/HubArticleView";
+import { HubAssist } from "../components/HubAssist";
 import { HubRichEditor } from "../components/HubRichEditor";
 import { liveHubSeo } from "../lib/hubSeo";
 import { PageState } from "../components/PageState";
@@ -610,6 +611,19 @@ function HubDesk({
               }}
             />
           </div>
+          <HubAssist
+            businessId={businessId}
+            contentId={selectedId}
+            section={[draft.title, draft.body].filter(Boolean).join("\n\n")}
+            onAccept={(item) => {
+              if (item.target === "metaTitle") onChange({ metaTitle: item.suggestion });
+              else if (item.target === "metaDescription") onChange({ metaDescription: item.suggestion });
+              else if (item.target === "append") {
+                const heading = ({ social: "Social post", linkedin: "LinkedIn", google: "Google", instagram: "Instagram", youtube: "YouTube" } as Record<string, string>)[item.action] ?? item.action;
+                onChange({ body: `${draft.body}\n\n# ${heading}\n\n${item.suggestion}`.trim() });
+              } else onChange({ body: item.suggestion });
+            }}
+          />
           <SelectField
             label="Visibility"
             value={draft.visibility}

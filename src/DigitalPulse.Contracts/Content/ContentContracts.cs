@@ -133,6 +133,8 @@ public sealed record UpdateHubContentRequest(
 
 public sealed record ScheduleHubContentRequest(DateTimeOffset ScheduledAtUtc, string? Channel);
 public sealed record GenerateHubContentRequest(string? OpportunityId, string Prompt);
+public sealed record AssistHubContentRequest(string Action, string? Instruction, string? ContentId, string? Section);
+public sealed record AssistHubContentResponse(string Action, string Suggestion, string Hold, string ProviderName, bool IsLive, string Target);
 public sealed record AnalyzeHubSeoRequest(string? FocusKeyword);
 public sealed record DistributeHubContentRequest(string ProviderCode);
 public sealed record DiscoverOpportunitiesRequest();

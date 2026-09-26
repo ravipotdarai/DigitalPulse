@@ -138,6 +138,7 @@ public static class DependencyInjection
         services.AddScoped<DistributeHubContentHandler>();
         services.AddScoped<DiscoverContentOpportunitiesHandler>();
         services.AddScoped<GenerateHubContentHandler>();
+        services.AddScoped<AssistHubContentHandler>();
         services.AddScoped<GetPublicHubIndexHandler>();
         services.AddScoped<GetPublicHubArticleHandler>();
         services.AddScoped<GetAiWorkspaceHandler>();
@@ -652,5 +653,15 @@ public sealed class RegisterHubMediaRequestValidator : AbstractValidator<Registe
         RuleFor(x => x.Label).NotEmpty().MaximumLength(160);
         RuleFor(x => x.Kind).NotEmpty().MaximumLength(24);
         RuleFor(x => x.SourceUrl).NotEmpty().MaximumLength(2048);
+    }
+}
+
+public sealed class AssistHubContentRequestValidator : AbstractValidator<AssistHubContentRequest>
+{
+    public AssistHubContentRequestValidator()
+    {
+        RuleFor(x => x.Action).NotEmpty().MaximumLength(32);
+        RuleFor(x => x.Instruction).MaximumLength(2000);
+        RuleFor(x => x.Section).MaximumLength(20000);
     }
 }

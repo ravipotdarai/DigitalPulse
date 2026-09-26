@@ -417,6 +417,8 @@ export const api = {
     request<ContentHubWorkspace>(`/v1/businesses/${businessId}/content/opportunities/discover`, { method: "POST" }),
   generateHubContent: (businessId: string, prompt: string, opportunityId?: string | null) =>
     request<HubContent>(`/v1/businesses/${businessId}/content/generate`, { method: "POST", body: JSON.stringify({ prompt, opportunityId: opportunityId ?? null }) }),
+  assistHubContent: (businessId: string, body: { action: string; instruction?: string | null; contentId?: string | null; section?: string | null }) =>
+    request<HubAssist>(`/v1/businesses/${businessId}/content/assist`, { method: "POST", body: JSON.stringify(body) }),
   publicHubIndex: (businessId: string) => request<PublicHubIndex>(`/v1/hub/${businessId}`),
   publicHubArticle: (businessId: string, slug: string) =>
     request<PublicHubArticle>(`/v1/hub/${businessId}/${slug}`),
@@ -922,6 +924,7 @@ export type ContentHubWorkspace = {
   note: string;
 };
 export type HubMediaAsset = { id: string; label: string; kind: string; sourceUrl: string | null };
+export type HubAssist = { action: string; suggestion: string; hold: string; providerName: string; isLive: boolean; target: string };
 export type HubContent = {
   id: string;
   businessId: string;

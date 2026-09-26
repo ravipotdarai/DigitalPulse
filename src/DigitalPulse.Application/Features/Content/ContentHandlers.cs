@@ -606,6 +606,69 @@ public sealed class GenerateHubContentHandler
     }
 }
 
+public sealed class AssistHubContentHandler
+{
+    private static readonly HashSet<string> Actions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "outline", "draft", "rewrite", "shorten", "expand", "tone", "faq",
+        "meta-title", "meta-description", "social", "linkedin", "google", "instagram", "youtube"
+    };
+
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+    private readonly IAiProvider _ai;
+
+    public AssistHubContentHandler(IAppDbContext db, ITenantContext tenant, IAiProvider ai)
+    {
+        _db = db;
+        _tenant = tenant;
+        _ai = ai;
+    }
+
+    public async Task<AssistHubContentResponse> Handle(Guid businessId, AssistHubContentRequest request, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        var business = await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        if (!Actions.Contains(request.Action.Trim()))
+        {
+            throw AppException.Validation("Choose a catalog assistant action.");
+        }
+
+        ContentGuard.Require(request.Instruction, request.Section);
+        var facts = await _db.Facts.AsNoTracking().Where(f => f.BusinessId == businessId && f.Status == FactStatus.Approved).ToListAsync(cancellationToken);
+        var services = await _db.Services.AsNoTracking().Where(s => s.BusinessId == businessId).Select(s => s.Name).ToListAsync(cancellationToken);
+        var projects = await _db.Projects.AsNoTracking().Where(p => p.BusinessId == businessId).Select(p => p.Name).ToListAsync(cancellationToken);
+        string? current = request.Section;
+        if (string.IsNullOrWhiteSpace(current) && Guid.TryParse(request.ContentId, out var contentId))
+        {
+            var item = await _db.ContentItems.AsNoTracking().FirstOrDefaultAsync(c => c.Id == contentId && c.BusinessId == businessId, cancellationToken);
+            current = item is null ? null : $"{item.Title}\n\n{item.Body}";
+        }
+
+        var evidence = facts.Select(f => new AiEvidence("fact", f.FactTypeCode, f.Value, false, true)).ToList();
+        var graph = new List<string> { $"Business: {business.Name}", $"Action: {request.Action}" };
+        if (services.Count > 0) graph.Add("Services: " + string.Join(", ", services));
+        if (projects.Count > 0) graph.Add("Projects: " + string.Join(", ", projects));
+        foreach (var fact in facts) graph.Add($"Approved fact {fact.FactTypeCode}: {fact.Value}");
+
+        var prompt = ContentComposer.AssistPrompt(request.Action.Trim(), business.Name, request.Instruction, current);
+        var completion = await _ai.CompleteAsync(new AiCompletionRequest("content", prompt, evidence, graph), cancellationToken);
+        var assembled = ContentComposer.AssistFromEvidence(request.Action.Trim(), business.Name, request.Instruction, current, facts.Select(f => $"{f.FactTypeCode}: {f.Value}"), services, projects);
+        var suggestion = completion.IsLive && !string.IsNullOrWhiteSpace(completion.Output) ? completion.Output.Trim() : assembled;
+        ContentGuard.Require(suggestion);
+        var hold = completion.IsLive
+            ? "Preview only. Accept writes this into the draft. Nothing was saved or published."
+            : "Assembled from stored facts, services, and projects. No live model was called. Accept still requires you to save.";
+        return new AssistHubContentResponse(
+            request.Action.Trim().ToLowerInvariant(),
+            suggestion,
+            hold,
+            completion.ProviderName,
+            completion.IsLive,
+            ContentComposer.AssistTarget(request.Action));
+    }
+}
+
 public sealed class RejectHubContentHandler
 {
     private readonly IAppDbContext _db;
@@ -1151,6 +1214,375 @@ internal static class ContentComposer
 
         return string.Join('\n', lines);
     }
+
+    public static string AssistTarget(string action) => action.ToLowerInvariant() switch
+    {
+        "meta-title" => "metaTitle",
+        "meta-description" => "metaDescription",
+        "social" or "linkedin" or "google" or "instagram" or "youtube" => "append",
+        _ => "body"
+    };
+
+    public static string AssistPrompt(string action, string business, string? instruction, string? section)
+    {
+        return string.Join('\n',
+            $"Action: {action}",
+            $"Business: {business}",
+            "Use only approved facts and stored services or projects. Do not invent customers, metrics, or quotes.",
+            string.IsNullOrWhiteSpace(instruction) ? "No extra instruction." : "Instruction: " + instruction.Trim(),
+            string.IsNullOrWhiteSpace(section) ? "No current draft was provided." : "Current draft:\n" + section.Trim());
+    }
+
+    public static string AssistFromEvidence(
+        string action,
+        string business,
+        string? instruction,
+        string? section,
+        IEnumerable<string> facts,
+        IReadOnlyList<string> services,
+        IReadOnlyList<string> projects)
+    {
+        var topic = string.IsNullOrWhiteSpace(instruction) ? business : instruction.Trim();
+        var factList = facts.Where(static fact => !string.IsNullOrWhiteSpace(fact)).Select(static fact => fact.Trim()).ToList();
+        return action.ToLowerInvariant() switch
+        {
+            "outline" => AssistOutline(business, topic, factList, services, projects),
+            "draft" => AssembleFromEvidence(business, topic, factList, services, projects),
+            "rewrite" => AssistRewrite(business, topic, section, factList, services, projects),
+            "shorten" => AssistShorten(business, topic, section, factList, services, projects),
+            "expand" => AssistExpand(business, topic, section, factList, services, projects),
+            "tone" => AssistTone(business, topic, section, factList, services, projects),
+            "faq" => AssistFaq(business, topic, factList, services, projects),
+            "meta-title" => topic.Length <= 60 ? topic : topic[..60],
+            "meta-description" => AssistMetaDescription(business, topic, factList, services),
+            "social" => AssistSocial(business, topic, factList, services),
+            "linkedin" => AssistLinkedIn(business, topic, factList, services, projects),
+            "google" => AssistGoogle(business, topic, factList, services),
+            "instagram" => AssistInstagram(business, topic, factList, services),
+            "youtube" => AssistYouTube(business, topic, factList, services, projects),
+            _ => AssembleFromEvidence(business, topic, factList, services, projects)
+        };
+    }
+
+    private static string AssistOutline(
+        string business,
+        string topic,
+        IReadOnlyList<string> facts,
+        IReadOnlyList<string> services,
+        IReadOnlyList<string> projects)
+    {
+        var lines = new List<string>
+        {
+            $"# Outline: {topic}",
+            "",
+            $"Numbered headings only. Assembled from stored records for {business}. Not a live model rewrite.",
+            "",
+            $"1. Open with {topic}",
+            "2. Cover approved facts"
+        };
+        lines.AddRange(BulletsOrHold(facts, 1));
+        lines.Add("3. Cover services on record");
+        lines.AddRange(BulletsOrHold(services, 1));
+        lines.Add("4. Cover projects on record");
+        lines.AddRange(BulletsOrHold(projects, 1));
+        lines.Add($"5. Close with what {business} can document next from those records");
+        return string.Join('\n', lines);
+    }
+
+    private static string AssistRewrite(
+        string business,
+        string topic,
+        string? section,
+        IReadOnlyList<string> facts,
+        IReadOnlyList<string> services,
+        IReadOnlyList<string> projects)
+    {
+        var lines = new List<string>
+        {
+            $"# Rewrite of {topic}",
+            "",
+            $"Restated from stored records for {business}. This is not the long-form assemble pack and not a live model rewrite.",
+            ""
+        };
+        if (!string.IsNullOrWhiteSpace(section))
+        {
+            lines.Add("Current draft, restated:");
+            lines.Add(Compact(section, 4));
+            lines.Add("");
+        }
+
+        lines.Add("Keep only these recorded claims:");
+        if (facts.Count == 0 && services.Count == 0 && projects.Count == 0)
+        {
+            lines.Add(EmptyHold());
+        }
+        else
+        {
+            lines.AddRange(facts.Select(fact => $"* {fact}"));
+            if (services.Count > 0) lines.Add($"* Services: {string.Join(", ", services)}");
+            if (projects.Count > 0) lines.Add($"* Projects: {string.Join(", ", projects)}");
+        }
+
+        return string.Join('\n', lines);
+    }
+
+    private static string AssistShorten(
+        string business,
+        string topic,
+        string? section,
+        IReadOnlyList<string> facts,
+        IReadOnlyList<string> services,
+        IReadOnlyList<string> projects)
+    {
+        if (!string.IsNullOrWhiteSpace(section) && section.Trim().Length > 8)
+        {
+            return $"# Short version of {topic}\n\n{Compact(section, 6)}";
+        }
+
+        var bits = facts.Concat(services).Concat(projects).Take(4).ToList();
+        var summary = bits.Count == 0
+            ? EmptyHold()
+            : string.Join("; ", bits);
+        return $"# Short version of {topic}\n\n{business}: {summary}";
+    }
+
+    private static string AssistExpand(
+        string business,
+        string topic,
+        string? section,
+        IReadOnlyList<string> facts,
+        IReadOnlyList<string> services,
+        IReadOnlyList<string> projects)
+    {
+        var lines = new List<string>
+        {
+            $"# Expanded: {topic}",
+            "",
+            $"AEO-style expansion from stored records for {business}. Not a live model rewrite."
+        };
+        if (!string.IsNullOrWhiteSpace(section))
+        {
+            lines.Add("");
+            lines.Add("Starting from the current draft:");
+            lines.Add(Compact(section, 5));
+        }
+
+        lines.Add("");
+        lines.Add("## Definition");
+        lines.Add($"{topic} as recorded for {business}. No extra definition was invented.");
+        lines.Add("");
+        lines.Add("## Key facts");
+        lines.AddRange(BulletsOrHold(facts));
+        lines.Add("");
+        lines.Add("## How-to from stored services");
+        if (services.Count == 0)
+        {
+            lines.Add(EmptyHold());
+        }
+        else
+        {
+            for (var i = 0; i < services.Count; i++)
+            {
+                lines.Add($"{i + 1}. Explain {services[i]} from the service record.");
+            }
+        }
+
+        lines.Add("");
+        lines.Add("## Recorded work");
+        lines.AddRange(BulletsOrHold(projects));
+        return string.Join('\n', lines);
+    }
+
+    private static string AssistTone(
+        string business,
+        string topic,
+        string? section,
+        IReadOnlyList<string> facts,
+        IReadOnlyList<string> services,
+        IReadOnlyList<string> projects)
+    {
+        var lines = new List<string>
+        {
+            $"# Professional restatement of {topic}",
+            "",
+            $"{business} can describe {topic} in a professional tone using only stored records."
+        };
+        if (!string.IsNullOrWhiteSpace(section))
+        {
+            lines.Add("");
+            lines.Add(Compact(section, 5));
+        }
+
+        lines.Add("");
+        if (facts.Count == 0 && services.Count == 0 && projects.Count == 0)
+        {
+            lines.Add(EmptyHold());
+        }
+        else
+        {
+            lines.AddRange(facts.Select(fact => $"{business} has an approved record: {fact}."));
+            if (services.Count > 0) lines.Add($"Services on record include {string.Join(", ", services)}.");
+            if (projects.Count > 0) lines.Add($"Recorded projects include {string.Join(", ", projects)}.");
+        }
+
+        return string.Join('\n', lines);
+    }
+
+    private static string AssistFaq(
+        string business,
+        string topic,
+        IReadOnlyList<string> facts,
+        IReadOnlyList<string> services,
+        IReadOnlyList<string> projects)
+    {
+        var lines = new List<string>
+        {
+            $"# FAQ: {topic}",
+            "",
+            $"Questions assembled from stored records for {business}. Answers are not invented.",
+            "",
+            $"What is {topic}?",
+            $"{business} has stored records about {topic}. DigitalPulse will not invent a definition beyond those records.",
+            "",
+            $"What services does {business} have on record?",
+            services.Count == 0 ? EmptyHold() : string.Join(", ", services) + ".",
+            "",
+            $"Which projects are recorded?",
+            projects.Count == 0 ? EmptyHold() : string.Join(", ", projects) + ".",
+            "",
+            "Which facts are approved?"
+        };
+        if (facts.Count == 0)
+        {
+            lines.Add(EmptyHold());
+        }
+        else
+        {
+            foreach (var fact in facts)
+            {
+                lines.Add($"What is stored for this fact?");
+                lines.Add(fact);
+            }
+        }
+
+        return string.Join('\n', lines);
+    }
+
+    private static string AssistMetaDescription(
+        string business,
+        string topic,
+        IReadOnlyList<string> facts,
+        IReadOnlyList<string> services)
+    {
+        var evidence = facts.FirstOrDefault() ?? services.FirstOrDefault();
+        var text = string.IsNullOrWhiteSpace(evidence)
+            ? $"Stored records for {business} on {topic}."
+            : $"{business} on {topic}. {evidence}";
+        return text.Length <= 160 ? text : text[..160];
+    }
+
+    private static string AssistSocial(string business, string topic, IReadOnlyList<string> facts, IReadOnlyList<string> services)
+    {
+        var evidence = facts.FirstOrDefault() ?? services.FirstOrDefault();
+        return string.IsNullOrWhiteSpace(evidence)
+            ? $"{business}: {topic}. {EmptyHold()}"
+            : $"{business}: {topic}. {evidence}";
+    }
+
+    private static string AssistLinkedIn(
+        string business,
+        string topic,
+        IReadOnlyList<string> facts,
+        IReadOnlyList<string> services,
+        IReadOnlyList<string> projects)
+    {
+        var lines = new List<string>
+        {
+            topic,
+            "",
+            $"{business} update from stored records."
+        };
+        lines.AddRange(facts.Take(3).Select(fact => fact + "."));
+        if (services.Count > 0) lines.Add($"Services on record: {string.Join(", ", services)}.");
+        if (projects.Count > 0) lines.Add($"Recorded work: {string.Join(", ", projects)}.");
+        if (facts.Count == 0 && services.Count == 0 && projects.Count == 0) lines.Add(EmptyHold());
+        return string.Join('\n', lines);
+    }
+
+    private static string AssistGoogle(string business, string topic, IReadOnlyList<string> facts, IReadOnlyList<string> services)
+    {
+        var evidence = facts.FirstOrDefault() ?? (services.Count > 0 ? string.Join(", ", services) : null);
+        return string.IsNullOrWhiteSpace(evidence)
+            ? $"{topic}\n\n{business} — {EmptyHold()}"
+            : $"{topic}\n\n{business} — {evidence}";
+    }
+
+    private static string AssistInstagram(string business, string topic, IReadOnlyList<string> facts, IReadOnlyList<string> services)
+    {
+        var caption = facts.FirstOrDefault() ?? services.FirstOrDefault() ?? EmptyHold();
+        var tags = services.Count == 0
+            ? business.Replace(" ", string.Empty, StringComparison.Ordinal)
+            : string.Join(" ", services.Select(service => service.Replace(" ", string.Empty, StringComparison.Ordinal)));
+        return $"{topic}\n\n{caption}\n\n{business} {tags}";
+    }
+
+    private static string AssistYouTube(
+        string business,
+        string topic,
+        IReadOnlyList<string> facts,
+        IReadOnlyList<string> services,
+        IReadOnlyList<string> projects)
+    {
+        var lines = new List<string>
+        {
+            $"# YouTube script: {topic}",
+            "",
+            $"Assembled from stored records for {business}. Not a live recording.",
+            "",
+            "Intro",
+            $"{business} can talk about {topic} using only stored records.",
+            "",
+            "Beats"
+        };
+        if (facts.Count == 0 && services.Count == 0 && projects.Count == 0)
+        {
+            lines.Add(EmptyHold());
+        }
+        else
+        {
+            lines.AddRange(facts.Select(fact => $"- Fact: {fact}"));
+            lines.AddRange(services.Select(service => $"- Service: {service}"));
+            lines.AddRange(projects.Select(project => $"- Project: {project}"));
+        }
+
+        lines.Add("");
+        lines.Add("Close");
+        lines.Add("No extra claims. Review before filming.");
+        return string.Join('\n', lines);
+    }
+
+    private static IEnumerable<string> BulletsOrHold(IReadOnlyList<string> items, int indent = 0)
+    {
+        if (items.Count == 0)
+        {
+            yield return new string(' ', indent * 3) + EmptyHold();
+            yield break;
+        }
+
+        foreach (var item in items)
+        {
+            yield return new string(' ', indent * 3) + "- " + item;
+        }
+    }
+
+    private static string Compact(string section, int maxLines)
+    {
+        var lines = section.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Take(maxLines);
+        return string.Join('\n', lines);
+    }
+
+    private static string EmptyHold() =>
+        "No approved facts, services, or projects were available. DigitalPulse will not invent them.";
 
     public static string SearchUrl(ContentItem item) =>
         ContentHubPaths.SearchUrl(item.BusinessId, item.Id, item.Slug, item.Status, item.Visibility);

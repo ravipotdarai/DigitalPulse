@@ -30,6 +30,7 @@ public static class ContentEndpoints
         group.MapPost("/{contentId:guid}/distribute", DistributeAsync);
         group.MapPost("/opportunities/discover", DiscoverAsync);
         group.MapPost("/generate", GenerateAsync);
+        group.MapPost("/assist", AssistAsync);
 
         app.MapGet("/v1/hub/{businessId:guid}", GetPublicIndexAsync).WithTags("Content").AllowAnonymous();
         app.MapGet("/v1/hub/{businessId:guid}/media/{assetId:guid}", GetPublicMediaAsync).WithTags("Content").AllowAnonymous();
@@ -141,6 +142,10 @@ public static class ContentEndpoints
 
     private static async Task<Ok<HubContentResponse>> GenerateAsync(
         Guid businessId, GenerateHubContentRequest request, GenerateHubContentHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, request, cancellationToken));
+
+    private static async Task<Ok<AssistHubContentResponse>> AssistAsync(
+        Guid businessId, AssistHubContentRequest request, AssistHubContentHandler handler, CancellationToken cancellationToken) =>
         TypedResults.Ok(await handler.Handle(businessId, request, cancellationToken));
 
     private static async Task<Ok<PublicHubIndex>> GetPublicIndexAsync(
