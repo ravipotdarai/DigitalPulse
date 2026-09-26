@@ -82,13 +82,17 @@ public sealed class AiOrchestrator : IAiOrchestrator
 
     public async Task<AiOrchestrationResult> RunAsync(AiOrchestrationRequest request, CancellationToken cancellationToken)
     {
+        AiGuardrails.RequireInput(request.Ask);
         var agent = AiAgentCatalog.Require(request.AgentCode);
         var model = _router.Select(agent.Code);
         var prompt = AiPromptCatalog.Build(agent, request.Ask, request.Evidence, request.GraphContext, request.Structured);
         var completion = await _provider.CompleteAsync(
             new AiCompletionRequest(agent.Code, prompt, request.Evidence, request.GraphContext, model),
             cancellationToken);
-        var validation = AiPolicy.Evaluate(request.Evidence, completion.Output, completion.IsLive);
+        var validation = AiGuardrails.AfterModel(
+            AiPolicy.Evaluate(request.Evidence, completion.Output, completion.IsLive),
+            completion.Output,
+            request.Evidence);
         string? structured = null;
         if (request.Structured)
         {

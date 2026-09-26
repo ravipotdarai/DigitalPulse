@@ -1787,7 +1787,7 @@ Create ADRs for significant decisions such as:
 
 # 47. IMPLEMENTATION ORDER
 
-**Overall: 50% (5/10 phases).**
+**Overall: 60% (6/10 phases).**
 
 Implement in this order after auditing existing code.
 
@@ -1883,7 +1883,8 @@ Agents
 
 Implement/complete required agents. All ten catalog agents now have `*.v1` prompts and cannot execute external actions.
 
-## Phase 6 — Guardrails
+## Phase 6 — completed (100%)
+Guardrails
 
 Implement:
 
@@ -1966,7 +1967,7 @@ The AI architecture is complete only when all applicable items are PASS:
 - [x] Retrieval is tenant-scoped.
 - [x] Evidence grounding exists.
 - [x] Restricted-claim protection exists.
-- [ ] Prompt-injection defenses exist.
+- [x] Prompt-injection defenses exist.
 - [x] Confidence handling exists.
 - [x] Approval integration exists.
 - [ ] Autopilot respects domain policy.
