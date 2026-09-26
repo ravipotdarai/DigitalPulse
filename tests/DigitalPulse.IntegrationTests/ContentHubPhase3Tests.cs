@@ -46,6 +46,7 @@ public sealed class ContentHubPhase3Tests
             CancellationToken.None);
         Assert.Equal(asset.Id, created.FeaturedMediaAssetId);
 
+        await new SubmitHubApprovalHandler(db, tenant).Handle(business.Id, created.Id, CancellationToken.None);
         await new ApproveHubContentHandler(db, tenant).Handle(business.Id, created.Id, CancellationToken.None);
         await new PublishHubContentHandler(db, tenant, search).Handle(business.Id, created.Id, CancellationToken.None);
 

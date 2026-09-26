@@ -376,6 +376,8 @@ export const api = {
     request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}`, { method: "PUT", body: JSON.stringify(body) }),
   deleteHubContent: (businessId: string, contentId: string) =>
     request<void>(`/v1/businesses/${businessId}/content/${contentId}`, { method: "DELETE" }),
+  submitHubContent: (businessId: string, contentId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/submit`, { method: "POST" }),
   approveHubContent: (businessId: string, contentId: string) =>
     request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/approve`, { method: "POST" }),
   rejectHubContent: (businessId: string, contentId: string, note?: string) =>

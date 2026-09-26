@@ -288,12 +288,58 @@ public sealed class ApproveHubContentHandler
         var item = await _db.ContentItems.FirstOrDefaultAsync(c => c.Id == contentId && c.BusinessId == businessId, cancellationToken)
             ?? throw AppException.NotFound("Content was not found.");
         ContentGuard.Require(item.Title, item.Excerpt, item.Body);
-        item.RequestApproval();
-        var request = ApprovalRequest.OpenFor(tenantId, item.Id, "Content Hub approval.");
-        _db.ApprovalRequests.Add(request);
+        if (item.Status is not ContentItemStatus.PendingApproval)
+        {
+            throw AppException.Validation("Submit the draft for approval before approving it.");
+        }
+
+        var request = await _db.ApprovalRequests.FirstOrDefaultAsync(r => r.ContentItemId == item.Id && r.Open, cancellationToken);
+        if (request is null)
+        {
+            request = ApprovalRequest.OpenFor(tenantId, item.Id, "Content Hub approval.");
+            _db.ApprovalRequests.Add(request);
+        }
+
         item.MarkApproved();
         _db.ApprovalDecisions.Add(ApprovalDecision.Record(tenantId, request.Id, ApprovalDecisionKind.Approved, "Approved in the Content Hub. Live distribution still needs an official connection."));
         request.Close();
+        await _db.SaveChangesAsync(cancellationToken);
+        return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
+    }
+}
+
+public sealed class SubmitHubApprovalHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+
+    public SubmitHubApprovalHandler(IAppDbContext db, ITenantContext tenant)
+    {
+        _db = db;
+        _tenant = tenant;
+    }
+
+    public async Task<HubContentResponse> Handle(Guid businessId, Guid contentId, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        var item = await _db.ContentItems.FirstOrDefaultAsync(c => c.Id == contentId && c.BusinessId == businessId, cancellationToken)
+            ?? throw AppException.NotFound("Content was not found.");
+        ContentGuard.Require(item.Title, item.Excerpt, item.Body);
+        try
+        {
+            item.RequestApproval();
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw AppException.Validation(ex.Message);
+        }
+
+        if (!await _db.ApprovalRequests.AnyAsync(r => r.ContentItemId == item.Id && r.Open, cancellationToken))
+        {
+            _db.ApprovalRequests.Add(ApprovalRequest.OpenFor(tenantId, item.Id, "Content Hub review requested."));
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
         return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
     }

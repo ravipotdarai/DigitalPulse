@@ -123,6 +123,7 @@ public static class DependencyInjection
         services.AddScoped<UpdateHubContentHandler>();
         services.AddScoped<DeleteHubContentHandler>();
         services.AddScoped<ApproveHubContentHandler>();
+        services.AddScoped<SubmitHubApprovalHandler>();
         services.AddScoped<RejectHubContentHandler>();
         services.AddScoped<ScheduleHubContentHandler>();
         services.AddScoped<CancelHubScheduleHandler>();

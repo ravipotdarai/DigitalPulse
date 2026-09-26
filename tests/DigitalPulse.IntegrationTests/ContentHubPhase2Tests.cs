@@ -31,9 +31,12 @@ public sealed class ContentHubPhase2Tests
         var create = new CreateHubContentHandler(db, tenant, user, search);
         var draft = await create.Handle(business.Id, DraftRequest() with { Visibility = "Private", Slug = "private-guide" }, CancellationToken.None);
         var live = await create.Handle(business.Id, DraftRequest() with { Title = "How to publish a public guide", Slug = "public-guide", Visibility = "Public" }, CancellationToken.None);
+        var submit = new SubmitHubApprovalHandler(db, tenant);
         var approve = new ApproveHubContentHandler(db, tenant);
+        await submit.Handle(business.Id, live.Id, CancellationToken.None);
         await approve.Handle(business.Id, live.Id, CancellationToken.None);
         await new PublishHubContentHandler(db, tenant, search).Handle(business.Id, live.Id, CancellationToken.None);
+        await submit.Handle(business.Id, draft.Id, CancellationToken.None);
         await approve.Handle(business.Id, draft.Id, CancellationToken.None);
         await new PublishHubContentHandler(db, tenant, search).Handle(business.Id, draft.Id, CancellationToken.None);
 

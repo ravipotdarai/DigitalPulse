@@ -340,6 +340,10 @@ function ContentStudio({
           onSelect={(id) => { setDirty(false); setSelectedId(id); }}
           onChange={change}
           onSave={() => void save()}
+          onSubmitApproval={() => {
+            if (dirty) { setError("Save changes before submitting."); return; }
+            if (selectedId) void run(() => api.submitHubContent(businessId, selectedId), "Submitted for approval.");
+          }}
           onApprove={() => {
             if (dirty) { setError("Save changes before approving."); return; }
             if (selectedId) void run(() => api.approveHubContent(businessId, selectedId), "Approved on this desk.");
@@ -514,6 +518,7 @@ function HubDesk({
   onSelect,
   onChange,
   onSave,
+  onSubmitApproval,
   onApprove,
   onReject,
   onPublish,
@@ -538,6 +543,7 @@ function HubDesk({
   onSelect: (id: string) => void;
   onChange: (patch: Partial<HubContentDraft>) => void;
   onSave: () => void;
+  onSubmitApproval: () => void;
   onApprove: () => void;
   onReject: () => void;
   onPublish: () => void;
@@ -680,7 +686,8 @@ function HubDesk({
         )}
         {selected ? (
           <div className="row-actions">
-            <Button appearance="subtle" disabled={busy || selected.status === "Approved" || selected.status === "Published"} onClick={onApprove}>Approve</Button>
+            <Button appearance="subtle" disabled={busy || selected.status === "PendingApproval" || selected.status === "Approved" || selected.status === "Published"} onClick={onSubmitApproval}>Submit for approval</Button>
+            <Button appearance="subtle" disabled={busy || selected.status !== "PendingApproval"} onClick={onApprove}>Approve</Button>
             <Button appearance="subtle" disabled={busy || selected.status === "Published" || selected.status === "Archived"} onClick={onReject}>Reject</Button>
             <label className="dp-field">
               <span>Schedule</span>

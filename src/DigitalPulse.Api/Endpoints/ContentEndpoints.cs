@@ -15,6 +15,7 @@ public static class ContentEndpoints
         group.MapPost("/from-project", FromProjectAsync);
         group.MapPut("/{contentId:guid}", UpdateAsync);
         group.MapDelete("/{contentId:guid}", DeleteAsync);
+        group.MapPost("/{contentId:guid}/submit", SubmitAsync);
         group.MapPost("/{contentId:guid}/approve", ApproveAsync);
         group.MapPost("/{contentId:guid}/reject", RejectAsync);
         group.MapPost("/{contentId:guid}/schedule", ScheduleAsync);
@@ -67,6 +68,10 @@ public static class ContentEndpoints
         await handler.Handle(businessId, contentId, cancellationToken);
         return TypedResults.NoContent();
     }
+
+    private static async Task<Ok<HubContentResponse>> SubmitAsync(
+        Guid businessId, Guid contentId, SubmitHubApprovalHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, contentId, cancellationToken));
 
     private static async Task<Ok<HubContentResponse>> ApproveAsync(
         Guid businessId, Guid contentId, ApproveHubContentHandler handler, CancellationToken cancellationToken) =>
