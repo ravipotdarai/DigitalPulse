@@ -1921,7 +1921,7 @@ Do NOT:
 
 ## 43. Implementation Sequence
 
-**Overall: 50% (8/16 phases).**
+**Overall: 56% (9/16 phases).**
 
 Implement in this order:
 
@@ -1949,7 +1949,7 @@ Content opportunities
 ### Phase 8 — completed (100%)
 Project → Case Study
 
-### Phase 9
+### Phase 9 — completed (100%)
 Content variants / repurposing
 
 ### Phase 10
@@ -2029,7 +2029,7 @@ The feature is NOT complete until:
 - [x] SEO analysis works
 - [x] content opportunities work
 - [x] project-to-case-study works
-- [ ] content variants work
+- [x] content variants work
 - [ ] approval integration works
 - [ ] scheduling works
 - [ ] supported distribution works

@@ -481,14 +481,20 @@ public sealed class CreateHubVariantsHandler
         }
 
         var excerpt = string.IsNullOrWhiteSpace(item.Excerpt) ? item.Body : item.Excerpt;
+        var compact = excerpt.Length <= 240 ? excerpt : excerpt[..240];
         (ContentVariantKind Kind, string Title, string Body)[] packs =
         [
             (ContentVariantKind.WebsiteArticle, item.Title, item.Body),
-            (ContentVariantKind.GooglePost, item.Title, excerpt),
-            (ContentVariantKind.LinkedInPost, item.Title, excerpt),
-            (ContentVariantKind.FacebookPost, item.Title, excerpt),
-            (ContentVariantKind.InstagramCaption, item.Title, excerpt),
-            (ContentVariantKind.Newsletter, item.Title, excerpt)
+            (ContentVariantKind.GooglePost, item.Title, $"{item.Title}\n\n{compact}"),
+            (ContentVariantKind.LinkedInPost, item.Title, $"{item.Title}\n\n{compact}\n\nAssembled from the approved article. Not a live rewrite."),
+            (ContentVariantKind.FacebookPost, item.Title, compact),
+            (ContentVariantKind.InstagramCaption, item.Title, $"{compact}\n\n{item.Title}"),
+            (ContentVariantKind.InstagramCarousel, $"{item.Title} carousel", $"Slide 1: {item.Title}. Slide 2: {compact}. Slide 3: Review before posting."),
+            (ContentVariantKind.YouTubeMetadata, $"{item.Title} script", $"# YouTube script: {item.Title}\n\nIntro\n{compact}\n\nClose\nReview before filming."),
+            (ContentVariantKind.Newsletter, item.Title, $"# {item.Title}\n\n{compact}\n\nRead the hub article after it is published."),
+            (ContentVariantKind.WhatsAppTemplateDraft, $"{item.Title} template", $"Hello, this is a WhatsApp template draft about {item.Title}. It has not been submitted to WhatsApp."),
+            (ContentVariantKind.IndiaMartContent, item.Title, $"{item.Title} | {compact} | Assisted IndiaMART copy. No unofficial scrape."),
+            (ContentVariantKind.JustdialContent, item.Title, $"{item.Title}. {compact} Assisted Justdial copy. No unofficial scrape.")
         ];
         foreach (var (kind, title, body) in packs)
         {
