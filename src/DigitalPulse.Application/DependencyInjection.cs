@@ -45,8 +45,11 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddMemoryCache();
         services.AddScoped<IAiContextBuilder, AiContextBuilder>();
-        services.AddScoped<IAiOrchestrator, AiOrchestrator>();
+        services.AddScoped<AiOrchestrator>();
+        services.AddScoped<IAiOrchestrator>(sp =>
+            new CachingAiOrchestrator(sp.GetRequiredService<AiOrchestrator>(), sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>()));
         services.AddScoped<RegisterUserHandler>();
         services.AddScoped<LoginUserHandler>();
         services.AddScoped<GetMeHandler>();

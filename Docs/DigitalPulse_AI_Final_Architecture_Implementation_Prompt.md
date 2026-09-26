@@ -1787,7 +1787,7 @@ Create ADRs for significant decisions such as:
 
 # 47. IMPLEMENTATION ORDER
 
-**Overall: 60% (6/10 phases).**
+**Overall: 70% (7/10 phases).**
 
 Implement in this order after auditing existing code.
 
@@ -1895,7 +1895,8 @@ Implement:
 - prompt-injection defenses;
 - policy validation.
 
-## Phase 7 — Cost and Usage
+## Phase 7 — completed (100%)
+Cost and Usage
 
 Implement:
 
@@ -1974,7 +1975,7 @@ The AI architecture is complete only when all applicable items are PASS:
 - [x] AI cannot directly execute external actions.
 - [x] Usage metering exists.
 - [x] AI entitlement enforcement exists.
-- [ ] Token/cost controls exist.
+- [x] Token/cost controls exist.
 - [x] Retry handling exists.
 - [x] Timeout/cancellation exists.
 - [ ] Background execution exists where required.

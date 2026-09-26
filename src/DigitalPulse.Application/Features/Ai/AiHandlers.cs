@@ -252,6 +252,9 @@ public sealed class RunAiHandler
         Audit(tenantId, run.Id, "graphify", "Graphify recorded the decision and outcome.");
         Audit(tenantId, run.Id, "audit", "Run stored with evaluation and stage history.");
         await UsageMeter.RecordAsync(_db, tenantId, UsageKind.AiGeneration, agent.Code, cancellationToken);
+        var cost = AiUsagePolicy.EstimateCostCents(completion.PromptTokens, completion.CompletionTokens, 0, 0);
+        Audit(tenantId, run.Id, "usage",
+            $"Tokens prompt={completion.PromptTokens?.ToString() ?? "unknown"} completion={completion.CompletionTokens?.ToString() ?? "unknown"}. Estimated cents={cost} until official provider rates are configured.");
 
         await _db.SaveChangesAsync(cancellationToken);
         var evaluation = await _db.AiEvaluations.AsNoTracking().FirstAsync(e => e.AiRunId == run.Id, cancellationToken);
