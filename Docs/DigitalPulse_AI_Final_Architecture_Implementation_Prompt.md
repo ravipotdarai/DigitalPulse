@@ -1787,7 +1787,7 @@ Create ADRs for significant decisions such as:
 
 # 47. IMPLEMENTATION ORDER
 
-**Overall: 70% (7/10 phases).**
+**Overall: 80% (8/10 phases).**
 
 Implement in this order after auditing existing code.
 
@@ -1907,7 +1907,8 @@ Implement:
 - caching;
 - model routing.
 
-## Phase 8 — AI Evaluation
+## Phase 8 — completed (100%)
+AI Evaluation
 
 Implement:
 
@@ -1981,7 +1982,7 @@ The AI architecture is complete only when all applicable items are PASS:
 - [ ] Background execution exists where required.
 - [x] Observability exists.
 - [x] Auditability exists.
-- [ ] AI evaluation exists.
+- [x] AI evaluation exists.
 - [x] AI security tests exist.
 - [ ] Cross-tenant isolation tests exist.
 - [ ] Google Business Profile generation works through the AI layer.
