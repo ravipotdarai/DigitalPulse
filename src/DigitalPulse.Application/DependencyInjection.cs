@@ -45,6 +45,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddScoped<IAiContextBuilder, AiContextBuilder>();
         services.AddScoped<IAiOrchestrator, AiOrchestrator>();
         services.AddScoped<RegisterUserHandler>();
         services.AddScoped<LoginUserHandler>();

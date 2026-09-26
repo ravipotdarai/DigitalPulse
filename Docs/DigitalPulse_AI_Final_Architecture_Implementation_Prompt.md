@@ -1787,7 +1787,7 @@ Create ADRs for significant decisions such as:
 
 # 47. IMPLEMENTATION ORDER
 
-**Overall: 30% (3/10 phases).**
+**Overall: 40% (4/10 phases).**
 
 Implement in this order after auditing existing code.
 
@@ -1866,7 +1866,8 @@ Implement/complete:
 - response validation;
 - usage metering.
 
-## Phase 4 — Graphify + Retrieval
+## Phase 4 — completed (100%)
+Graphify + Retrieval
 
 Implement/complete:
 
@@ -1958,7 +1959,7 @@ The AI architecture is complete only when all applicable items are PASS:
 - [x] Prompt management is versioned.
 - [x] Structured outputs are supported.
 - [x] Response validation exists.
-- [ ] Context builder exists.
+- [x] Context builder exists.
 - [x] Graphify integration exists.
 - [x] Retrieval is provider-neutral.
 - [x] Retrieval is tenant-scoped.

@@ -149,14 +149,14 @@ public sealed class RunAiHandler
 {
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
-    private readonly ISearchProvider _search;
+    private readonly IAiContextBuilder _context;
     private readonly IAiOrchestrator _orchestrator;
 
-    public RunAiHandler(IAppDbContext db, ITenantContext tenant, ISearchProvider search, IAiOrchestrator orchestrator)
+    public RunAiHandler(IAppDbContext db, ITenantContext tenant, IAiContextBuilder context, IAiOrchestrator orchestrator)
     {
         _db = db;
         _tenant = tenant;
-        _search = search;
+        _context = context;
         _orchestrator = orchestrator;
     }
 
@@ -205,12 +205,9 @@ public sealed class RunAiHandler
         _db.AiRuns.Add(run);
         Audit(tenantId, run.Id, "policy", "Session tenant authorized. Client tenant headers are not trusted.");
 
-        var evidence = await RetrieveEvidenceAsync(tenantId, businessId, request.Prompt.Trim(), cancellationToken);
-        var graphLines = await _db.GraphNodes.AsNoTracking()
-            .Where(n => n.BusinessId == businessId)
-            .OrderBy(n => n.Kind)
-            .Select(n => $"{n.Kind}: {n.Label}" + (n.Value == null ? "" : $" — {n.Value}"))
-            .ToListAsync(cancellationToken);
+        var built = await _context.BuildAsync(tenantId, businessId, request.Prompt.Trim(), cancellationToken);
+        var evidence = built.Evidence;
+        var graphLines = built.GraphLines;
 
         Audit(tenantId, run.Id, "graphify", graphLines.Count == 0
             ? "Graphify had no nodes for this business."
@@ -263,61 +260,6 @@ public sealed class RunAiHandler
             .OrderBy(a => a.CreatedAtUtc)
             .ToListAsync(cancellationToken);
         return run.ToResponse(evaluation, audit);
-    }
-
-    private async Task<List<AiEvidence>> RetrieveEvidenceAsync(
-        Guid tenantId,
-        Guid businessId,
-        string prompt,
-        CancellationToken cancellationToken)
-    {
-        var evidence = new List<AiEvidence>();
-        var facts = await _db.Facts.AsNoTracking()
-            .Where(f => f.BusinessId == businessId)
-            .ToListAsync(cancellationToken);
-        foreach (var fact in facts)
-        {
-            evidence.Add(new AiEvidence(
-                "fact",
-                fact.FactTypeCode,
-                fact.Value,
-                fact.Status == FactStatus.Restricted,
-                fact.Status == FactStatus.Approved));
-        }
-
-        var knowledge = await _db.KnowledgeEntries.AsNoTracking()
-            .Where(k => k.BusinessId == businessId)
-            .ToListAsync(cancellationToken);
-        foreach (var entry in knowledge)
-        {
-            evidence.Add(new AiEvidence("knowledge", entry.Title, entry.Body, false, true));
-        }
-
-        var nodes = await _db.GraphNodes.AsNoTracking()
-            .Where(n => n.BusinessId == businessId &&
-                        (n.Kind == GraphNodeKind.Business ||
-                         n.Kind == GraphNodeKind.Service ||
-                         n.Kind == GraphNodeKind.ApprovedFact ||
-                         n.Kind == GraphNodeKind.Project ||
-                         n.Kind == GraphNodeKind.Finding))
-            .ToListAsync(cancellationToken);
-        foreach (var node in nodes.Where(n => !string.IsNullOrWhiteSpace(n.Value)))
-        {
-            evidence.Add(new AiEvidence("graphify", node.Label, node.Value!, Restricted: false, Approved: true));
-        }
-
-        var hits = await _search.SearchAsync(tenantId, businessId, prompt, cancellationToken);
-        foreach (var hit in hits.Where(h => h.Score > 0).Take(8))
-        {
-            if (evidence.Any(e => e.Title.Equals(hit.Title, StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
-
-            evidence.Add(new AiEvidence(_search.ProviderCode, hit.Title, hit.Snippet, false, true));
-        }
-
-        return evidence;
     }
 
     private void Audit(Guid tenantId, Guid runId, string stage, string detail) =>
