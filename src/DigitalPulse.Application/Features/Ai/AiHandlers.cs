@@ -522,15 +522,20 @@ internal static class GraphifySync
         if (businessNode is null)
         {
             await RebuildAsync(db, tenantId, item.BusinessId, cancellationToken);
-            return;
+            businessNode = await db.GraphNodes.FirstOrDefaultAsync(
+                n => n.BusinessId == item.BusinessId && n.Kind == GraphNodeKind.Business, cancellationToken);
+            if (businessNode is null) return;
         }
 
-        if (await db.GraphNodes.AnyAsync(n => n.BusinessId == item.BusinessId && n.SourceKey == $"content:{item.Id}", cancellationToken))
+        var existing = await db.GraphNodes.FirstOrDefaultAsync(
+            n => n.BusinessId == item.BusinessId && n.SourceKey == $"content:{item.Id}", cancellationToken);
+        if (existing is not null)
         {
+            existing.Replace($"{item.Status}: {item.Title}", item.Excerpt);
             return;
         }
 
-        var node = Add(db, tenantId, item.BusinessId, GraphNodeKind.Content, item.Title, $"content:{item.Id}", item.Excerpt);
+        var node = Add(db, tenantId, item.BusinessId, GraphNodeKind.Content, $"{item.Status}: {item.Title}", $"content:{item.Id}", item.Excerpt);
         Link(db, tenantId, item.BusinessId, businessNode, node, "publishes");
     }
 

@@ -1921,7 +1921,7 @@ Do NOT:
 
 ## 43. Implementation Sequence
 
-**Overall: 88% (14/16 phases).**
+**Overall: 94% (15/16 phases).**
 
 Implement in this order:
 
@@ -1967,7 +1967,7 @@ Analytics
 ### Phase 14 — completed (100%)
 Agency / White-label support
 
-### Phase 15
+### Phase 15 — completed (100%)
 Search / Graphify integration
 
 ### Phase 16
@@ -2038,8 +2038,8 @@ The feature is NOT complete until:
 - [x] analytics works
 - [x] agency clients work
 - [x] white-label entitlement works
-- [ ] search indexing works
-- [ ] Graphify integration works
+- [x] search indexing works
+- [x] Graphify integration works
 - [ ] security tests pass
 - [ ] API tests pass
 - [ ] frontend tests pass

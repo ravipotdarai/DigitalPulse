@@ -749,6 +749,8 @@ public sealed class GenerateHubContentHandler
         if (services.Count > 0) graph.Add("Services: " + string.Join(", ", services));
         if (projects.Count > 0) graph.Add("Projects: " + string.Join(", ", projects));
         foreach (var fact in facts) graph.Add($"Approved fact {fact.FactTypeCode}: {fact.Value}");
+        var nodes = await _db.GraphNodes.AsNoTracking().Where(n => n.BusinessId == businessId).Take(24).ToListAsync(cancellationToken);
+        foreach (var node in nodes) graph.Add($"Graph {node.Kind}: {node.Label}");
 
         var completion = await _ai.CompleteAsync(
             new AiCompletionRequest("content", prompt, evidence, graph),
