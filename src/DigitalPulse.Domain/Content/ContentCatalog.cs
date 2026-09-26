@@ -56,20 +56,34 @@ public static class ContentHubPaths
     public static string PublicMedia(Guid businessId, Guid assetId) =>
         $"/v1/hub/{businessId:D}/media/{assetId:D}";
 
+    public static string WorkspaceMedia(Guid businessId, Guid assetId) =>
+        $"/v1/businesses/{businessId:D}/content/media/{assetId:D}";
+
     public static string? DisplayMedia(Guid businessId, Guid? assetId, string? sourceUrl)
     {
         if (assetId is null) return null;
         var value = sourceUrl?.Trim();
-        if (string.IsNullOrWhiteSpace(value)) return PublicMedia(businessId, assetId.Value);
-        if (value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
-            || value.StartsWith("/v1/hub/", StringComparison.OrdinalIgnoreCase)
-            || value.StartsWith("/hub/", StringComparison.OrdinalIgnoreCase))
+        if (IsRemoteOrPublicPath(value)) return value;
+        return WorkspaceMedia(businessId, assetId.Value);
+    }
+
+    public static string? PublicDisplayMedia(Guid businessId, Guid? assetId, string? sourceUrl)
+    {
+        if (assetId is null) return null;
+        var value = sourceUrl?.Trim();
+        if (!string.IsNullOrWhiteSpace(value) && value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
         {
             return value;
         }
 
         return PublicMedia(businessId, assetId.Value);
     }
+
+    private static bool IsRemoteOrPublicPath(string? value) =>
+        !string.IsNullOrWhiteSpace(value)
+        && (value.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("/v1/hub/", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("/hub/", StringComparison.OrdinalIgnoreCase));
 }
 
 public static class ContentSlug

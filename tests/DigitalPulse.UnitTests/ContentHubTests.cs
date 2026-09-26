@@ -159,6 +159,10 @@ public sealed class ContentHubTests
         item.MarkApproved();
         item.Publish();
         Assert.Equal($"/hub/{businessId:D}/conference-room", ContentHubPaths.SearchUrl(item.BusinessId, item.Id, item.Slug, item.Status, item.Visibility));
+        var assetId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        Assert.Equal($"/v1/businesses/{businessId:D}/content/media/{assetId:D}", ContentHubPaths.DisplayMedia(businessId, assetId, "hero.jpg"));
+        Assert.Equal($"/v1/hub/{businessId:D}/media/{assetId:D}", ContentHubPaths.PublicDisplayMedia(businessId, assetId, "hero.jpg"));
+        Assert.True(ContentMarkup.IsSafeHref($"/v1/businesses/{businessId:D}/content/media/{assetId:D}"));
     }
 
     [Fact]

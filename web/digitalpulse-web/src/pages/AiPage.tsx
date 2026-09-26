@@ -7,7 +7,6 @@ import { PageState } from "../components/PageState";
 import { DataGrid } from "../design/DataGrid";
 import { Field } from "../design/Field";
 import { AIBrief } from "../design/AIBrief";
-import { PageHeader } from "../design/PageHeader";
 
 export function AiPage() {
   const businesses = useQuery({ queryKey: ["businesses"], queryFn: api.listBusinesses });

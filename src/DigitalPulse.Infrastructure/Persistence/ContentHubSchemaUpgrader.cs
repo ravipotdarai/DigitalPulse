@@ -264,6 +264,7 @@ public static class ContentHubSchemaUpgrader
                 [CreatedByUserId] uniqueidentifier NULL,
                 CONSTRAINT [PK_ContentCalendarEntry] PRIMARY KEY ([Id])
             );
+            CREATE INDEX [IX_ContentCalendarEntry_BusinessId_ScheduledAtUtc] ON [dp].[ContentCalendarEntry] ([BusinessId], [ScheduledAtUtc]);
             """, cancellationToken);
 
         await CreateAsync(db, "ContentDistribution",
@@ -380,6 +381,9 @@ public static class ContentHubSchemaUpgrader
             IF OBJECT_ID(N'dp.ContentMetric', N'U') IS NOT NULL
                AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_ContentMetric_Item_Provider_Date' AND object_id = OBJECT_ID(N'dp.ContentMetric'))
                 CREATE INDEX [IX_ContentMetric_Item_Provider_Date] ON [dp].[ContentMetric] ([ContentItemId], [ProviderCode], [MetricDate]);
+            IF OBJECT_ID(N'dp.ContentCalendarEntry', N'U') IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_ContentCalendarEntry_BusinessId_ScheduledAtUtc' AND object_id = OBJECT_ID(N'dp.ContentCalendarEntry'))
+                CREATE INDEX [IX_ContentCalendarEntry_BusinessId_ScheduledAtUtc] ON [dp].[ContentCalendarEntry] ([BusinessId], [ScheduledAtUtc]);
             """, cancellationToken);
     }
 

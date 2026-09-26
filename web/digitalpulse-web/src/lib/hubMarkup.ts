@@ -9,6 +9,7 @@ const IMAGE = /^!\[(.*)\]\((.+)\)$/;
 const VIDEO = /^!video\[(.*)\]\((.+)\)$/i;
 const HUB = /^\/hub\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/[a-z0-9-]+$/;
 const HUB_MEDIA = /^\/v1\/hub\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/media\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const WORKSPACE_MEDIA = /^\/v1\/businesses\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\/content\/media\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const INLINE = /\[([^\]]+)\]\(([^)]+)\)|\*\*(.+?)\*\*|\*(.+?)\*/g;
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
 const VIMEO_ID = /^\d{6,12}$/;
@@ -23,6 +24,7 @@ export function isSafeHref(url: string) {
   const value = url.trim();
   if (value.startsWith("/hub/")) return HUB.test(value);
   if (value.startsWith("/v1/hub/")) return HUB_MEDIA.test(value);
+  if (value.startsWith("/v1/businesses/")) return WORKSPACE_MEDIA.test(value);
   try {
     const parsed = new URL(value);
     if (parsed.protocol !== "https:") return false;

@@ -25,6 +25,7 @@ public static class ContentEndpoints
         group.MapPost("/{contentId:guid}/revisions/{revisionId:guid}/restore", RestoreAsync);
         group.MapPost("/{contentId:guid}/media", AttachMediaAsync);
         group.MapPost("/media", RegisterMediaAsync);
+        group.MapGet("/media/{assetId:guid}", GetWorkspaceMediaAsync);
         group.MapPost("/media/upload", UploadMediaAsync).DisableAntiforgery();
         group.MapPost("/calendar/release", ReleaseAsync);
         group.MapPost("/{contentId:guid}/seo", AnalyzeAsync);
@@ -113,8 +114,15 @@ public static class ContentEndpoints
             cancellationToken));
     }
 
-    private static async Task<IResult> GetPublicMediaAsync(
+    private static async Task<IResult> GetWorkspaceMediaAsync(
         Guid businessId, Guid assetId, GetHubMediaFileHandler handler, CancellationToken cancellationToken)
+    {
+        var file = await handler.Handle(businessId, assetId, cancellationToken);
+        return Results.File(file.Bytes, file.ContentType, file.FileName);
+    }
+
+    private static async Task<IResult> GetPublicMediaAsync(
+        Guid businessId, Guid assetId, GetPublicHubMediaHandler handler, CancellationToken cancellationToken)
     {
         var file = await handler.Handle(businessId, assetId, cancellationToken);
         return Results.File(file.Bytes, file.ContentType, file.FileName);

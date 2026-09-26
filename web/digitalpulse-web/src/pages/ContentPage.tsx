@@ -278,7 +278,8 @@ function ContentStudio({
   const due = data.calendar.filter((item) => item.status === "Scheduled" && new Date(item.scheduledAtUtc).getTime() <= Date.now());
 
   return (
-    <section className="studio">
+    <section className="studio" id="hub-desk">
+      <a className="skip-link" href="#hub-desk">Skip to editorial desk</a>
       <header className="studio-hero">
         <div>
           <p className="hero-kicker">Content Hub</p>

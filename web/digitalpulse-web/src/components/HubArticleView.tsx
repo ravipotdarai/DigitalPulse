@@ -24,6 +24,7 @@ export function HubArticleView({
 }) {
   return (
     <article className={compact ? "hub-article is-preview" : "hub-article"}>
+      {compact ? null : <a className="skip-link" href="#article-body">Skip to article</a>}
       <p className="hero-kicker">
         {businessHref ? <Link className="text-link" to={businessHref}>{businessName}</Link> : businessName}
         {" · "}
@@ -31,9 +32,9 @@ export function HubArticleView({
       </p>
       <h1 className="display display-page">{title || "Untitled draft"}</h1>
       {publishedAtUtc ? <p className="ink-muted">{new Date(publishedAtUtc).toUTCString()}</p> : <p className="ink-muted">Draft preview — not published.</p>}
-      {featuredImageUrl && isSafeHref(featuredImageUrl) ? <img className="hub-featured" src={featuredImageUrl} alt="" /> : null}
+      {featuredImageUrl && isSafeHref(featuredImageUrl) ? <img className="hub-featured" src={featuredImageUrl} alt={title || "Featured image"} /> : null}
       {excerpt ? <p className="command-lead">{excerpt}</p> : null}
-      <div className="hub-body">
+      <div className="hub-body" id="article-body">
         {parseHubMarkup(body).map((block) => {
           if (block.type === "heading") return <h2 key={block.id}>{block.text}</h2>;
           if (block.type === "quote") return <blockquote key={block.id}><Inlines text={block.text} /></blockquote>;

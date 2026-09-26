@@ -2,6 +2,7 @@ using DigitalPulse.Application.Abstractions;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Application.Features.Ai;
 using DigitalPulse.Application.Features.Identity;
+using DigitalPulse.Application.Features.Operations;
 using DigitalPulse.Contracts.Content;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Businesses;
@@ -100,7 +101,7 @@ public sealed class CreateHubContentHandler
                 request.ProjectId,
                 _user.IsAuthenticated ? _user.UserId : null,
                 request.FeaturedMediaAssetId,
-                request.CanonicalUrl);
+                ContentComposer.CanonicalOrNull(request.CanonicalUrl));
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
@@ -223,7 +224,7 @@ public sealed class UpdateHubContentHandler
                 ContentHubMaps.ParseVisibility(request.Visibility),
                 request.ProjectId,
                 request.FeaturedMediaAssetId ?? item.FeaturedMediaAssetId,
-                request.CanonicalUrl);
+                ContentComposer.CanonicalOrNull(request.CanonicalUrl));
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {
@@ -303,6 +304,7 @@ public sealed class ApproveHubContentHandler
         item.MarkApproved();
         _db.ApprovalDecisions.Add(ApprovalDecision.Record(tenantId, request.Id, ApprovalDecisionKind.Approved, "Approved in the Content Hub. Live distribution still needs an official connection."));
         request.Close();
+        OperationsStore.Audit(_db, tenantId, "content.approve", $"Approved {item.Id:D} on {businessId:D}.");
         await _db.SaveChangesAsync(cancellationToken);
         return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
     }
@@ -340,6 +342,7 @@ public sealed class SubmitHubApprovalHandler
             _db.ApprovalRequests.Add(ApprovalRequest.OpenFor(tenantId, item.Id, "Content Hub review requested."));
         }
 
+        OperationsStore.Audit(_db, tenantId, "content.submit", $"Submitted {item.Id:D} on {businessId:D}.");
         await _db.SaveChangesAsync(cancellationToken);
         return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
     }
@@ -419,6 +422,7 @@ public sealed class PublishHubContentHandler
         foreach (var entry in calendar) entry.MarkPublished();
         _db.ContentMetrics.Add(ContentMetric.Hold(tenantId, businessId, item.Id, "Views are not invented. Metrics appear only after an official provider returns them."));
         await ContentComposer.IndexAsync(_db, _search, tenantId, item, cancellationToken);
+        OperationsStore.Audit(_db, tenantId, "content.publish", $"Published {item.Id:D} on {businessId:D} as {item.Visibility}.");
         await _db.SaveChangesAsync(cancellationToken);
         return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
     }
@@ -1068,9 +1072,30 @@ public sealed class UploadHubMediaHandler
 public sealed class GetHubMediaFileHandler
 {
     private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
     private readonly ISocialMediaStore _store;
 
-    public GetHubMediaFileHandler(IAppDbContext db, ISocialMediaStore store)
+    public GetHubMediaFileHandler(IAppDbContext db, ITenantContext tenant, ISocialMediaStore store)
+    {
+        _db = db;
+        _tenant = tenant;
+        _store = store;
+    }
+
+    public async Task<HubMediaFile> Handle(Guid businessId, Guid assetId, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        return await HubMediaFiles.ReadAsync(_db, _store, businessId, assetId, cancellationToken);
+    }
+}
+
+public sealed class GetPublicHubMediaHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ISocialMediaStore _store;
+
+    public GetPublicHubMediaHandler(IAppDbContext db, ISocialMediaStore store)
     {
         _db = db;
         _store = store;
@@ -1078,7 +1103,40 @@ public sealed class GetHubMediaFileHandler
 
     public async Task<HubMediaFile> Handle(Guid businessId, Guid assetId, CancellationToken cancellationToken)
     {
-        var asset = await _db.MediaAssets.IgnoreQueryFilters().AsNoTracking()
+        var featured = await _db.ContentItems.IgnoreQueryFilters().AsNoTracking()
+            .AnyAsync(
+                c => c.BusinessId == businessId
+                     && c.FeaturedMediaAssetId == assetId
+                     && c.Status == ContentItemStatus.Published
+                     && c.Visibility == ContentVisibility.Public,
+                cancellationToken);
+        var attached = featured || await (
+            from media in _db.ContentItemMedia.IgnoreQueryFilters().AsNoTracking()
+            join item in _db.ContentItems.IgnoreQueryFilters().AsNoTracking() on media.ContentItemId equals item.Id
+            where media.MediaAssetId == assetId
+                  && item.BusinessId == businessId
+                  && item.Status == ContentItemStatus.Published
+                  && item.Visibility == ContentVisibility.Public
+            select media.Id).AnyAsync(cancellationToken);
+        if (!attached)
+        {
+            throw AppException.NotFound("Published article was not found.");
+        }
+
+        return await HubMediaFiles.ReadAsync(_db, _store, businessId, assetId, cancellationToken);
+    }
+}
+
+internal static class HubMediaFiles
+{
+    public static async Task<HubMediaFile> ReadAsync(
+        IAppDbContext db,
+        ISocialMediaStore store,
+        Guid businessId,
+        Guid assetId,
+        CancellationToken cancellationToken)
+    {
+        var asset = await db.MediaAssets.IgnoreQueryFilters().AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == assetId && a.BusinessId == businessId, cancellationToken)
             ?? throw AppException.NotFound("Media was not found.");
         if (string.IsNullOrWhiteSpace(asset.SourceUrl) || asset.SourceUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
@@ -1086,7 +1144,7 @@ public sealed class GetHubMediaFileHandler
             throw AppException.NotFound("That asset is a remote URL, not a stored file.");
         }
 
-        var bytes = await _store.ReadAsync(asset.SourceUrl, cancellationToken)
+        var bytes = await store.ReadAsync(asset.SourceUrl, cancellationToken)
             ?? throw AppException.NotFound("Stored image was not found.");
         return new HubMediaFile(bytes, ContentTypeOf(asset.SourceUrl), asset.Label);
     }
@@ -1268,7 +1326,7 @@ internal static class ContentComposer
             .ToListAsync(cancellationToken);
         return items.ToDictionary(
             item => item.Id,
-            item => ContentHubPaths.DisplayMedia(item.BusinessId, item.FeaturedMediaAssetId, assets.FirstOrDefault(a => a.Id == item.FeaturedMediaAssetId)?.SourceUrl));
+            item => ContentHubPaths.PublicDisplayMedia(item.BusinessId, item.FeaturedMediaAssetId, assets.FirstOrDefault(a => a.Id == item.FeaturedMediaAssetId)?.SourceUrl));
     }
 
     public static async Task AssignTypeAsync(IAppDbContext db, ContentItem item, string contentTypeCode, CancellationToken cancellationToken)
@@ -1918,6 +1976,17 @@ internal static class ContentComposer
                 var asset = assets.FirstOrDefault(a => a.Id == m.MediaAssetId);
                 return new ContentMediaResponse(m.Id, m.MediaAssetId, m.Role.ToString(), m.DisplayOrder, asset?.Label, ContentHubPaths.DisplayMedia(businessId, m.MediaAssetId, asset?.SourceUrl));
             }).ToList());
+    }
+
+    public static string? CanonicalOrNull(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        if (!SafeUrlPolicy.TryValidate(url, out var uri, out var error) || uri.Scheme != Uri.UriSchemeHttps)
+        {
+            throw AppException.Validation(string.IsNullOrWhiteSpace(error) ? "Canonical URL must be https and a public host." : error);
+        }
+
+        return uri.AbsoluteUri;
     }
 
     public static string ExcerptOf(string? excerpt, string body)

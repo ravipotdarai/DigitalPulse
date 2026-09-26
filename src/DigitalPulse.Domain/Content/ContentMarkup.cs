@@ -25,6 +25,9 @@ public static class ContentMarkup
     private static readonly Regex HubMedia = new(
         @"^/v1/hub/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/media/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
         RegexOptions.Compiled);
+    private static readonly Regex WorkspaceMedia = new(
+        @"^/v1/businesses/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/content/media/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+        RegexOptions.Compiled);
     private static readonly Regex YouTubeId = new(@"^[A-Za-z0-9_-]{11}$", RegexOptions.Compiled);
     private static readonly Regex VimeoId = new(@"^\d{6,12}$", RegexOptions.Compiled);
 
@@ -63,6 +66,11 @@ public static class ContentMarkup
         if (value.StartsWith("/v1/hub/", StringComparison.OrdinalIgnoreCase))
         {
             return HubMedia.IsMatch(value);
+        }
+
+        if (value.StartsWith("/v1/businesses/", StringComparison.OrdinalIgnoreCase))
+        {
+            return WorkspaceMedia.IsMatch(value);
         }
 
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
