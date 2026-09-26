@@ -1,4 +1,5 @@
 using DigitalPulse.Application.Abstractions;
+using DigitalPulse.Application.Ai;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Application.Features.Ai;
 using DigitalPulse.Application.Features.Identity;
@@ -716,10 +717,10 @@ public sealed class GenerateHubContentHandler
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly ICurrentUser _user;
-    private readonly IAiProvider _ai;
+    private readonly IAiOrchestrator _ai;
     private readonly ISearchProvider _search;
 
-    public GenerateHubContentHandler(IAppDbContext db, ITenantContext tenant, ICurrentUser user, IAiProvider ai, ISearchProvider search)
+    public GenerateHubContentHandler(IAppDbContext db, ITenantContext tenant, ICurrentUser user, IAiOrchestrator ai, ISearchProvider search)
     {
         _db = db;
         _tenant = tenant;
@@ -756,12 +757,12 @@ public sealed class GenerateHubContentHandler
         var nodes = await _db.GraphNodes.AsNoTracking().Where(n => n.BusinessId == businessId).Take(24).ToListAsync(cancellationToken);
         foreach (var node in nodes) graph.Add($"Graph {node.Kind}: {node.Label}");
 
-        var completion = await _ai.CompleteAsync(
-            new AiCompletionRequest("content", prompt, evidence, graph),
+        var completion = await _ai.RunAsync(
+            new AiOrchestrationRequest("content", prompt, evidence, graph),
             cancellationToken);
 
         var assembled = ContentComposer.AssembleFromEvidence(business.Name, prompt, facts.Select(f => $"{f.FactTypeCode}: {f.Value}"), services, projects);
-        var body = completion.IsLive && !string.IsNullOrWhiteSpace(completion.Output) ? completion.Output : assembled;
+        var body = completion.ProviderIsLive && !string.IsNullOrWhiteSpace(completion.Output) ? completion.Output : assembled;
         var excerpt = body.Length <= 160 ? body : body[..160];
         ContentItem item;
         try
@@ -785,7 +786,7 @@ public sealed class GenerateHubContentHandler
             throw AppException.Validation(ex.Message);
         }
 
-        item.MarkHold(completion.IsLive
+        item.MarkHold(completion.ProviderIsLive
             ? "Generated from retrieved Graphify context and approved facts. Review before approval."
             : "Assembled from stored identity, services, projects, and approved facts. No live model was called.");
 
@@ -793,7 +794,7 @@ public sealed class GenerateHubContentHandler
         await ContentComposer.AssignTypeAsync(_db, item, item.ContentTypeCode, cancellationToken);
         _db.ContentItems.Add(item);
         await ContentComposer.AnalyzeAndStoreAsync(_db, tenantId, item, null, null, null, cancellationToken);
-        ContentComposer.Revise(_db, tenantId, item, 1, completion.IsLive ? "AI draft" : "Assembled draft", _user.IsAuthenticated ? _user.UserId : null);
+        ContentComposer.Revise(_db, tenantId, item, 1, completion.ProviderIsLive ? "AI draft" : "Assembled draft", _user.IsAuthenticated ? _user.UserId : null);
         await ContentComposer.IndexAsync(_db, _search, tenantId, item, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
@@ -810,9 +811,9 @@ public sealed class AssistHubContentHandler
 
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
-    private readonly IAiProvider _ai;
+    private readonly IAiOrchestrator _ai;
 
-    public AssistHubContentHandler(IAppDbContext db, ITenantContext tenant, IAiProvider ai)
+    public AssistHubContentHandler(IAppDbContext db, ITenantContext tenant, IAiOrchestrator ai)
     {
         _db = db;
         _tenant = tenant;
@@ -846,11 +847,11 @@ public sealed class AssistHubContentHandler
         foreach (var fact in facts) graph.Add($"Approved fact {fact.FactTypeCode}: {fact.Value}");
 
         var prompt = ContentComposer.AssistPrompt(request.Action.Trim(), business.Name, request.Instruction, current);
-        var completion = await _ai.CompleteAsync(new AiCompletionRequest("content", prompt, evidence, graph), cancellationToken);
+        var completion = await _ai.RunAsync(new AiOrchestrationRequest("content", prompt, evidence, graph), cancellationToken);
         var assembled = ContentComposer.AssistFromEvidence(request.Action.Trim(), business.Name, request.Instruction, current, facts.Select(f => $"{f.FactTypeCode}: {f.Value}"), services, projects);
-        var suggestion = completion.IsLive && !string.IsNullOrWhiteSpace(completion.Output) ? completion.Output.Trim() : assembled;
+        var suggestion = completion.ProviderIsLive && !string.IsNullOrWhiteSpace(completion.Output) ? completion.Output.Trim() : assembled;
         ContentGuard.Require(suggestion);
-        var hold = completion.IsLive
+        var hold = completion.ProviderIsLive
             ? "Preview only. Accept writes this into the draft. Nothing was saved or published."
             : "Assembled from stored facts, services, and projects. No live model was called. Accept still requires you to save.";
         return new AssistHubContentResponse(
@@ -858,7 +859,7 @@ public sealed class AssistHubContentHandler
             suggestion,
             hold,
             completion.ProviderName,
-            completion.IsLive,
+            completion.ProviderIsLive,
             ContentComposer.AssistTarget(request.Action));
     }
 }

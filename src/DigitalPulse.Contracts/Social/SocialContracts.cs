@@ -41,5 +41,6 @@ public sealed record SocialWorkspaceResponse(
     string Note);
 
 public sealed record CreateSocialContentRequest(string PlatformCode, string Title, string Body);
+public sealed record GenerateSocialDraftRequest(string PlatformCode, string Prompt);
 public sealed record UpdateSocialContentRequest(string Title, string Body);
 public sealed record SocialMediaResponse(Guid Id, string Kind, string FileName, string ContentType);

@@ -1,4 +1,5 @@
 using DigitalPulse.Application.Abstractions;
+using DigitalPulse.Application.Ai;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Application.Features.Connections;
 using DigitalPulse.Application.Features.Identity;
@@ -566,9 +567,9 @@ public sealed class DraftWhatsAppAiHandler
 {
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
-    private readonly IAiProvider _ai;
+    private readonly IAiOrchestrator _ai;
 
-    public DraftWhatsAppAiHandler(IAppDbContext db, ITenantContext tenant, IAiProvider ai)
+    public DraftWhatsAppAiHandler(IAppDbContext db, ITenantContext tenant, IAiOrchestrator ai)
     {
         _db = db;
         _tenant = tenant;
@@ -592,8 +593,8 @@ public sealed class DraftWhatsAppAiHandler
             new("business", "NAME", business.Name, false, true),
             new("contact", "NAME", contact.DisplayName, false, true)
         };
-        var completion = await _ai.CompleteAsync(
-            new AiCompletionRequest("whatsapp", request.Prompt.Trim(), evidence, [$"Business:{business.Name}", $"Contact:{contact.DisplayName}"]),
+        var completion = await _ai.RunAsync(
+            new AiOrchestrationRequest("whatsapp", request.Prompt.Trim(), evidence, [$"Business:{business.Name}", $"Contact:{contact.DisplayName}"]),
             cancellationToken);
         var message = WhatsAppMessage.Draft(
             tenantId,
@@ -604,7 +605,7 @@ public sealed class DraftWhatsAppAiHandler
             null,
             null,
             request.TemplateId);
-        if (!completion.IsLive)
+        if (!completion.ProviderIsLive)
         {
             message.MarkHeld("AI draft assembled without a live model. It was not sent.");
         }

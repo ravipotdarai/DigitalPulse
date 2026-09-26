@@ -101,6 +101,7 @@ public static class DependencyInjection
         services.AddScoped<SearchConsoleWriteHandler>();
         services.AddScoped<GetSocialWorkspaceHandler>();
         services.AddScoped<CreateSocialContentHandler>();
+        services.AddScoped<GenerateSocialDraftHandler>();
         services.AddScoped<UpdateSocialContentHandler>();
         services.AddScoped<ApproveSocialContentHandler>();
         services.AddScoped<DeleteSocialContentHandler>();

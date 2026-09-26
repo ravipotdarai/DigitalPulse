@@ -1,4 +1,5 @@
 using DigitalPulse.Application.Abstractions;
+using DigitalPulse.Application.Ai;
 using DigitalPulse.Application.Features.Content;
 using DigitalPulse.Contracts.Content;
 using DigitalPulse.Domain.Ai;
@@ -17,7 +18,7 @@ public sealed class ContentHubPhase5Tests
     {
         var (db, tenant, business) = await SeedAsync();
         var before = await db.ContentItems.CountAsync();
-        var result = await new AssistHubContentHandler(db, tenant, new HoldAi()).Handle(
+        var result = await new AssistHubContentHandler(db, tenant, new HoldOrchestrator()).Handle(
             business.Id,
             new AssistHubContentRequest("outline", "Conference room guide", null, null),
             CancellationToken.None);
@@ -34,7 +35,7 @@ public sealed class ContentHubPhase5Tests
     {
         var (db, tenant, business) = await SeedAsync();
         var error = await Assert.ThrowsAsync<Application.Common.AppException>(() =>
-            new AssistHubContentHandler(db, tenant, new HoldAi()).Handle(
+            new AssistHubContentHandler(db, tenant, new HoldOrchestrator()).Handle(
                 business.Id,
                 new AssistHubContentRequest("autopilot", "Write it", null, null),
                 CancellationToken.None));
@@ -45,7 +46,7 @@ public sealed class ContentHubPhase5Tests
     public async Task Assist_outline_draft_rewrite_shorten_expand_faq_are_structurally_different()
     {
         var (db, tenant, business) = await SeedAsync();
-        var handler = new AssistHubContentHandler(db, tenant, new HoldAi());
+        var handler = new AssistHubContentHandler(db, tenant, new HoldOrchestrator());
         var section = "# Conference rooms\n\nA long draft about conference rooms for A Co.\nSecond paragraph stays in the editor.\nThird paragraph is still here.\nFourth paragraph is still here.\nFifth paragraph is still here.";
         var outline = await handler.Handle(business.Id, new AssistHubContentRequest("outline", "Conference room guide", null, section), CancellationToken.None);
         var draft = await handler.Handle(business.Id, new AssistHubContentRequest("draft", "Conference room guide", null, section), CancellationToken.None);
@@ -79,7 +80,7 @@ public sealed class ContentHubPhase5Tests
     public async Task Assist_platform_actions_append_including_youtube()
     {
         var (db, tenant, business) = await SeedAsync();
-        var handler = new AssistHubContentHandler(db, tenant, new HoldAi());
+        var handler = new AssistHubContentHandler(db, tenant, new HoldOrchestrator());
         foreach (var action in new[] { "social", "linkedin", "google", "instagram", "youtube" })
         {
             var result = await handler.Handle(business.Id, new AssistHubContentRequest(action, "Conference room guide", null, null), CancellationToken.None);
@@ -109,12 +110,20 @@ public sealed class ContentHubPhase5Tests
         return (db, new FixedTenantContext(tenantId), business);
     }
 
-    private sealed class HoldAi : IAiProvider
+    private sealed class HoldOrchestrator : IAiOrchestrator
     {
-        public string ProviderName => "Development";
-        public bool IsLive => false;
-        public Task<AiCompletionResponse> CompleteAsync(AiCompletionRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new AiCompletionResponse("", ProviderName, false));
+        public Task<AiOrchestrationResult> RunAsync(AiOrchestrationRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new AiOrchestrationResult(
+                "",
+                "Development",
+                false,
+                "hold",
+                "content.v1",
+                request.Ask,
+                new AiValidationResult(true, true, false, false, AiConfidence.Low, AiRunStatus.Held, "held"),
+                null,
+                null,
+                null));
     }
 
     private sealed class FixedTenantContext : ITenantContext

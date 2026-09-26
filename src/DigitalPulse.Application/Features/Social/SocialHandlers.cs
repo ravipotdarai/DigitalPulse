@@ -1,4 +1,5 @@
 using DigitalPulse.Application.Abstractions;
+using DigitalPulse.Application.Ai;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Application.Features.Identity;
 using DigitalPulse.Contracts.Social;
@@ -153,6 +154,73 @@ public sealed class CreateSocialContentHandler
             throw AppException.Validation(ex.Message);
         }
 
+        _db.SocialContent.Add(item);
+        await _db.SaveChangesAsync(cancellationToken);
+        return item.ToResponse(await SocialChannels.AnalyticsLiveAsync(_db, businessId, cancellationToken));
+    }
+}
+
+public sealed class GenerateSocialDraftHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+    private readonly IAiContextBuilder _context;
+    private readonly IAiOrchestrator _orchestrator;
+
+    public GenerateSocialDraftHandler(IAppDbContext db, ITenantContext tenant, IAiContextBuilder context, IAiOrchestrator orchestrator)
+    {
+        _db = db;
+        _tenant = tenant;
+        _context = context;
+        _orchestrator = orchestrator;
+    }
+
+    public async Task<SocialContentResponse> Handle(Guid businessId, GenerateSocialDraftRequest request, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        var platform = string.IsNullOrWhiteSpace(request.PlatformCode) ? "GOOGLE" : request.PlatformCode.Trim();
+        if (!SocialChannels.Allowed.Contains(platform))
+        {
+            throw AppException.Validation("Choose Google, Facebook, Instagram, LinkedIn, or YouTube.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Prompt) || request.Prompt.Trim().Length < 4)
+        {
+            throw AppException.Validation("Ask at least four characters so retrieval has something to match.");
+        }
+
+        if (AiAgents.Require("social").MayExecuteExternally)
+        {
+            throw AppException.Validation("AI agents cannot execute platform posts. Use Actions after approval.");
+        }
+
+        var built = await _context.BuildAsync(tenantId, businessId, request.Prompt.Trim(), cancellationToken);
+        var completion = await _orchestrator.RunAsync(
+            new AiOrchestrationRequest("social", request.Prompt.Trim(), built.Evidence, built.GraphLines),
+            cancellationToken);
+        var title = request.Prompt.Trim().Length <= 80 ? request.Prompt.Trim() : request.Prompt.Trim()[..80];
+        var body = string.IsNullOrWhiteSpace(completion.Output)
+            ? string.Join('\n', built.Evidence.Where(item => !item.Restricted).Select(item => item.Body).Take(6))
+            : completion.Output;
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            body = "No publishable evidence was retrieved. DigitalPulse will not invent a Google post.";
+        }
+
+        SocialContentItem item;
+        try
+        {
+            item = SocialContentItem.Draft(tenantId, businessId, platform, SocialChannels.KindFor(platform), title, body);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw AppException.Validation(ex.Message);
+        }
+
+        item.MarkAssisted(completion.ProviderIsLive
+            ? "Assisted social draft from the AI layer. Approval and the official adapter are still required before publish."
+            : "Assembled from stored Graphify context. No live model was called. Nothing was posted.");
         _db.SocialContent.Add(item);
         await _db.SaveChangesAsync(cancellationToken);
         return item.ToResponse(await SocialChannels.AnalyticsLiveAsync(_db, businessId, cancellationToken));

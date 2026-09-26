@@ -1787,7 +1787,7 @@ Create ADRs for significant decisions such as:
 
 # 47. IMPLEMENTATION ORDER
 
-**Overall: 80% (8/10 phases).**
+**Overall: 90% (9/10 phases).**
 
 Implement in this order after auditing existing code.
 
@@ -1917,7 +1917,8 @@ Implement:
 - quality checks;
 - safety tests.
 
-## Phase 9 — Feature Integration
+## Phase 9 — completed (100%)
+Feature Integration
 
 Verify AI integration with:
 
@@ -1972,7 +1973,7 @@ The AI architecture is complete only when all applicable items are PASS:
 - [x] Prompt-injection defenses exist.
 - [x] Confidence handling exists.
 - [x] Approval integration exists.
-- [ ] Autopilot respects domain policy.
+- [x] Autopilot respects domain policy.
 - [x] AI cannot directly execute external actions.
 - [x] Usage metering exists.
 - [x] AI entitlement enforcement exists.
@@ -1985,9 +1986,9 @@ The AI architecture is complete only when all applicable items are PASS:
 - [x] AI evaluation exists.
 - [x] AI security tests exist.
 - [ ] Cross-tenant isolation tests exist.
-- [ ] Google Business Profile generation works through the AI layer.
+- [x] Google Business Profile generation works through the AI layer.
 - [x] Content Hub generation works through the AI layer.
-- [ ] Platform-specific content generation works.
+- [x] Platform-specific content generation works.
 - [ ] Documentation is updated.
 - [x] No fake AI/provider implementation remains.
 - [x] No TODO/placeholder remains for required scope.

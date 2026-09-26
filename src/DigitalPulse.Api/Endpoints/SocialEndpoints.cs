@@ -11,6 +11,7 @@ public static class SocialEndpoints
         var group = app.MapGroup("/v1/businesses/{businessId:guid}/social").WithTags("Social").RequireAuthorization();
         group.MapGet("/", GetAsync);
         group.MapPost("/content", CreateAsync);
+        group.MapPost("/content/generate", GenerateAsync);
         group.MapPut("/content/{contentId:guid}", UpdateAsync);
         group.MapPost("/content/{contentId:guid}/approve", ApproveAsync);
         group.MapPost("/content/{contentId:guid}/publish", PublishAsync);
@@ -26,6 +27,10 @@ public static class SocialEndpoints
 
     private static async Task<Ok<SocialContentResponse>> CreateAsync(
         Guid businessId, CreateSocialContentRequest request, CreateSocialContentHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, request, cancellationToken));
+
+    private static async Task<Ok<SocialContentResponse>> GenerateAsync(
+        Guid businessId, GenerateSocialDraftRequest request, GenerateSocialDraftHandler handler, CancellationToken cancellationToken) =>
         TypedResults.Ok(await handler.Handle(businessId, request, cancellationToken));
 
     private static async Task<Ok<SocialContentResponse>> UpdateAsync(
