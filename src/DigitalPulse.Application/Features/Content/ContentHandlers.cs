@@ -459,31 +459,22 @@ public sealed class ReleaseScheduledHubContentHandler
 {
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IPlatformAdapterCatalog? _catalog;
 
-    public ReleaseScheduledHubContentHandler(IAppDbContext db, ITenantContext tenant)
+    public ReleaseScheduledHubContentHandler(IAppDbContext db, ITenantContext tenant, IPlatformAdapterCatalog? catalog = null)
     {
         _db = db;
         _tenant = tenant;
+        _catalog = catalog;
     }
 
     public async Task<ContentHubWorkspace> Handle(Guid businessId, CancellationToken cancellationToken)
     {
         var tenantId = _tenant.RequireTenantId();
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
-        var now = DateTimeOffset.UtcNow;
-        var due = await _db.ContentItems
-            .Where(c => c.BusinessId == businessId && c.Status == ContentItemStatus.Scheduled && c.ScheduledAtUtc != null && c.ScheduledAtUtc <= now)
-            .ToListAsync(cancellationToken);
-        foreach (var item in due)
-        {
-            ContentGuard.Require(item.Title, item.Excerpt, item.Body);
-            item.Publish();
-            foreach (var entry in await _db.ContentCalendar.Where(c => c.ContentItemId == item.Id && c.Status == "Scheduled").ToListAsync(cancellationToken))
-            {
-                entry.MarkPublished();
-            }
-        }
-
+        await ContentPublishingJobs.ReleaseDueAsync(_db, businessId, ignoreFilters: false, cancellationToken);
+        await ContentPublishingJobs.RetryHeldAsync(_db, _catalog, businessId, ignoreFilters: false, cancellationToken);
+        await ContentPublishingJobs.VerifyConfirmedAsync(_db, businessId, ignoreFilters: false, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return await ContentComposer.WorkspaceAsync(_db, businessId, cancellationToken);
     }

@@ -1540,7 +1540,7 @@ This should become a continuous improvement loop rather than a one-time publishi
 
 # 41. IMPLEMENTATION ORDER
 
-**Overall: 60% (6/10 phases).**
+**Overall: 70% (7/10 phases).**
 
 Implement in this order:
 
@@ -1580,7 +1580,7 @@ Inspected 2026-09-26 against the live tree (CodeGraph). Content Hub already owns
 | Secrets | Existing | connection grants, empty appsettings | Keep | — |
 | AI + Graphify | Existing | orchestrator + AttachContent | Reuse | AI Phases |
 | Observability | Existing | `OperationsAudit` on distribute/retry/cancel/verify | Keep | — |
-| Worker jobs | Missing | Release is on-demand API | Background due + retry | Phase G |
+| Worker jobs | Existing | `PublishingTicker` + `ContentPublishingJobs` | Keep | — |
 | Docs | Missing | — | `docs/publishing/` | Phase J |
 
 ### Reuse — do not duplicate
@@ -1646,9 +1646,10 @@ Implement:
 - verification;
 - failures/retry.
 
-## Phase G — Background Jobs
+## Phase G — completed (100%)
+Background Jobs
 
-Implement scheduling, retry, verification, and monitoring.
+`PublishingTicker` releases due calendar rows, retries held distributions (max 5), and verifies rows that already have an official provider ID. Nothing is invented.
 
 ## Phase H — Testing
 

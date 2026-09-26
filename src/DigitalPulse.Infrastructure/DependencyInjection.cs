@@ -8,6 +8,7 @@ using DigitalPulse.Infrastructure.Platforms;
 using DigitalPulse.Infrastructure.Reports;
 using DigitalPulse.Infrastructure.WhatsApp;
 using DigitalPulse.Infrastructure.Monitoring;
+using DigitalPulse.Infrastructure.Publishing;
 using DigitalPulse.Infrastructure.Operations;
 using DigitalPulse.Infrastructure.Scanning;
 using DigitalPulse.Infrastructure.Search;
@@ -166,6 +167,7 @@ public static class DependencyInjection
         {
             services.AddHostedService<MonitoringTicker>();
             services.AddHostedService<ActionDispatchTicker>();
+            services.AddHostedService<PublishingTicker>();
         }
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
