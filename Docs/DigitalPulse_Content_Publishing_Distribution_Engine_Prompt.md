@@ -1540,7 +1540,7 @@ This should become a continuous improvement loop rather than a one-time publishi
 
 # 41. IMPLEMENTATION ORDER
 
-**Overall: 70% (7/10 phases).**
+**Overall: 80% (8/10 phases).**
 
 Implement in this order:
 
@@ -1651,9 +1651,10 @@ Background Jobs
 
 `PublishingTicker` releases due calendar rows, retries held distributions (max 5), and verifies rows that already have an official provider ID. Nothing is invented.
 
-## Phase H — Testing
+## Phase H — completed (100%)
+Testing
 
-Run all applicable test categories.
+Publishing engine coverage includes audit, location fan-out, adapter confirmation, AI Google packs, worker retry, and an AV Professionals end-to-end desk flow that never invents external success.
 
 ## Phase I — Security Review
 
@@ -1713,7 +1714,7 @@ The feature is complete only when all are true:
 - [x] CodeGraph is used for implementation/context reduction.
 - [x] Verification is persisted.
 - [x] Observability is implemented.
-- [ ] Automated tests pass.
+- [x] Automated tests pass.
 - [x] No TODO placeholders remain.
 - [x] No fake integrations remain.
 - [x] No known critical/high defects remain.
