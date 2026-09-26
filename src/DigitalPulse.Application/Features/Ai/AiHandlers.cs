@@ -1,4 +1,5 @@
 using DigitalPulse.Application.Abstractions;
+using DigitalPulse.Application.Ai;
 using DigitalPulse.Application.Common;
 using DigitalPulse.Application.Features.Identity;
 using DigitalPulse.Contracts.Ai;
@@ -148,15 +149,15 @@ public sealed class RunAiHandler
 {
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
-    private readonly IAiProvider _provider;
     private readonly ISearchProvider _search;
+    private readonly IAiOrchestrator _orchestrator;
 
-    public RunAiHandler(IAppDbContext db, ITenantContext tenant, IAiProvider provider, ISearchProvider search)
+    public RunAiHandler(IAppDbContext db, ITenantContext tenant, ISearchProvider search, IAiOrchestrator orchestrator)
     {
         _db = db;
         _tenant = tenant;
-        _provider = provider;
         _search = search;
+        _orchestrator = orchestrator;
     }
 
     public async Task<AiRunResponse> Handle(Guid businessId, RunAiRequest request, CancellationToken cancellationToken)
@@ -218,17 +219,16 @@ public sealed class RunAiHandler
             ? "Knowledge retrieval returned no evidence."
             : $"Retrieved {evidence.Count} evidence items from Graphify, facts, and the knowledge base.");
 
-        var prompt = BuildPrompt(agent, request.Prompt.Trim(), evidence, graphLines);
-        Audit(tenantId, run.Id, "prompt", $"Constructed {agent.Name} prompt from retrieved context only.");
-
-        var completion = await _provider.CompleteAsync(
-            new AiCompletionRequest(agent.Code, prompt, evidence, graphLines),
+        var structured = request.Prompt.Contains("json", StringComparison.OrdinalIgnoreCase);
+        var completion = await _orchestrator.RunAsync(
+            new AiOrchestrationRequest(agent.Code, request.Prompt.Trim(), evidence, graphLines, structured),
             cancellationToken);
-        Audit(tenantId, run.Id, "provider", completion.IsLive
+        Audit(tenantId, run.Id, "prompt", $"Constructed {completion.PromptVersion} from retrieved context only. Model {completion.Model} was selected on the server.");
+        Audit(tenantId, run.Id, "provider", completion.ProviderIsLive
             ? $"{completion.ProviderName} returned a live completion."
             : $"{completion.ProviderName} composed a development brief. No live model was called.");
 
-        var validation = AiPolicy.Evaluate(evidence, completion.Output, completion.IsLive);
+        var validation = completion.Validation;
         Audit(tenantId, run.Id, "validation", validation.Summary);
         Audit(tenantId, run.Id, "policy", validation.HasRestrictedFact
             ? "Restricted facts must never be published."
@@ -239,12 +239,12 @@ public sealed class RunAiHandler
             AiRunStatus.Rejected => validation.Summary,
             AiRunStatus.NeedsReview => validation.Summary,
             AiRunStatus.Held => validation.Summary,
-            _ => completion.IsLive
+            _ => completion.ProviderIsLive
                 ? "Validated. Execution stays assisted until Phase 10."
                 : validation.Summary
         };
 
-        run.Complete(validation, Clip(completion.Output, 4000), completion.ProviderName, completion.IsLive, Clip(hold, 500));
+        run.Complete(validation, Clip(completion.Output, 4000), completion.ProviderName, completion.ProviderIsLive, Clip(hold, 500));
         _db.AiEvaluations.Add(AiEvaluation.From(tenantId, run.Id, validation));
         Audit(tenantId, run.Id, "approval",
             validation.Status is AiRunStatus.Completed
@@ -318,26 +318,6 @@ public sealed class RunAiHandler
         }
 
         return evidence;
-    }
-
-    private static string BuildPrompt(
-        AiAgentDescriptor agent,
-        string ask,
-        IReadOnlyList<AiEvidence> evidence,
-        IReadOnlyList<string> graph)
-    {
-        var lines = new List<string>
-        {
-            $"Agent: {agent.Name}. {agent.Purpose}",
-            $"Ask: {ask}",
-            "Rules: no evidence → no factual claim. Restricted facts must never be published. Conflicting evidence requires review.",
-            "Graphify:"
-        };
-        lines.AddRange(graph.Take(40).Select(g => $"- {g}"));
-        lines.Add("Evidence:");
-        lines.AddRange(evidence.Select(e =>
-            $"- [{e.Source}] {e.Title}: {(e.Restricted ? "(restricted, do not publish)" : e.Body)}"));
-        return string.Join(Environment.NewLine, lines);
     }
 
     private void Audit(Guid tenantId, Guid runId, string stage, string detail) =>

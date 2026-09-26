@@ -1787,7 +1787,7 @@ Create ADRs for significant decisions such as:
 
 # 47. IMPLEMENTATION ORDER
 
-**Overall: 20% (2/10 phases).**
+**Overall: 30% (3/10 phases).**
 
 Implement in this order after auditing existing code.
 
@@ -1854,7 +1854,8 @@ Implement/complete:
 - retry;
 - cancellation.
 
-## Phase 3 — Orchestrator
+## Phase 3 — completed (100%)
+Orchestrator
 
 Implement/complete:
 
@@ -1950,12 +1951,12 @@ The AI architecture is complete only when all applicable items are PASS:
 - [x] OpenAI integration is provider-isolated.
 - [x] Azure OpenAI integration is provider-isolated where configured.
 - [x] Provider selection is configurable.
-- [ ] Model selection is server-controlled.
+- [x] Model selection is server-controlled.
 - [x] Secrets are protected.
-- [ ] AI Orchestrator is implemented.
+- [x] AI Orchestrator is implemented.
 - [x] Agents are implemented where required.
-- [ ] Prompt management is versioned.
-- [ ] Structured outputs are supported.
+- [x] Prompt management is versioned.
+- [x] Structured outputs are supported.
 - [x] Response validation exists.
 - [ ] Context builder exists.
 - [x] Graphify integration exists.

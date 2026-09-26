@@ -66,6 +66,7 @@ public static class DependencyInjection
         services.AddSingleton<OfficialOAuthBroker>();
         services.AddSingleton<IPlatformAuthorizationBroker>(sp => sp.GetRequiredService<OfficialOAuthBroker>());
         services.AddSingleton<ILiveTokenRefresher>(sp => sp.GetRequiredService<OfficialOAuthBroker>());
+        services.AddSingleton<IAiModelRouter, AiModelRouter>();
         services.AddSingleton<ISearchProvider, InMemorySearchProvider>();
         services.AddSingleton<IVectorSearchProvider, LocalHashVectorSearchProvider>();
         var timeout = TimeSpan.FromSeconds(Math.Clamp(configuration.GetValue("Ai:TimeoutSeconds", 60), 5, 180));

@@ -1,3 +1,4 @@
+using DigitalPulse.Application.Ai;
 using DigitalPulse.Application.Features.Actions;
 using DigitalPulse.Application.Features.Ai;
 using DigitalPulse.Application.Features.Auth;
@@ -44,6 +45,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddScoped<IAiOrchestrator, AiOrchestrator>();
         services.AddScoped<RegisterUserHandler>();
         services.AddScoped<LoginUserHandler>();
         services.AddScoped<GetMeHandler>();

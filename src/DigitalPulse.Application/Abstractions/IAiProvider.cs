@@ -24,3 +24,8 @@ public interface IAiProvider
     bool IsLive { get; }
     Task<AiCompletionResponse> CompleteAsync(AiCompletionRequest request, CancellationToken cancellationToken);
 }
+
+public interface IAiModelRouter
+{
+    string Select(string agentCode);
+}
