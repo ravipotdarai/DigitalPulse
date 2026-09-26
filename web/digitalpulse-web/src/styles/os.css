@@ -399,9 +399,16 @@ textarea:focus {
   justify-content: space-between;
   gap: 1.2rem;
 }
+.studio-hero-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
 .studio-hero .brand-mark { width: 3.2rem; height: 3.2rem; font-size: 1.1rem; }
 .studio-panes {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.2rem;
   padding: 0.25rem;
   width: fit-content;
@@ -1867,6 +1874,80 @@ button.signal-row:hover {
 [data-theme="executive"] .cc-name,
 [data-theme="executive"] .workspace-head h1 {
   letter-spacing: -0.02em;
+}
+
+.content-pipe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.7rem;
+  margin: 0 0 0.8rem;
+  padding: 0;
+  list-style: none;
+}
+.content-pipe li {
+  color: var(--dp-text-muted);
+}
+.content-pipe li.is-on {
+  color: var(--dp-text-primary);
+  font-weight: 600;
+}
+.seo-card {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+.seo-card ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.hub-article {
+  max-width: 42rem;
+  margin: 2.5rem auto;
+  padding: 0 1.25rem 3rem;
+}
+.hub-article.is-preview {
+  margin: 1rem 0 0;
+  max-width: none;
+  padding: 0;
+}
+.hub-featured {
+  display: block;
+  width: 100%;
+  max-height: 22rem;
+  object-fit: cover;
+  border-radius: var(--r-3);
+  margin: 1.1rem 0;
+}
+.hub-featured.is-thumb {
+  max-height: 10rem;
+  margin: 0 0 0.8rem;
+}
+.hub-featured-pick {
+  display: grid;
+  gap: 0.75rem;
+}
+.hub-body {
+  white-space: pre-wrap;
+  margin-top: 1.4rem;
+  line-height: 1.7;
+}
+.hub-body p,
+.hub-body h2 {
+  white-space: pre-wrap;
+}
+.hub-live {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hub-library {
+  display: grid;
+  gap: 1rem;
+}
+.hub-card h2 {
+  margin: 0.2rem 0 0.45rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

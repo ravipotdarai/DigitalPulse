@@ -53,7 +53,8 @@ public enum GraphNodeKind
     ApprovedFact = 9,
     Permission = 10,
     Decision = 11,
-    Knowledge = 12
+    Knowledge = 12,
+    Content = 13
 }
 
 public sealed record AiAgentDescriptor(AiAgentKind Kind, string Code, string Name, string Purpose);

@@ -19,6 +19,8 @@ import { WebsitePage } from "./pages/WebsitePage";
 import { SocialPage } from "./pages/SocialPage";
 import { DirectoriesPage } from "./pages/DirectoriesPage";
 import { ProjectsPage } from "./pages/ProjectsPage";
+import { ContentPage } from "./pages/ContentPage";
+import { PublicHubPage } from "./pages/PublicHubPage";
 import { AiPage } from "./pages/AiPage";
 import { ActionsPage } from "./pages/ActionsPage";
 import { WhatsAppPage } from "./pages/WhatsAppPage";
@@ -90,6 +92,9 @@ function AnimatedRoutes() {
           <Route path="/app/social/:platform" element={<RequireAuth><SocialPage /></RequireAuth>} />
           <Route path="/app/directories" element={<RequireAuth><DirectoriesPage /></RequireAuth>} />
           <Route path="/app/projects" element={<RequireAuth><ProjectsPage /></RequireAuth>} />
+          <Route path="/app/content" element={<RequireAuth><ContentPage /></RequireAuth>} />
+          <Route path="/hub/:businessId" element={<PublicHubPage />} />
+          <Route path="/hub/:businessId/:slug" element={<PublicHubPage />} />
           <Route path="/app/ai" element={<RequireAuth><AiPage /></RequireAuth>} />
           <Route path="/app/actions" element={<RequireAuth><ActionsPage /></RequireAuth>} />
           <Route path="/app/whatsapp" element={<RequireAuth><WhatsAppPage /></RequireAuth>} />

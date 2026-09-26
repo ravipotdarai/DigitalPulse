@@ -53,7 +53,7 @@ public sealed record ApprovalResponse(Guid Id, Guid ContentItemId, string Reason
 
 public sealed record ContentItemResponse(
     Guid Id,
-    Guid ProjectId,
+    Guid? ProjectId,
     string Title,
     string Status,
     string SourceNote,

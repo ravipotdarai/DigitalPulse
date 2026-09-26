@@ -1,5 +1,6 @@
 using DigitalPulse.Domain.Billing;
 using DigitalPulse.Domain.Businesses;
+using DigitalPulse.Domain.Content;
 using DigitalPulse.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -61,6 +62,19 @@ public static class DatabaseSeeder
             if (!await db.FactTypes.AnyAsync(t => t.Code == "MISSION", cancellationToken))
             {
                 db.FactTypes.Add(FactType.Create("MISSION", "Mission"));
+            }
+        }
+
+        if (!await db.ContentTypes.AnyAsync(cancellationToken))
+        {
+            db.ContentTypes.AddRange(ContentTypeCatalog.All.Select(item => ContentType.Create(item.Code, item.Name)));
+        }
+        else
+        {
+            var existing = await db.ContentTypes.AsNoTracking().Select(t => t.Code).ToListAsync(cancellationToken);
+            foreach (var item in ContentTypeCatalog.All.Where(item => !existing.Contains(item.Code)))
+            {
+                db.ContentTypes.Add(ContentType.Create(item.Code, item.Name));
             }
         }
 

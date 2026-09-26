@@ -376,6 +376,58 @@ public sealed class TenantIsolationTests
         Assert.Equal([OperationsPolicy.Manifest(1, 0, 0, 0, 0)], visible);
     }
 
+    [Fact]
+    public async Task Query_filter_hides_other_tenant_hub_articles()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var businessA = Business.Create(tenantA, "A Co", null);
+        var businessB = Business.Create(tenantB, "B Co", null);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"iso-hub-{Guid.NewGuid()}")
+            .Options;
+
+        await using (var seed = new AppDbContext(options, tenantContext: null))
+        {
+            seed.Businesses.AddRange(businessA, businessB);
+            seed.ContentItems.Add(ContentItem.Draft(tenantA, businessA.Id, "ARTICLE", "A guide", "a-guide", "Excerpt for the A tenant article.", "# A\n\nBody for tenant A.", ContentVisibility.Public, null, null, null, null));
+            seed.ContentItems.Add(ContentItem.Draft(tenantB, businessB.Id, "ARTICLE", "B guide", "b-guide", "Excerpt for the B tenant article.", "# B\n\nBody for tenant B.", ContentVisibility.Public, null, null, null, null));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var dbA = new AppDbContext(options, new FixedTenantContext(tenantA));
+        var visible = await dbA.ContentItems.Select(c => c.Slug).ToListAsync();
+        Assert.Equal(["a-guide"], visible);
+    }
+
+    [Fact]
+    public async Task Hub_slug_is_unique_per_business()
+    {
+        var tenantId = Guid.NewGuid();
+        var business = Business.Create(tenantId, "A Co", null);
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase($"hub-slug-{Guid.NewGuid()}")
+            .Options;
+        await using var db = new AppDbContext(options, new FixedTenantContext(tenantId));
+        db.Businesses.Add(business);
+        await db.SaveChangesAsync();
+
+        var user = new FixedUser();
+        var tenant = new FixedTenantContext(tenantId);
+        var create = new Application.Features.Content.CreateHubContentHandler(db, tenant, user, new Infrastructure.Search.InMemorySearchProvider());
+        var request = new Contracts.Content.CreateHubContentRequest("ARTICLE", "How to choose", "how-to-choose", "A practical excerpt for the unique slug test.", "# How\n\nEnough body for the validator.", "Private", null, null, null, null, null);
+        await create.Handle(business.Id, request, CancellationToken.None);
+        var clash = await Assert.ThrowsAsync<Application.Common.AppException>(() => create.Handle(business.Id, request, CancellationToken.None));
+        Assert.Equal(409, clash.StatusCode);
+    }
+
+    private sealed class FixedUser : Application.Abstractions.ICurrentUser
+    {
+        public Guid UserId { get; } = Guid.NewGuid();
+        public string Email => "tester@digitalpulse.test";
+        public bool IsAuthenticated => true;
+    }
+
     private sealed class FixedTenantContext : Application.Abstractions.ITenantContext
     {
         public FixedTenantContext(Guid tenantId) => TenantId = tenantId;

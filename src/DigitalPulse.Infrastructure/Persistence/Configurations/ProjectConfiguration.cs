@@ -1,4 +1,5 @@
 using DigitalPulse.Domain.Businesses;
+using DigitalPulse.Domain.Content;
 using DigitalPulse.Domain.Projects;
 using DigitalPulse.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -88,12 +89,25 @@ public sealed class ContentItemConfiguration : IEntityTypeConfiguration<ContentI
         builder.ToTable("ContentItem");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Title).HasMaxLength(160).IsRequired();
+        builder.Property(x => x.ContentTypeCode).HasMaxLength(32).IsRequired();
+        builder.Property(x => x.Slug).HasMaxLength(80).IsRequired();
+        builder.Property(x => x.Excerpt).HasMaxLength(500).IsRequired();
+        builder.Property(x => x.Body).IsRequired();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
+        builder.Property(x => x.Visibility).HasConversion<string>().HasMaxLength(16);
+        builder.Property(x => x.CanonicalUrl).HasMaxLength(2048);
         builder.Property(x => x.SourceNote).HasMaxLength(500).IsRequired();
+        builder.Property(x => x.RowVersion).IsRowVersion();
+        builder.HasIndex(x => new { x.BusinessId, x.Slug }).IsUnique();
+        builder.HasIndex(x => new { x.TenantId, x.BusinessId });
+        builder.HasIndex(x => new { x.BusinessId, x.Status });
+        builder.HasIndex(x => new { x.BusinessId, x.PublishedAtUtc });
         builder.HasIndex(x => new { x.ProjectId, x.UpdatedAtUtc });
         builder.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Business>().WithMany().HasForeignKey(x => x.BusinessId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne<ContentType>().WithMany().HasForeignKey(x => x.ContentTypeId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<MediaAsset>().WithMany().HasForeignKey(x => x.FeaturedMediaAssetId).IsRequired(false).OnDelete(DeleteBehavior.SetNull);
     }
 }
 
@@ -105,7 +119,7 @@ public sealed class ContentVariantConfiguration : IEntityTypeConfiguration<Conte
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Kind).HasConversion<string>().HasMaxLength(40);
         builder.Property(x => x.Title).HasMaxLength(160).IsRequired();
-        builder.Property(x => x.Body).HasMaxLength(4000).IsRequired();
+        builder.Property(x => x.Body).IsRequired();
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
         builder.Property(x => x.PublicationHold).HasMaxLength(500).IsRequired();
         builder.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);

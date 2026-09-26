@@ -17,7 +17,14 @@ import {
   Video20Regular,
   PlugConnected20Regular,
   CalendarLtr20Regular,
-  Wrench20Regular
+  Wrench20Regular,
+  News20Regular,
+  DocumentOnePage20Regular,
+  Lightbulb20Regular,
+  DocumentEdit20Regular,
+  BookOpen20Regular,
+  Search20Regular,
+  DataBarVertical20Regular
 } from "@fluentui/react-icons";
 import type { FluentIcon } from "@fluentui/react-icons";
 
@@ -52,6 +59,21 @@ export const NAV_GROUPS: NavGroup[] = [
         children: [{ to: "/app/findings", label: "Scans", icon: Radar20Regular }]
       },
       { to: "/app/projects", label: "Projects", icon: Folder20Regular }
+    ]
+  },
+  {
+    label: "Content",
+    icon: News20Regular,
+    items: [
+      { to: "/app/content", label: "Overview", icon: Home20Regular, search: "pane=overview" },
+      { to: "/app/content", label: "Content Hub", icon: DocumentOnePage20Regular, end: true },
+      { to: "/app/content", label: "Ideas", icon: Lightbulb20Regular, search: "pane=ideas" },
+      { to: "/app/content", label: "Calendar", icon: CalendarLtr20Regular, search: "pane=calendar" },
+      { to: "/app/content", label: "Drafts", icon: DocumentEdit20Regular, search: "pane=drafts" },
+      { to: "/app/content", label: "Published", icon: BookOpen20Regular, search: "pane=published" },
+      { to: "/app/content", label: "SEO Opportunities", icon: Search20Regular, search: "pane=seo" },
+      { to: "/app/content", label: "Distribution", icon: ShareAndroid20Regular, search: "pane=distribution" },
+      { to: "/app/content", label: "Analytics", icon: DataBarVertical20Regular, search: "pane=analytics" }
     ]
   },
   {

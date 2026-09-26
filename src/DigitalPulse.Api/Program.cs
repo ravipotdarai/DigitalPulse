@@ -105,6 +105,7 @@ app.MapWebsiteEndpoints();
 app.MapSocialEndpoints();
 app.MapDirectoryEndpoints();
 app.MapProjectEndpoints();
+app.MapContentEndpoints();
 app.MapAiEndpoints();
 app.MapActionEndpoints();
 app.MapWhatsAppEndpoints();
@@ -136,6 +137,7 @@ if (app.Environment.IsDevelopment())
         await SocialSchemaUpgrader.EnsureAsync(db);
         await DirectorySchemaUpgrader.EnsureAsync(db);
         await ProjectSchemaUpgrader.EnsureAsync(db);
+        await ContentHubSchemaUpgrader.EnsureAsync(db);
         await AiSchemaUpgrader.EnsureAsync(db);
         await ActionSchemaUpgrader.EnsureAsync(db);
         await WhatsAppSchemaUpgrader.EnsureAsync(db);

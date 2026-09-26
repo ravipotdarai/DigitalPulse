@@ -14,6 +14,7 @@ using DigitalPulse.Domain.Website;
 using DigitalPulse.Domain.WhatsApp;
 using DigitalPulse.Domain.Monitoring;
 using DigitalPulse.Domain.Operations;
+using DigitalPulse.Domain.Content;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigitalPulse.Application.Abstractions;
@@ -57,6 +58,19 @@ public interface IAppDbContext
     DbSet<ProjectMedia> ProjectMedia { get; }
     DbSet<ContentItem> ContentItems { get; }
     DbSet<ContentVariant> ContentVariants { get; }
+    DbSet<ContentType> ContentTypes { get; }
+    DbSet<ContentCategory> ContentCategories { get; }
+    DbSet<ContentTag> ContentTags { get; }
+    DbSet<ContentItemCategory> ContentItemCategories { get; }
+    DbSet<ContentItemTag> ContentItemTags { get; }
+    DbSet<ContentRevision> ContentRevisions { get; }
+    DbSet<ContentItemMedia> ContentItemMedia { get; }
+    DbSet<ContentSeoAnalysis> ContentSeoAnalyses { get; }
+    DbSet<ContentTopic> ContentTopics { get; }
+    DbSet<ContentOpportunity> ContentOpportunities { get; }
+    DbSet<ContentCalendarEntry> ContentCalendar { get; }
+    DbSet<ContentDistribution> ContentDistributions { get; }
+    DbSet<ContentMetric> ContentMetrics { get; }
     DbSet<ApprovalRequest> ApprovalRequests { get; }
     DbSet<ApprovalDecision> ApprovalDecisions { get; }
     DbSet<KnowledgeEntry> KnowledgeEntries { get; }

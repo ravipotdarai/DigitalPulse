@@ -12,6 +12,7 @@ using DigitalPulse.Application.Features.Scans;
 using DigitalPulse.Application.Features.Subscriptions;
 using DigitalPulse.Application.Features.Tenants;
 using DigitalPulse.Application.Features.Directories;
+using DigitalPulse.Application.Features.Content;
 using DigitalPulse.Application.Features.Projects;
 using DigitalPulse.Application.Features.Social;
 using DigitalPulse.Application.Features.Website;
@@ -30,6 +31,7 @@ using DigitalPulse.Contracts.Operations;
 using DigitalPulse.Contracts.Billing;
 using DigitalPulse.Contracts.Businesses;
 using DigitalPulse.Contracts.Directories;
+using DigitalPulse.Contracts.Content;
 using DigitalPulse.Contracts.Projects;
 using DigitalPulse.Contracts.Social;
 using DigitalPulse.Contracts.Tenancy;
@@ -114,6 +116,28 @@ public static class DependencyInjection
         services.AddScoped<GenerateProjectContentHandler>();
         services.AddScoped<RequestContentApprovalHandler>();
         services.AddScoped<DecideContentApprovalHandler>();
+        services.AddScoped<GetContentHubHandler>();
+        services.AddScoped<GetHubContentHandler>();
+        services.AddScoped<CreateHubContentHandler>();
+        services.AddScoped<UpdateHubContentHandler>();
+        services.AddScoped<DeleteHubContentHandler>();
+        services.AddScoped<ApproveHubContentHandler>();
+        services.AddScoped<RejectHubContentHandler>();
+        services.AddScoped<ScheduleHubContentHandler>();
+        services.AddScoped<CancelHubScheduleHandler>();
+        services.AddScoped<PublishHubContentHandler>();
+        services.AddScoped<ArchiveHubContentHandler>();
+        services.AddScoped<RestoreHubRevisionHandler>();
+        services.AddScoped<AttachHubMediaHandler>();
+        services.AddScoped<RegisterHubMediaHandler>();
+        services.AddScoped<ReleaseScheduledHubContentHandler>();
+        services.AddScoped<AnalyzeHubSeoHandler>();
+        services.AddScoped<CreateHubVariantsHandler>();
+        services.AddScoped<DistributeHubContentHandler>();
+        services.AddScoped<DiscoverContentOpportunitiesHandler>();
+        services.AddScoped<GenerateHubContentHandler>();
+        services.AddScoped<GetPublicHubIndexHandler>();
+        services.AddScoped<GetPublicHubArticleHandler>();
         services.AddScoped<GetAiWorkspaceHandler>();
         services.AddScoped<AddKnowledgeHandler>();
         services.AddScoped<SyncGraphHandler>();
@@ -547,5 +571,84 @@ public sealed class StartDisasterDrillRequestValidator : AbstractValidator<Start
     public StartDisasterDrillRequestValidator()
     {
         RuleFor(x => x.Kind).NotEmpty().MaximumLength(16);
+    }
+}
+
+public sealed class CreateHubContentRequestValidator : AbstractValidator<CreateHubContentRequest>
+{
+    public CreateHubContentRequestValidator()
+    {
+        RuleFor(x => x.ContentTypeCode).NotEmpty().MaximumLength(32);
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Body).NotEmpty().MinimumLength(8);
+        RuleFor(x => x.Excerpt).MaximumLength(500);
+        RuleFor(x => x.Visibility).NotEmpty();
+        RuleFor(x => x.CanonicalUrl).MaximumLength(2048);
+    }
+}
+
+public sealed class UpdateHubContentRequestValidator : AbstractValidator<UpdateHubContentRequest>
+{
+    public UpdateHubContentRequestValidator()
+    {
+        RuleFor(x => x.ContentTypeCode).NotEmpty().MaximumLength(32);
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Body).NotEmpty().MinimumLength(8);
+        RuleFor(x => x.Excerpt).MaximumLength(500);
+        RuleFor(x => x.Visibility).NotEmpty();
+        RuleFor(x => x.ChangeSummary).MaximumLength(500);
+        RuleFor(x => x.CanonicalUrl).MaximumLength(2048);
+    }
+}
+
+public sealed class ScheduleHubContentRequestValidator : AbstractValidator<ScheduleHubContentRequest>
+{
+    public ScheduleHubContentRequestValidator()
+    {
+        RuleFor(x => x.ScheduledAtUtc).Must(at => at > DateTimeOffset.UtcNow).WithMessage("Schedule a time in the future.");
+        RuleFor(x => x.Channel).MaximumLength(32);
+    }
+}
+
+public sealed class GenerateHubContentRequestValidator : AbstractValidator<GenerateHubContentRequest>
+{
+    public GenerateHubContentRequestValidator()
+    {
+        RuleFor(x => x.Prompt).NotEmpty().MinimumLength(4).MaximumLength(4000);
+    }
+}
+
+public sealed class DistributeHubContentRequestValidator : AbstractValidator<DistributeHubContentRequest>
+{
+    public DistributeHubContentRequestValidator()
+    {
+        RuleFor(x => x.ProviderCode).NotEmpty().MaximumLength(32);
+    }
+}
+
+public sealed class RejectHubContentRequestValidator : AbstractValidator<RejectHubContentRequest>
+{
+    public RejectHubContentRequestValidator()
+    {
+        RuleFor(x => x.Note).MaximumLength(500);
+    }
+}
+
+public sealed class AttachHubMediaRequestValidator : AbstractValidator<AttachHubMediaRequest>
+{
+    public AttachHubMediaRequestValidator()
+    {
+        RuleFor(x => x.MediaAssetId).NotEmpty();
+        RuleFor(x => x.Role).NotEmpty().MaximumLength(24);
+    }
+}
+
+public sealed class RegisterHubMediaRequestValidator : AbstractValidator<RegisterHubMediaRequest>
+{
+    public RegisterHubMediaRequestValidator()
+    {
+        RuleFor(x => x.Label).NotEmpty().MaximumLength(160);
+        RuleFor(x => x.Kind).NotEmpty().MaximumLength(24);
+        RuleFor(x => x.SourceUrl).NotEmpty().MaximumLength(2048);
     }
 }

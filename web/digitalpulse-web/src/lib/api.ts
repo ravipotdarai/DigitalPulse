@@ -160,7 +160,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
   if (init.body) headers.set("Content-Type", "application/json");
-  if (token && !PUBLIC_PATHS.has(path)) headers.set("Authorization", `Bearer ${token}`);
+  if (token && !PUBLIC_PATHS.has(path) && !path.startsWith("/v1/hub/")) headers.set("Authorization", `Bearer ${token}`);
 
   let response: Response;
   try {
@@ -365,6 +365,48 @@ export const api = {
     request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}/media`, { method: "POST", body: JSON.stringify(body) }),
   generateProjectContent: (businessId: string, projectId: string) =>
     request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}/factory`, { method: "POST" }),
+  contentHub: (businessId: string) => request<ContentHubWorkspace>(`/v1/businesses/${businessId}/content`),
+  hubContent: (businessId: string, contentId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}`),
+  createHubContent: (businessId: string, body: HubContentDraft) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content`, { method: "POST", body: JSON.stringify(body) }),
+  updateHubContent: (businessId: string, contentId: string, body: HubContentDraft & { changeSummary?: string | null }) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteHubContent: (businessId: string, contentId: string) =>
+    request<void>(`/v1/businesses/${businessId}/content/${contentId}`, { method: "DELETE" }),
+  approveHubContent: (businessId: string, contentId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/approve`, { method: "POST" }),
+  rejectHubContent: (businessId: string, contentId: string, note?: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/reject`, { method: "POST", body: JSON.stringify({ note: note ?? null }) }),
+  scheduleHubContent: (businessId: string, contentId: string, scheduledAtUtc: string, channel?: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/schedule`, { method: "POST", body: JSON.stringify({ scheduledAtUtc, channel: channel ?? "HUB" }) }),
+  cancelHubSchedule: (businessId: string, contentId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/schedule/cancel`, { method: "POST" }),
+  publishHubContent: (businessId: string, contentId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/publish`, { method: "POST" }),
+  restoreHubRevision: (businessId: string, contentId: string, revisionId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/revisions/${revisionId}/restore`, { method: "POST" }),
+  attachHubMedia: (businessId: string, contentId: string, mediaAssetId: string, role: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/media`, { method: "POST", body: JSON.stringify({ mediaAssetId, role }) }),
+  registerHubMedia: (businessId: string, body: { label: string; kind: string; sourceUrl: string }) =>
+    request<HubMediaAsset>(`/v1/businesses/${businessId}/content/media`, { method: "POST", body: JSON.stringify(body) }),
+  archiveHubContent: (businessId: string, contentId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/archive`, { method: "POST" }),
+  releaseHubCalendar: (businessId: string) =>
+    request<ContentHubWorkspace>(`/v1/businesses/${businessId}/content/calendar/release`, { method: "POST" }),
+  analyzeHubSeo: (businessId: string, contentId: string, focusKeyword?: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/seo`, { method: "POST", body: JSON.stringify({ focusKeyword: focusKeyword ?? null }) }),
+  createHubVariants: (businessId: string, contentId: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/variants`, { method: "POST" }),
+  distributeHubContent: (businessId: string, contentId: string, providerCode: string) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/distribute`, { method: "POST", body: JSON.stringify({ providerCode }) }),
+  discoverContentOpportunities: (businessId: string) =>
+    request<ContentHubWorkspace>(`/v1/businesses/${businessId}/content/opportunities/discover`, { method: "POST" }),
+  generateHubContent: (businessId: string, prompt: string, opportunityId?: string | null) =>
+    request<HubContent>(`/v1/businesses/${businessId}/content/generate`, { method: "POST", body: JSON.stringify({ prompt, opportunityId: opportunityId ?? null }) }),
+  publicHubIndex: (businessId: string) => request<PublicHubIndex>(`/v1/hub/${businessId}`),
+  publicHubArticle: (businessId: string, slug: string) =>
+    request<PublicHubArticle>(`/v1/hub/${businessId}/${slug}`),
   requestProjectApproval: (businessId: string, projectId: string, contentId: string) =>
     request<ProjectDetail>(`/v1/businesses/${businessId}/projects/${projectId}/content/${contentId}/approvals`, { method: "POST" }),
   decideProjectApproval: (businessId: string, projectId: string, approvalId: string, approve: boolean, note: string) =>
@@ -794,12 +836,133 @@ export type ProjectApproval = {
 };
 export type ProjectContentPack = {
   id: string;
-  projectId: string;
+  projectId: string | null;
   title: string;
   status: string;
   sourceNote: string;
   variants: ContentVariant[];
   approvals: ProjectApproval[];
+};
+export type ContentTypeOption = { code: string; name: string };
+export type ContentSeo = {
+  searchIntent: string;
+  checksPassed: number;
+  checksTotal: number;
+  seoScore: number;
+  metaTitle: string;
+  metaDescription: string;
+  focusKeyword: string | null;
+  canonicalUrl: string | null;
+  notes: string[];
+  lastAnalyzedAtUtc: string | null;
+  readabilityScore?: number;
+  aeoScore?: number;
+  slugScore?: number;
+  internalLinkScore?: number;
+  entityCoverageScore?: number;
+};
+export type HubContentSummary = {
+  id: string;
+  contentTypeCode: string;
+  title: string;
+  slug: string;
+  status: string;
+  visibility: string;
+  updatedAtUtc: string;
+  seoScore: number;
+  excerpt: string;
+  publishedAtUtc: string | null;
+};
+export type ContentOpportunity = {
+  id: string;
+  topicId: string;
+  topic: string;
+  description: string;
+  sourceType: string;
+  coverageScore: number | null;
+  opportunityScore: number | null;
+  relevanceScore?: number | null;
+  competitionScore?: number | null;
+  priority?: number;
+  reason: string;
+  status: string;
+};
+export type ContentCalendarItem = {
+  id: string;
+  contentItemId: string;
+  title: string;
+  scheduledAtUtc: string;
+  status: string;
+  channel: string;
+};
+export type ContentNamed = { id: string; name: string; slug: string };
+export type ContentMetricRow = { providerCode: string; metricDate: string; views: number | null; detail: string };
+export type ContentHubWorkspace = {
+  types: ContentTypeOption[];
+  items: HubContentSummary[];
+  opportunities: ContentOpportunity[];
+  calendar: ContentCalendarItem[];
+  categories: ContentNamed[];
+  tags: ContentNamed[];
+  metrics: ContentMetricRow[];
+  media?: HubMediaAsset[];
+  note: string;
+};
+export type HubMediaAsset = { id: string; label: string; kind: string; sourceUrl: string | null };
+export type HubContent = {
+  id: string;
+  businessId: string;
+  projectId: string | null;
+  contentTypeCode: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  body: string;
+  status: string;
+  visibility: string;
+  sourceNote: string;
+  featuredMediaAssetId: string | null;
+  canonicalUrl: string | null;
+  publishedAtUtc: string | null;
+  scheduledAtUtc: string | null;
+  updatedAtUtc: string;
+  categories: string[];
+  tags: string[];
+  seo: ContentSeo;
+  revisions: { id: string; versionNumber: number; title: string; changeSummary: string; createdAtUtc: string }[];
+  variants: { id: string; kind: string; title: string; body: string; status: string; publicationHold: string }[];
+  distributions: { id: string; providerCode: string; status: string; failureReason: string | null; publishedAtUtc: string | null }[];
+  metrics: ContentMetricRow[];
+  media?: { id: string; mediaAssetId: string; role: string; displayOrder: number; label: string | null; sourceUrl: string | null }[];
+};
+export type HubContentDraft = {
+  contentTypeCode: string;
+  title: string;
+  slug?: string | null;
+  excerpt: string;
+  body: string;
+  visibility: string;
+  projectId?: string | null;
+  focusKeyword?: string | null;
+  canonicalUrl?: string | null;
+  categories?: string[];
+  tags?: string[];
+  featuredMediaAssetId?: string | null;
+};
+export type PublicHubArticle = {
+  businessName: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  body: string;
+  contentTypeCode: string;
+  publishedAtUtc: string;
+  featuredImageUrl?: string | null;
+};
+export type PublicHubIndex = {
+  businessId: string;
+  businessName: string;
+  articles: { title: string; slug: string; excerpt: string; contentTypeCode: string; publishedAtUtc: string; featuredImageUrl?: string | null }[];
 };
 export type ProjectDetail = {
   project: ProjectSummary;

@@ -502,6 +502,36 @@ internal static class GraphifySync
                 Add(db, tenantId, businessId, GraphNodeKind.Knowledge, entry.Title, $"knowledge:{entry.Id}", entry.Body),
                 "knows");
         }
+
+        foreach (var item in await db.ContentItems.Where(c => c.BusinessId == businessId && c.ProjectId == null).ToListAsync(cancellationToken))
+        {
+            Link(db, tenantId, businessId, businessNode,
+                Add(db, tenantId, businessId, GraphNodeKind.Content, item.Title, $"content:{item.Id}", item.Excerpt),
+                "publishes");
+        }
+    }
+
+    public static async Task AttachContentAsync(
+        IAppDbContext db,
+        Guid tenantId,
+        ContentItem item,
+        CancellationToken cancellationToken)
+    {
+        var businessNode = await db.GraphNodes.FirstOrDefaultAsync(
+            n => n.BusinessId == item.BusinessId && n.Kind == GraphNodeKind.Business, cancellationToken);
+        if (businessNode is null)
+        {
+            await RebuildAsync(db, tenantId, item.BusinessId, cancellationToken);
+            return;
+        }
+
+        if (await db.GraphNodes.AnyAsync(n => n.BusinessId == item.BusinessId && n.SourceKey == $"content:{item.Id}", cancellationToken))
+        {
+            return;
+        }
+
+        var node = Add(db, tenantId, item.BusinessId, GraphNodeKind.Content, item.Title, $"content:{item.Id}", item.Excerpt);
+        Link(db, tenantId, item.BusinessId, businessNode, node, "publishes");
     }
 
     public static async Task AttachKnowledgeAsync(

@@ -1,4 +1,6 @@
 using DigitalPulse.Domain.Common;
+using DigitalPulse.Domain.Content;
+using DigitalPulse.Domain.Safety;
 
 namespace DigitalPulse.Domain.Projects;
 
@@ -15,7 +17,9 @@ public enum ContentVariantKind
     IndiaMartContent = 9,
     JustdialContent = 10,
     WhatsAppTemplateDraft = 11,
-    WhatsAppSessionMessage = 12
+    WhatsAppSessionMessage = 12,
+    WebsiteArticle = 13,
+    Newsletter = 14
 }
 
 public enum ContentItemStatus
@@ -24,7 +28,16 @@ public enum ContentItemStatus
     PendingApproval = 2,
     Approved = 3,
     Rejected = 4,
-    Hold = 5
+    Hold = 5,
+    Scheduled = 6,
+    Published = 7,
+    Archived = 8
+}
+
+public enum ContentVisibility
+{
+    Private = 1,
+    Public = 2
 }
 
 public enum ApprovalDecisionKind
@@ -36,12 +49,64 @@ public enum ApprovalDecisionKind
 public sealed class ContentItem : TenantOwnedEntity
 {
     public Guid BusinessId { get; private set; }
-    public Guid ProjectId { get; private set; }
+    public Guid? ProjectId { get; private set; }
+    public Guid? ContentTypeId { get; private set; }
+    public string ContentTypeCode { get; private set; } = "ARTICLE";
+    public byte[] RowVersion { get; private set; } = [];
+    public Guid? AuthorUserId { get; private set; }
     public string Title { get; private set; } = string.Empty;
+    public string Slug { get; private set; } = string.Empty;
+    public string Excerpt { get; private set; } = string.Empty;
+    public string Body { get; private set; } = string.Empty;
     public ContentItemStatus Status { get; private set; } = ContentItemStatus.Draft;
+    public ContentVisibility Visibility { get; private set; } = ContentVisibility.Private;
+    public Guid? FeaturedMediaAssetId { get; private set; }
+    public string? CanonicalUrl { get; private set; }
+    public DateTimeOffset? PublishedAtUtc { get; private set; }
+    public DateTimeOffset? ScheduledAtUtc { get; private set; }
     public string SourceNote { get; private set; } = string.Empty;
 
     private ContentItem() { }
+
+    public static ContentItem Draft(
+        Guid tenantId,
+        Guid businessId,
+        string contentTypeCode,
+        string title,
+        string? slug,
+        string excerpt,
+        string body,
+        ContentVisibility visibility,
+        Guid? projectId,
+        Guid? authorUserId,
+        Guid? featuredMediaAssetId,
+        string? canonicalUrl)
+    {
+        if (tenantId == Guid.Empty) throw new ArgumentException("Tenant is required.", nameof(tenantId));
+        if (businessId == Guid.Empty) throw new ArgumentException("Business is required.", nameof(businessId));
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentTypeCode);
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(body);
+        ContentSafety.EnsureAllowed(title, excerpt, body);
+
+        return new ContentItem
+        {
+            TenantId = tenantId,
+            BusinessId = businessId,
+            ProjectId = projectId,
+            ContentTypeCode = contentTypeCode.Trim().ToUpperInvariant(),
+            AuthorUserId = authorUserId,
+            Title = title.Trim(),
+            Slug = ContentSlug.From(slug, title),
+            Excerpt = excerpt.Trim(),
+            Body = body.Trim(),
+            Status = ContentItemStatus.Draft,
+            Visibility = visibility,
+            FeaturedMediaAssetId = featuredMediaAssetId,
+            CanonicalUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? null : canonicalUrl.Trim(),
+            SourceNote = "Draft stored in the Content Hub. Nothing has been published."
+        };
+    }
 
     public static ContentItem FromProject(Guid tenantId, Guid businessId, Guid projectId, string title)
     {
@@ -55,10 +120,57 @@ public sealed class ContentItem : TenantOwnedEntity
             TenantId = tenantId,
             BusinessId = businessId,
             ProjectId = projectId,
+            ContentTypeCode = "PROJECT_STORY",
             Title = title.Trim(),
+            Slug = ContentSlug.From(null, title),
+            Excerpt = string.Empty,
+            Body = string.Empty,
             Status = ContentItemStatus.Draft,
+            Visibility = ContentVisibility.Private,
             SourceNote = "Assembled from the project record. This is not a live AI rewrite."
         };
+    }
+
+    public void UpdateDraft(
+        string contentTypeCode,
+        string title,
+        string? slug,
+        string excerpt,
+        string body,
+        ContentVisibility visibility,
+        Guid? projectId,
+        Guid? featuredMediaAssetId,
+        string? canonicalUrl)
+    {
+        if (Status is ContentItemStatus.Published or ContentItemStatus.Archived)
+        {
+            throw new InvalidOperationException("Published or archived content cannot be overwritten. Create a revision first.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentTypeCode);
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(body);
+        ContentSafety.EnsureAllowed(title, excerpt, body);
+        ContentTypeCode = contentTypeCode.Trim().ToUpperInvariant();
+        Title = title.Trim();
+        Slug = ContentSlug.From(slug, title);
+        Excerpt = excerpt.Trim();
+        Body = body.Trim();
+        Visibility = visibility;
+        ProjectId = projectId;
+        FeaturedMediaAssetId = featuredMediaAssetId;
+        CanonicalUrl = string.IsNullOrWhiteSpace(canonicalUrl) ? null : canonicalUrl.Trim();
+        Status = ContentItemStatus.Draft;
+        PublishedAtUtc = null;
+        Touch();
+    }
+
+    public void AssignType(Guid? contentTypeId, string contentTypeCode)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentTypeCode);
+        ContentTypeId = contentTypeId;
+        ContentTypeCode = contentTypeCode.Trim().ToUpperInvariant();
+        Touch();
     }
 
     public void RequestApproval()
@@ -89,6 +201,64 @@ public sealed class ContentItem : TenantOwnedEntity
     {
         Status = ContentItemStatus.Hold;
         SourceNote = note.Trim();
+        Touch();
+    }
+
+    public void SetFeaturedMedia(Guid? mediaAssetId)
+    {
+        FeaturedMediaAssetId = mediaAssetId;
+        Touch();
+    }
+
+    public void ClearSchedule()
+    {
+        if (Status is not ContentItemStatus.Scheduled)
+        {
+            throw new InvalidOperationException("Only a scheduled article can cancel its schedule.");
+        }
+
+        ScheduledAtUtc = null;
+        Status = ContentItemStatus.Approved;
+        SourceNote = "Schedule cancelled. The article is still approved and unpublished.";
+        Touch();
+    }
+
+    public void Schedule(DateTimeOffset atUtc)
+    {
+        if (Status is not (ContentItemStatus.Approved or ContentItemStatus.Scheduled))
+        {
+            throw new InvalidOperationException("Approve the draft before scheduling.");
+        }
+
+        if (atUtc <= DateTimeOffset.UtcNow)
+        {
+            throw new InvalidOperationException("Schedule a time in the future.");
+        }
+
+        ScheduledAtUtc = atUtc;
+        Status = ContentItemStatus.Scheduled;
+        SourceNote = $"Scheduled for {atUtc:u}. Nothing has been published yet.";
+        Touch();
+    }
+
+    public void Publish()
+    {
+        if (Status is not (ContentItemStatus.Approved or ContentItemStatus.Scheduled))
+        {
+            throw new InvalidOperationException("Approve the draft before publishing.");
+        }
+
+        Status = ContentItemStatus.Published;
+        PublishedAtUtc = DateTimeOffset.UtcNow;
+        SourceNote = Visibility == ContentVisibility.Public
+            ? "Published on the DigitalPulse Content Hub."
+            : "Marked published internally. Visibility is private, so it is not on the public hub.";
+        Touch();
+    }
+
+    public void Archive()
+    {
+        Status = ContentItemStatus.Archived;
         Touch();
     }
 }
