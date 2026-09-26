@@ -1787,7 +1787,7 @@ Create ADRs for significant decisions such as:
 
 # 47. IMPLEMENTATION ORDER
 
-**Overall: 40% (4/10 phases).**
+**Overall: 50% (5/10 phases).**
 
 Implement in this order after auditing existing code.
 
@@ -1878,9 +1878,10 @@ Implement/complete:
 - evidence references;
 - Graphify updates.
 
-## Phase 5 — Agents
+## Phase 5 — completed (100%)
+Agents
 
-Implement/complete required agents.
+Implement/complete required agents. All ten catalog agents now have `*.v1` prompts and cannot execute external actions.
 
 ## Phase 6 — Guardrails
 
