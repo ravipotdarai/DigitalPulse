@@ -1921,7 +1921,7 @@ Do NOT:
 
 ## 43. Implementation Sequence
 
-**Overall: 69% (11/16 phases).**
+**Overall: 75% (12/16 phases).**
 
 Implement in this order:
 
@@ -1958,7 +1958,7 @@ Approval integration
 ### Phase 11 — completed (100%)
 Scheduling / Distribution
 
-### Phase 12
+### Phase 12 — completed (100%)
 Public Content Hub
 
 ### Phase 13
@@ -2034,7 +2034,7 @@ The feature is NOT complete until:
 - [x] scheduling works
 - [x] supported distribution works
 - [x] unsupported providers use Assisted/Manual mode
-- [ ] public content hub works
+- [x] public content hub works
 - [ ] analytics works
 - [ ] agency clients work
 - [ ] white-label entitlement works

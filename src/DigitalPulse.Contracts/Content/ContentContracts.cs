@@ -162,7 +162,9 @@ public sealed record PublicHubArticle(
     string Body,
     string ContentTypeCode,
     DateTimeOffset PublishedAtUtc,
-    string? FeaturedImageUrl);
+    string? FeaturedImageUrl,
+    string MetaTitle,
+    string MetaDescription);
 public sealed record PublicHubArticleSummary(
     string Title,
     string Slug,
@@ -170,4 +172,13 @@ public sealed record PublicHubArticleSummary(
     string ContentTypeCode,
     DateTimeOffset PublishedAtUtc,
     string? FeaturedImageUrl);
-public sealed record PublicHubIndex(Guid BusinessId, string BusinessName, IReadOnlyList<PublicHubArticleSummary> Articles);
+public sealed record PublicHubIndex(
+    Guid BusinessId,
+    string BusinessName,
+    IReadOnlyList<PublicHubArticleSummary> Articles,
+    PublicHubArticleSummary? Featured,
+    IReadOnlyList<PublicHubArticleSummary> CaseStudies,
+    IReadOnlyList<string> Services,
+    string Cta,
+    string MetaTitle,
+    string MetaDescription);

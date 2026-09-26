@@ -1152,16 +1152,29 @@ public sealed class GetPublicHubIndexHandler
             .OrderByDescending(c => c.PublishedAtUtc)
             .ToListAsync(cancellationToken);
         var images = await ContentComposer.FeaturedUrlsAsync(_db, items, cancellationToken);
+        var summaries = items.Select(item => new PublicHubArticleSummary(
+            item.Title,
+            item.Slug,
+            item.Excerpt,
+            item.ContentTypeCode,
+            item.PublishedAtUtc ?? item.UpdatedAtUtc,
+            images.GetValueOrDefault(item.Id))).ToList();
+        var services = await _db.Services.IgnoreQueryFilters().AsNoTracking()
+            .Where(s => s.BusinessId == businessId)
+            .Select(s => s.Name)
+            .ToListAsync(cancellationToken);
+        var featured = summaries.FirstOrDefault();
+        var cases = summaries.Where(item => item.ContentTypeCode is "CASE_STUDY" or "PROJECT_STORY").ToList();
         return new PublicHubIndex(
             business.Id,
             business.Name,
-            items.Select(item => new PublicHubArticleSummary(
-                item.Title,
-                item.Slug,
-                item.Excerpt,
-                item.ContentTypeCode,
-                item.PublishedAtUtc ?? item.UpdatedAtUtc,
-                images.GetValueOrDefault(item.Id))).ToList());
+            summaries,
+            featured,
+            cases,
+            services,
+            services.Count > 0 ? $"Need help with {services[0]}? Contact {business.Name}." : $"Contact {business.Name}.",
+            $"{business.Name} insights",
+            $"Published articles from {business.Name}. Scores and traffic are not invented on this page.");
     }
 }
 
@@ -1185,7 +1198,21 @@ public sealed class GetPublicHubArticleHandler
                 cancellationToken)
             ?? throw AppException.NotFound("Published article was not found.");
         var images = await ContentComposer.FeaturedUrlsAsync(_db, [item], cancellationToken);
-        return new PublicHubArticle(business.Name, item.Title, item.Slug, item.Excerpt, item.Body, item.ContentTypeCode, item.PublishedAtUtc ?? item.UpdatedAtUtc, images.GetValueOrDefault(item.Id));
+        var seo = await _db.ContentSeoAnalyses.IgnoreQueryFilters().AsNoTracking()
+            .Where(s => s.ContentItemId == item.Id)
+            .OrderByDescending(s => s.LastAnalyzedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+        return new PublicHubArticle(
+            business.Name,
+            item.Title,
+            item.Slug,
+            item.Excerpt,
+            item.Body,
+            item.ContentTypeCode,
+            item.PublishedAtUtc ?? item.UpdatedAtUtc,
+            images.GetValueOrDefault(item.Id),
+            seo?.MetaTitle ?? item.Title,
+            seo?.MetaDescription ?? item.Excerpt);
     }
 }
 

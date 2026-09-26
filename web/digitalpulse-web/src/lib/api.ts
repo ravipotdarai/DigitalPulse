@@ -992,11 +992,19 @@ export type PublicHubArticle = {
   contentTypeCode: string;
   publishedAtUtc: string;
   featuredImageUrl?: string | null;
+  metaTitle?: string;
+  metaDescription?: string;
 };
 export type PublicHubIndex = {
   businessId: string;
   businessName: string;
   articles: { title: string; slug: string; excerpt: string; contentTypeCode: string; publishedAtUtc: string; featuredImageUrl?: string | null }[];
+  featured?: { title: string; slug: string; excerpt: string; contentTypeCode: string; publishedAtUtc: string; featuredImageUrl?: string | null } | null;
+  caseStudies?: { title: string; slug: string; excerpt: string; contentTypeCode: string; publishedAtUtc: string; featuredImageUrl?: string | null }[];
+  services?: string[];
+  cta?: string;
+  metaTitle?: string;
+  metaDescription?: string;
 };
 export type ProjectDetail = {
   project: ProjectSummary;
