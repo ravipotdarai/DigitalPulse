@@ -2,6 +2,8 @@ namespace DigitalPulse.Contracts.Content;
 
 public sealed record ContentTypeResponse(string Code, string Name);
 
+public sealed record ContentSeoCheckResponse(string Code, string Label, bool Passed, string Note);
+
 public sealed record ContentSeoResponse(
     string SearchIntent,
     int ChecksPassed,
@@ -17,7 +19,11 @@ public sealed record ContentSeoResponse(
     int AeoScore,
     int SlugScore,
     int InternalLinkScore,
-    int EntityCoverageScore);
+    int EntityCoverageScore,
+    IReadOnlyList<ContentSeoCheckResponse> Checks,
+    IReadOnlyList<ContentSeoCheckResponse> AeoChecks,
+    int EntitiesMentioned,
+    int EntitiesTotal);
 
 public sealed record ContentNamedResponse(Guid Id, string Name, string Slug);
 
@@ -96,7 +102,8 @@ public sealed record ContentHubWorkspace(
     IReadOnlyList<ContentNamedResponse> Tags,
     IReadOnlyList<ContentMetricResponse> Metrics,
     IReadOnlyList<HubMediaAssetResponse> Media,
-    string Note);
+    string Note,
+    IReadOnlyList<string> Entities);
 
 public sealed record CreateHubContentRequest(
     string ContentTypeCode,

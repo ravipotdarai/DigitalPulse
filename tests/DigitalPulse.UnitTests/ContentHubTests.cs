@@ -45,7 +45,7 @@ public sealed class ContentHubTests
     }
 
     [Fact]
-    public void Aeo_score_is_100_only_when_the_body_has_a_question_and_steps()
+    public void Aeo_score_is_the_fraction_of_answer_structures()
     {
         var thin = ContentSeo.Evaluate("How to choose", "A practical excerpt for the hub checklist snippet.", "No structure here at all.", null, null, "how-to-choose");
         Assert.Equal(0, thin.AeoScore);
@@ -57,8 +57,49 @@ public sealed class ContentHubTests
             "conference",
             "https://example.com/guide",
             "how-to-choose-a-conference-room-system");
-        Assert.Equal(100, structured.AeoScore);
+        Assert.Equal((int)Math.Round(100d * structured.AeoChecks.Count(item => item.Passed) / ContentSeo.AeoTotal), structured.AeoScore);
+        Assert.InRange(structured.AeoScore, 1, 99);
         Assert.True(structured.SlugScore >= 50);
+
+        var complete = ContentSeo.Evaluate(
+            "How to choose a conference room system",
+            "A practical guide to choosing a conference room system from the stored service record.",
+            "# FAQ\n\nWhat is a conference room?\nA conference room is a recorded space.\n\n## How-to\n1. Room size.\n2. Display size.\n\n## Comparison\nThis vs that.\n\n## Key facts\nKey considerations stay stored.\n\n## Summary\nIn summary, use the stored service.",
+            "conference",
+            "https://example.com/guide",
+            "how-to-choose-a-conference-room-system");
+        Assert.Equal(100, complete.AeoScore);
+        Assert.NotEqual(87, complete.AeoScore);
+    }
+
+    [Fact]
+    public void Entity_coverage_is_named_stored_records_only()
+    {
+        var missed = ContentSeo.Evaluate(
+            "How to choose a conference room system",
+            "A practical excerpt for the hub checklist snippet.",
+            "# How\n\nWrite about the work without naming the stored service.",
+            "conference",
+            "https://example.com/guide",
+            "how-to-choose",
+            null,
+            null,
+            ["Conference rooms", "Harbour Roast"]);
+        Assert.Equal(0, missed.EntityCoverageScore);
+        Assert.Equal(2, missed.EntitiesTotal);
+
+        var covered = ContentSeo.Evaluate(
+            "How to choose a conference room system",
+            "A practical excerpt for the hub checklist snippet.",
+            "# How\n\nConference rooms and Harbour Roast are on the stored record.",
+            "conference",
+            "https://example.com/guide",
+            "how-to-choose",
+            null,
+            null,
+            ["Conference rooms", "Harbour Roast"]);
+        Assert.Equal(100, covered.EntityCoverageScore);
+        Assert.Contains(covered.Checks, item => item.Code == "entity-coverage" && item.Passed);
     }
 
     [Fact]

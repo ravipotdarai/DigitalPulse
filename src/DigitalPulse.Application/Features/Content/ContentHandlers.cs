@@ -1072,7 +1072,8 @@ internal static class ContentComposer
         string? metaDescription,
         CancellationToken cancellationToken)
     {
-        var result = ContentSeo.Evaluate(item.Title, item.Excerpt, item.Body, focusKeyword, item.CanonicalUrl, item.Slug, metaTitle, metaDescription);
+        var entities = await EntitiesAsync(db, item.BusinessId, cancellationToken);
+        var result = ContentSeo.Evaluate(item.Title, item.Excerpt, item.Body, focusKeyword, item.CanonicalUrl, item.Slug, metaTitle, metaDescription, entities);
         var captured = ContentSeoAnalysis.Capture(
             tenantId,
             item.Id,
@@ -1088,7 +1089,8 @@ internal static class ContentComposer
             result.AeoScore,
             result.SlugScore,
             result.InternalLinkScore,
-            result.EntityCoverageScore);
+            result.EntityCoverageScore,
+            ContentSeo.SnapshotJson(result));
         var existing = db.ContentSeoAnalyses.Local.FirstOrDefault(s => s.ContentItemId == item.Id)
             ?? await db.ContentSeoAnalyses.FirstOrDefaultAsync(s => s.ContentItemId == item.Id, cancellationToken);
         if (existing is null)
@@ -1639,7 +1641,8 @@ internal static class ContentComposer
             tags.Select(t => new ContentNamedResponse(t.Id, t.Name, t.Slug)).ToList(),
             await MetricsAsync(db, businessId, null, cancellationToken),
             media.Select(m => new HubMediaAssetResponse(m.Id, m.Label, m.Kind.ToString(), ContentHubPaths.DisplayMedia(businessId, m.Id, m.SourceUrl))).ToList(),
-            "SEO score is checks passed ÷ checks run. Opportunity scores are coverage of existing titles. Analytics stay empty until an official provider returns them.");
+            "SEO score is checks passed ÷ checks run. Entity coverage is stored facts, services, and projects named in the article. Analytics stay empty until an official provider returns them.",
+            await EntitiesAsync(db, businessId, cancellationToken));
     }
 
     public static async Task<HubContentResponse?> LoadAsync(IAppDbContext db, Guid businessId, Guid contentId, CancellationToken cancellationToken)
@@ -1657,9 +1660,7 @@ internal static class ContentComposer
         var mediaRows = await db.ContentItemMedia.AsNoTracking().Where(m => m.ContentItemId == item.Id).OrderBy(m => m.DisplayOrder).ToListAsync(cancellationToken);
         var mediaIds = mediaRows.Select(m => m.MediaAssetId).ToList();
         var assets = await db.MediaAssets.AsNoTracking().Where(a => mediaIds.Contains(a.Id)).ToListAsync(cancellationToken);
-        var seoResponse = seo is null
-            ? new ContentSeoResponse("Unknown", 0, 8, 0, item.Title, item.Excerpt, null, item.CanonicalUrl, ["Analyze to run the checklist."], null, 0, 0, 0, 0, 0)
-            : new ContentSeoResponse(seo.SearchIntent, seo.ChecksPassed, seo.ChecksTotal, seo.SeoScore, seo.MetaTitle, seo.MetaDescription, seo.FocusKeyword, seo.CanonicalUrl, ContentSeo.ReadNotes(seo.NotesJson), seo.LastAnalyzedAtUtc, seo.ReadabilityScore, seo.AeoScore, seo.SlugScore, seo.InternalLinkScore, seo.EntityCoverageScore);
+        var seoResponse = ToSeo(item, seo);
 
         return new HubContentResponse(
             item.Id,
@@ -1698,6 +1699,56 @@ internal static class ContentComposer
         var text = body.Trim();
         return text.Length <= 160 ? text : text[..160];
     }
+
+    public static async Task<IReadOnlyList<string>> EntitiesAsync(IAppDbContext db, Guid businessId, CancellationToken cancellationToken)
+    {
+        var services = await db.Services.AsNoTracking().Where(s => s.BusinessId == businessId).Select(s => s.Name).ToListAsync(cancellationToken);
+        var projects = await db.Projects.AsNoTracking().Where(p => p.BusinessId == businessId).Select(p => p.Name).ToListAsync(cancellationToken);
+        var facts = await db.Facts.AsNoTracking()
+            .Where(f => f.BusinessId == businessId && f.Status == FactStatus.Approved)
+            .Select(f => f.Value)
+            .ToListAsync(cancellationToken);
+        return services.Concat(projects).Concat(facts)
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .Select(static name => name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static ContentSeoResponse ToSeo(ContentItem item, ContentSeoAnalysis? seo)
+    {
+        if (seo is null)
+        {
+            return new ContentSeoResponse(
+                "Unknown", 0, ContentSeo.HealthTotal, 0, item.Title, item.Excerpt, null, item.CanonicalUrl,
+                ["Analyze to run the checklist."], null, 0, 0, 0, 0, 0, [], [], 0, 0);
+        }
+
+        var snapshot = ContentSeo.ReadSnapshot(seo.ChecksJson);
+        return new ContentSeoResponse(
+            seo.SearchIntent,
+            seo.ChecksPassed,
+            seo.ChecksTotal,
+            seo.SeoScore,
+            seo.MetaTitle,
+            seo.MetaDescription,
+            seo.FocusKeyword,
+            seo.CanonicalUrl,
+            ContentSeo.ReadNotes(seo.NotesJson),
+            seo.LastAnalyzedAtUtc,
+            seo.ReadabilityScore,
+            seo.AeoScore,
+            seo.SlugScore,
+            seo.InternalLinkScore,
+            seo.EntityCoverageScore,
+            snapshot.Checks.Select(ToCheck).ToList(),
+            snapshot.AeoChecks.Select(ToCheck).ToList(),
+            snapshot.EntitiesMentioned,
+            snapshot.EntitiesTotal);
+    }
+
+    private static ContentSeoCheckResponse ToCheck(ContentSeoCheck check) =>
+        new(check.Code, check.Label, check.Passed, check.Note);
 
     private static async Task<IReadOnlyList<ContentMetricResponse>> MetricsAsync(IAppDbContext db, Guid businessId, Guid? contentId, CancellationToken cancellationToken)
     {

@@ -205,6 +205,7 @@ public static class ContentHubSchemaUpgrader
                 [MetaDescription] nvarchar(200) NOT NULL,
                 [CanonicalUrl] nvarchar(2048) NULL,
                 [NotesJson] nvarchar(max) NOT NULL,
+                [ChecksJson] nvarchar(max) NOT NULL CONSTRAINT [DF_ContentSeo_Checks] DEFAULT ('{}'),
                 [LastAnalyzedAtUtc] datetimeoffset NOT NULL,
                 CONSTRAINT [PK_ContentSeoAnalysis] PRIMARY KEY ([Id])
             );
@@ -325,6 +326,8 @@ public static class ContentHubSchemaUpgrader
                     ALTER TABLE [dp].[ContentSeoAnalysis] ADD [InternalLinkScore] int NOT NULL CONSTRAINT [DF_ContentSeo_Internal] DEFAULT (0);
                 IF COL_LENGTH('dp.ContentSeoAnalysis', 'EntityCoverageScore') IS NULL
                     ALTER TABLE [dp].[ContentSeoAnalysis] ADD [EntityCoverageScore] int NOT NULL CONSTRAINT [DF_ContentSeo_Entity] DEFAULT (0);
+                IF COL_LENGTH('dp.ContentSeoAnalysis', 'ChecksJson') IS NULL
+                    ALTER TABLE [dp].[ContentSeoAnalysis] ADD [ChecksJson] nvarchar(max) NOT NULL CONSTRAINT [DF_ContentSeo_Checks] DEFAULT ('{}');
             END
             IF OBJECT_ID(N'dp.ContentTopic', N'U') IS NOT NULL AND COL_LENGTH('dp.ContentTopic', 'Status') IS NULL
                 ALTER TABLE [dp].[ContentTopic] ADD [Status] nvarchar(24) NOT NULL CONSTRAINT [DF_ContentTopic_Status] DEFAULT ('Open');

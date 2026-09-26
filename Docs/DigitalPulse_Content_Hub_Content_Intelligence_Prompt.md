@@ -1923,22 +1923,22 @@ Do NOT:
 
 Implement in this order:
 
-### Phase 1
+### Phase 1 — completed
 Database model + EF configurations + migrations
 
-### Phase 2
+### Phase 2 — completed
 Content CRUD API
 
-### Phase 3
+### Phase 3 — completed
 Categories / Tags / Revisions / Media
 
-### Phase 4
+### Phase 4 — completed
 Content editor
 
-### Phase 5
+### Phase 5 — completed
 AI generation
 
-### Phase 6
+### Phase 6 — completed
 SEO/AEO analysis
 
 ### Phase 7
@@ -2012,19 +2012,19 @@ not:
 
 The feature is NOT complete until:
 
-- [ ] relational database model implemented
-- [ ] EF migrations created
-- [ ] tenant isolation verified
-- [ ] business isolation verified
-- [ ] content CRUD works
-- [ ] content types work
-- [ ] categories/tags work
-- [ ] revisions work
-- [ ] media integration works
-- [ ] editor works
-- [ ] AI generation works
-- [ ] verified-fact rules enforced
-- [ ] SEO analysis works
+- [x] relational database model implemented
+- [x] EF migrations created
+- [x] tenant isolation verified
+- [x] business isolation verified
+- [x] content CRUD works
+- [x] content types work
+- [x] categories/tags work
+- [x] revisions work
+- [x] media integration works
+- [x] editor works
+- [x] AI generation works
+- [x] verified-fact rules enforced
+- [x] SEO analysis works
 - [ ] content opportunities work
 - [ ] project-to-case-study works
 - [ ] content variants work

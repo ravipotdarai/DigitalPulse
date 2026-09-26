@@ -859,6 +859,7 @@ export type ProjectContentPack = {
   approvals: ProjectApproval[];
 };
 export type ContentTypeOption = { code: string; name: string };
+export type ContentSeoCheck = { code: string; label: string; passed: boolean; note: string };
 export type ContentSeo = {
   searchIntent: string;
   checksPassed: number;
@@ -875,6 +876,10 @@ export type ContentSeo = {
   slugScore?: number;
   internalLinkScore?: number;
   entityCoverageScore?: number;
+  checks?: ContentSeoCheck[];
+  aeoChecks?: ContentSeoCheck[];
+  entitiesMentioned?: number;
+  entitiesTotal?: number;
 };
 export type HubContentSummary = {
   id: string;
@@ -922,6 +927,7 @@ export type ContentHubWorkspace = {
   metrics: ContentMetricRow[];
   media?: HubMediaAsset[];
   note: string;
+  entities?: string[];
 };
 export type HubMediaAsset = { id: string; label: string; kind: string; sourceUrl: string | null };
 export type HubAssist = { action: string; suggestion: string; hold: string; providerName: string; isLive: boolean; target: string };

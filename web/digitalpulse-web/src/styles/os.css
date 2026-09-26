@@ -1900,6 +1900,69 @@ button.signal-row:hover {
   margin: 0;
   padding-left: 1.1rem;
 }
+.seo-health {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding: 1rem 1.1rem 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--dp-text-primary) 10%, transparent);
+  border-radius: var(--r-3);
+  background: color-mix(in srgb, var(--dp-surface) 88%, transparent);
+}
+.seo-health-score {
+  display: grid;
+  gap: 0.25rem;
+}
+.seo-health-label {
+  margin: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: var(--dp-text-muted);
+}
+.seo-health-number {
+  margin: 0;
+  font-size: 1.7rem;
+  line-height: 1;
+}
+.seo-health-bar {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dp-text-primary) 10%, transparent);
+  overflow: hidden;
+}
+.seo-health-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--dp-accent), color-mix(in srgb, var(--dp-accent) 40%, #7f00ff));
+}
+.seo-health-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+.seo-health-list li {
+  display: grid;
+  grid-template-columns: 1.2rem 1fr;
+  gap: 0.55rem;
+  align-items: start;
+}
+.seo-health-list li span {
+  font-weight: 700;
+}
+.seo-health-list li.is-ok span { color: #1f8a4c; }
+.seo-health-list li.is-warn span { color: #c47b00; }
+.seo-health-list li strong { display: block; }
+.seo-health-list li p,
+.seo-health-notes {
+  margin: 0.15rem 0 0;
+  color: var(--dp-text-muted);
+}
+.seo-health-notes {
+  padding-left: 1.1rem;
+}
 .hub-article {
   max-width: 42rem;
   margin: 2.5rem auto;

@@ -200,6 +200,7 @@ public sealed class ContentSeoAnalysis : TenantOwnedEntity
     public string MetaDescription { get; private set; } = string.Empty;
     public string? CanonicalUrl { get; private set; }
     public string NotesJson { get; private set; } = "[]";
+    public string ChecksJson { get; private set; } = "{}";
     public DateTimeOffset LastAnalyzedAtUtc { get; private set; } = DateTimeOffset.UtcNow;
 
     private ContentSeoAnalysis() { }
@@ -219,7 +220,8 @@ public sealed class ContentSeoAnalysis : TenantOwnedEntity
         int aeoScore,
         int slugScore,
         int internalLinkScore,
-        int entityCoverageScore) =>
+        int entityCoverageScore,
+        string? checksJson = null) =>
         new()
         {
             TenantId = tenantId,
@@ -238,6 +240,7 @@ public sealed class ContentSeoAnalysis : TenantOwnedEntity
             MetaDescription = metaDescription,
             CanonicalUrl = canonicalUrl,
             NotesJson = notesJson,
+            ChecksJson = string.IsNullOrWhiteSpace(checksJson) ? "{}" : checksJson,
             LastAnalyzedAtUtc = DateTimeOffset.UtcNow
         };
 
@@ -257,6 +260,7 @@ public sealed class ContentSeoAnalysis : TenantOwnedEntity
         MetaDescription = next.MetaDescription;
         CanonicalUrl = next.CanonicalUrl;
         NotesJson = next.NotesJson;
+        ChecksJson = next.ChecksJson;
         LastAnalyzedAtUtc = DateTimeOffset.UtcNow;
         Touch();
     }

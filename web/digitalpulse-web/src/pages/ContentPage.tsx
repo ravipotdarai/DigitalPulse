@@ -5,6 +5,7 @@ import { ApiError, api, type BusinessResponse, type ContentHubWorkspace, type Hu
 import { HubArticleView } from "../components/HubArticleView";
 import { HubAssist } from "../components/HubAssist";
 import { HubRichEditor } from "../components/HubRichEditor";
+import { HubSeoHealth } from "../components/HubSeoHealth";
 import { liveHubSeo } from "../lib/hubSeo";
 import { PageState } from "../components/PageState";
 import { Button } from "../design/Button";
@@ -642,7 +643,7 @@ function HubDesk({
           <Field label="Meta title" value={draft.metaTitle ?? ""} onChange={(metaTitle) => onChange({ metaTitle })} hint="Stored snippet title. 12–70 characters." />
           <Field label="Meta description" value={draft.metaDescription ?? ""} onChange={(metaDescription) => onChange({ metaDescription })} hint="Stored snippet. 40–160 characters." />
           <Field label="Canonical URL" value={draft.canonicalUrl ?? ""} onChange={(canonicalUrl) => onChange({ canonicalUrl })} />
-          <SeoHealth draft={draft} />
+          <SeoHealth draft={draft} entities={data.entities ?? []} />
           <ChipField
             label="Categories"
             values={draft.categories ?? []}
@@ -692,7 +693,7 @@ function HubDesk({
             </ul>
           </div>
         ) : null}
-        {selected?.seo ? <SeoCard seo={selected.seo} /> : null}
+        {selected?.seo ? <SeoCard seo={selected.seo} fallback={selected} entities={data.entities ?? []} /> : null}
       </article>
     </div>
   );
@@ -823,16 +824,19 @@ function FeaturedMediaField({
   );
 }
 
-function SeoHealth({ draft }: { draft: HubContentDraft }) {
-  const seo = liveHubSeo(draft);
+function SeoHealth({ draft, entities }: { draft: HubContentDraft; entities: string[] }) {
+  const seo = liveHubSeo({ ...draft, entities });
   return (
-    <div className="seo-card">
-      <p className="hero-kicker">SEO health</p>
-      <p><strong>{seo.seoScore}</strong> / 100 · {seo.passed}/{seo.total} checks. Informational — not a ranking promise.</p>
-      <p className="ink-muted">Snippet title: {seo.metaTitle || "—"}</p>
-      <p className="ink-muted">Snippet: {seo.metaDescription || "—"}</p>
-      <ul>{seo.notes.map((note) => <li key={note}>{note}</li>)}</ul>
-    </div>
+    <HubSeoHealth
+      score={seo.seoScore}
+      intent={seo.searchIntent}
+      checks={seo.checks}
+      aeo={seo.aeoChecks}
+      notes={seo.notes}
+      entitiesMentioned={seo.entitiesMentioned}
+      entitiesTotal={seo.entitiesTotal}
+      live
+    />
   );
 }
 
@@ -1049,7 +1053,7 @@ function SeoDesk({
           <>
             <Field label="Focus keyword" value={keyword} onChange={onKeyword} />
             <Button appearance="primary" onClick={onAnalyze}>Run checklist</Button>
-            <SeoCard seo={selected.seo} />
+            <SeoCard seo={selected.seo} fallback={selected} entities={data.entities ?? []} />
             {publicHref(businessId, selected) ? (
               <p><Link className="text-link" to={publicHref(businessId, selected)!}>Public page</Link></p>
             ) : null}
@@ -1151,13 +1155,40 @@ function AnalyticsDesk({ data }: { data: ContentHubWorkspace }) {
   );
 }
 
-function SeoCard({ seo }: { seo: HubContent["seo"] }) {
+function SeoCard({
+  seo,
+  fallback,
+  entities
+}: {
+  seo: HubContent["seo"];
+  fallback?: Pick<HubContent, "title" | "excerpt" | "body" | "slug" | "canonicalUrl">;
+  entities: string[];
+}) {
+  const live = fallback
+    ? liveHubSeo({
+        title: fallback.title,
+        excerpt: fallback.excerpt,
+        body: fallback.body,
+        slug: fallback.slug,
+        canonicalUrl: fallback.canonicalUrl ?? seo.canonicalUrl,
+        focusKeyword: seo.focusKeyword,
+        metaTitle: seo.metaTitle,
+        metaDescription: seo.metaDescription,
+        entities
+      })
+    : null;
+  const checks = seo.checks?.length ? seo.checks : live?.checks ?? [];
+  const aeo = seo.aeoChecks?.length ? seo.aeoChecks : live?.aeoChecks ?? [];
   return (
-    <div className="seo-card">
-      <p><strong>{seo.seoScore}</strong> / 100 · {seo.checksPassed}/{seo.checksTotal} checks · {seo.searchIntent}</p>
-      {seo.metaTitle ? <p className="ink-muted">Snippet title: {seo.metaTitle}</p> : null}
-      {seo.notes.length === 0 ? <p>Every stored check passed.</p> : <ul>{seo.notes.map((note) => <li key={note}>{note}</li>)}</ul>}
-    </div>
+    <HubSeoHealth
+      score={seo.seoScore}
+      intent={seo.searchIntent}
+      checks={checks}
+      aeo={aeo}
+      notes={seo.notes}
+      entitiesMentioned={seo.entitiesMentioned ?? live?.entitiesMentioned ?? 0}
+      entitiesTotal={seo.entitiesTotal ?? live?.entitiesTotal ?? 0}
+    />
   );
 }
 

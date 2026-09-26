@@ -116,6 +116,7 @@ public sealed class ContentSeoAnalysisConfiguration : IEntityTypeConfiguration<C
         builder.Property(x => x.MetaDescription).HasMaxLength(200).IsRequired();
         builder.Property(x => x.CanonicalUrl).HasMaxLength(2048);
         builder.Property(x => x.NotesJson).IsRequired();
+        builder.Property(x => x.ChecksJson).IsRequired();
         builder.HasIndex(x => x.ContentItemId);
         builder.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ContentItem>().WithMany().HasForeignKey(x => x.ContentItemId).OnDelete(DeleteBehavior.Cascade);
