@@ -1540,7 +1540,7 @@ This should become a continuous improvement loop rather than a one-time publishi
 
 # 41. IMPLEMENTATION ORDER
 
-**Overall: 80% (8/10 phases).**
+**Overall: 90% (9/10 phases).**
 
 Implement in this order:
 
@@ -1656,9 +1656,10 @@ Testing
 
 Publishing engine coverage includes audit, location fan-out, adapter confirmation, AI Google packs, worker retry, and an AV Professionals end-to-end desk flow that never invents external success.
 
-## Phase I — Security Review
+## Phase I — completed (100%)
+Security Review
 
-Perform tenant isolation, authorization, secret handling, SSRF, webhook, rate-limit, content-security, and dependency reviews.
+Distributions are tenant-filtered. Location IDs must belong to the current business. Official adapter HTTP stays on registered gateways. Provider tokens stay on the connection grant, not in audit detail. WhatsApp remains consent-only and out of Publish Everywhere.
 
 ## Phase J — Final Completeness Audit
 
