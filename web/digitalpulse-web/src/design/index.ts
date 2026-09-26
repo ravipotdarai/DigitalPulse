@@ -5,6 +5,7 @@ export { Button } from "./Button";
 export { Field } from "./Field";
 export { OnboardingFrame, Wizard } from "./OnboardingFrame";
 export { CommandPalette } from "./CommandPalette";
+export { PlatformLoginDialog } from "./PlatformLoginDialog";
 export { AssistantDrawer } from "./AssistantDrawer";
 export {
   MOTION,
