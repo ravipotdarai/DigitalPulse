@@ -1005,6 +1005,10 @@ export type PublicHubIndex = {
   cta?: string;
   metaTitle?: string;
   metaDescription?: string;
+  brandName?: string | null;
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  whiteLabel?: boolean;
 };
 export type ProjectDetail = {
   project: ProjectSummary;

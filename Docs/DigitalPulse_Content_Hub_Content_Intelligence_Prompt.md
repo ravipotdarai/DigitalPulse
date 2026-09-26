@@ -1921,7 +1921,7 @@ Do NOT:
 
 ## 43. Implementation Sequence
 
-**Overall: 81% (13/16 phases).**
+**Overall: 88% (14/16 phases).**
 
 Implement in this order:
 
@@ -1964,7 +1964,7 @@ Public Content Hub
 ### Phase 13 — completed (100%)
 Analytics
 
-### Phase 14
+### Phase 14 — completed (100%)
 Agency / White-label support
 
 ### Phase 15
@@ -2036,8 +2036,8 @@ The feature is NOT complete until:
 - [x] unsupported providers use Assisted/Manual mode
 - [x] public content hub works
 - [x] analytics works
-- [ ] agency clients work
-- [ ] white-label entitlement works
+- [x] agency clients work
+- [x] white-label entitlement works
 - [ ] search indexing works
 - [ ] Graphify integration works
 - [ ] security tests pass

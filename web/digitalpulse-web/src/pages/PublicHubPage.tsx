@@ -35,9 +35,10 @@ export function PublicHubPage() {
     }
 
     return (
-      <article className="hub-article">
+      <article className="hub-article" style={hub.whiteLabel && hub.primaryColor ? { ["--dp-accent" as string]: hub.primaryColor } : undefined}>
         <a className="skip-link" href="#latest">Skip to latest insights</a>
-        <p className="hero-kicker">{hub.businessName}</p>
+        {hub.whiteLabel && hub.logoUrl ? <img className="hub-featured is-thumb" src={hub.logoUrl} alt={hub.brandName || hub.businessName} /> : null}
+        <p className="hero-kicker">{hub.whiteLabel && hub.brandName ? hub.brandName : hub.businessName}</p>
         <h1 className="display display-page">Insights & Resources</h1>
         <p className="command-lead">{hub.metaDescription || "Published articles for this business. No DigitalPulse login is required."}</p>
         {hub.featured ? (

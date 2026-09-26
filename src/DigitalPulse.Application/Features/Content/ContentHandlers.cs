@@ -1165,6 +1165,8 @@ public sealed class GetPublicHubIndexHandler
             .ToListAsync(cancellationToken);
         var featured = summaries.FirstOrDefault();
         var cases = summaries.Where(item => item.ContentTypeCode is "CASE_STUDY" or "PROJECT_STORY").ToList();
+        var brand = await _db.WhiteLabelProfiles.IgnoreQueryFilters().AsNoTracking()
+            .FirstOrDefaultAsync(p => p.TenantId == business.TenantId && p.Enabled, cancellationToken);
         return new PublicHubIndex(
             business.Id,
             business.Name,
@@ -1174,7 +1176,11 @@ public sealed class GetPublicHubIndexHandler
             services,
             services.Count > 0 ? $"Need help with {services[0]}? Contact {business.Name}." : $"Contact {business.Name}.",
             $"{business.Name} insights",
-            $"Published articles from {business.Name}. Scores and traffic are not invented on this page.");
+            $"Published articles from {business.Name}. Scores and traffic are not invented on this page.",
+            brand?.DisplayName,
+            brand?.LogoUrl,
+            brand?.PrimaryColor,
+            brand is { Enabled: true });
     }
 }
 

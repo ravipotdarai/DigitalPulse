@@ -190,4 +190,8 @@ public sealed record PublicHubIndex(
     IReadOnlyList<string> Services,
     string Cta,
     string MetaTitle,
-    string MetaDescription);
+    string MetaDescription,
+    string? BrandName,
+    string? LogoUrl,
+    string? PrimaryColor,
+    bool WhiteLabel);
