@@ -1540,7 +1540,7 @@ This should become a continuous improvement loop rather than a one-time publishi
 
 # 41. IMPLEMENTATION ORDER
 
-**Overall: 40% (4/10 phases).**
+**Overall: 50% (5/10 phases).**
 
 Implement in this order:
 
@@ -1623,9 +1623,10 @@ Prioritize:
 
 Do not claim unsupported provider operations.
 
-## Phase E — AI
+## Phase E — completed (100%)
+AI
 
-Implement platform-specific variant generation with Graphify and AI safety rules.
+`CreateHubVariantsHandler` now retrieves Graphify context through `IAiContextBuilder` and may replace the Google pack with a live orchestrator draft. Restricted output is discarded. Variants stay shorter than the canonical article. Graphify is updated via `AttachContentAsync`.
 
 ## Phase F — Frontend
 

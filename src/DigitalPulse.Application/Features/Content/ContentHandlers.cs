@@ -516,11 +516,19 @@ public sealed class CreateHubVariantsHandler
 {
     private readonly IAppDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IAiContextBuilder? _context;
+    private readonly IAiOrchestrator? _ai;
 
-    public CreateHubVariantsHandler(IAppDbContext db, ITenantContext tenant)
+    public CreateHubVariantsHandler(
+        IAppDbContext db,
+        ITenantContext tenant,
+        IAiContextBuilder? context = null,
+        IAiOrchestrator? ai = null)
     {
         _db = db;
         _tenant = tenant;
+        _context = context;
+        _ai = ai;
     }
 
     public async Task<HubContentResponse> Handle(Guid businessId, Guid contentId, CancellationToken cancellationToken)
@@ -536,10 +544,39 @@ public sealed class CreateHubVariantsHandler
 
         var excerpt = string.IsNullOrWhiteSpace(item.Excerpt) ? item.Body : item.Excerpt;
         var compact = excerpt.Length <= 240 ? excerpt : excerpt[..240];
+        var googleBody = $"{item.Title}\n\n{compact}";
+        if (_context is not null && _ai is not null)
+        {
+            var built = await _context.BuildAsync(tenantId, businessId, item.Title, cancellationToken);
+            var completion = await _ai.RunAsync(
+                new AiOrchestrationRequest(
+                    "social",
+                    $"Write a short Google Business Profile post from this approved article. Do not invent facts. Title: {item.Title}. Excerpt: {compact}",
+                    built.Evidence,
+                    built.GraphLines),
+                cancellationToken);
+            if (completion.ProviderIsLive && !string.IsNullOrWhiteSpace(completion.Output))
+            {
+                try
+                {
+                    ContentGuard.Require(completion.Output);
+                    var shaped = completion.Output.Length <= 1500 ? completion.Output.Trim() : completion.Output.Trim()[..1500];
+                    if (shaped.Length < item.Body.Length)
+                    {
+                        googleBody = shaped;
+                    }
+                }
+                catch (AppException)
+                {
+                    // Keep the assembled Google pack. Restricted or invented claims are not stored.
+                }
+            }
+        }
+
         (ContentVariantKind Kind, string Title, string Body)[] packs =
         [
             (ContentVariantKind.WebsiteArticle, item.Title, item.Body),
-            (ContentVariantKind.GooglePost, item.Title, $"{item.Title}\n\n{compact}"),
+            (ContentVariantKind.GooglePost, item.Title, googleBody),
             (ContentVariantKind.LinkedInPost, item.Title, $"{item.Title}\n\n{compact}\n\nAssembled from the approved article. Not a live rewrite."),
             (ContentVariantKind.FacebookPost, item.Title, compact),
             (ContentVariantKind.InstagramCaption, item.Title, $"{compact}\n\n{item.Title}"),
@@ -555,6 +592,7 @@ public sealed class CreateHubVariantsHandler
             _db.ContentVariants.Add(ContentVariant.Draft(tenantId, item.Id, kind, title, body));
         }
 
+        await GraphifySync.AttachContentAsync(_db, tenantId, item, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
     }
