@@ -385,7 +385,9 @@ function ContentStudio({
         <IdeasDesk
           data={data}
           busy={busy}
-          onDiscover={() => void run(() => api.discoverContentOpportunities(businessId), "Ideas built from stored services, projects, and findings.")}
+          onDiscover={() => void run(() => api.discoverContentOpportunities(businessId), "Ideas built from stored services, projects, findings, website gaps, and official search queries.")}
+          onCreate={(topic, description) => void run(() => api.createContentOpportunity(businessId, topic, description), "Manual idea stored on this business.")}
+          onDismiss={(id) => void run(() => api.dismissContentOpportunity(businessId, id), "Idea dismissed.")}
           onDraft={(topic, opportunityId) => void run(async () => {
             const item = await api.generateHubContent(businessId, topic, opportunityId);
             openPane("hub", item.id);
@@ -889,35 +891,42 @@ function IdeasDesk({
   data,
   busy,
   onDiscover,
+  onCreate,
+  onDismiss,
   onDraft
 }: {
   data: ContentHubWorkspace;
   busy: boolean;
   onDiscover: () => void;
+  onCreate: (topic: string, description?: string) => void;
+  onDismiss: (id: string) => void;
   onDraft: (topic: string, opportunityId?: string) => void;
 }) {
   const [prompt, setPrompt] = useState("");
+  const [manual, setManual] = useState("");
   const [ideaId, setIdeaId] = useState<string | null>(data.opportunities[0]?.id ?? null);
   const idea = data.opportunities.find((item) => item.id === ideaId) ?? null;
   return (
     <div className="band band-2">
       <article className="panel">
         <h2>Opportunities</h2>
-        <p className="ink-muted">These topics are built from services, projects, and findings already stored for this business. Scores are coverage of existing titles, not invented search volume.</p>
+        <p className="ink-muted">Topics come from stored services, projects, findings, website observations, Search Console queries, and competitors. Coverage is existing titles, not invented search volume.</p>
         <Button appearance="subtle" disabled={busy} onClick={onDiscover}>Discover from records</Button>
         <DataGrid
           noun="idea"
-          empty="Add a service, project, or finding, then discover."
-          columns={["Topic", "Source", "Coverage", "Gap"]}
+          empty="Add a service, project, finding, or website observation, then discover."
+          columns={["Topic", "Source", "Coverage", "Gap", "Priority"]}
           selectedId={ideaId}
           onRow={setIdeaId}
           rows={data.opportunities.map((item) => ({
             id: item.id,
             search: `${item.topic} ${item.sourceType}`.toLowerCase(),
-            cells: [item.topic, item.sourceType, item.coverageScore ?? "—", item.opportunityScore ?? "—"],
+            cells: [item.topic, item.sourceType, item.coverageScore ?? "—", item.opportunityScore ?? "—", item.priority ?? "—"],
             actions: <button type="button" className="grid-action" onClick={() => onDraft(item.topic, item.id)}>Write draft</button>
           }))}
         />
+        <Field label="Manual idea" value={manual} onChange={setManual} />
+        <Button appearance="subtle" disabled={busy || manual.trim().length < 4} onClick={() => { onCreate(manual.trim()); setManual(""); }}>Record idea</Button>
       </article>
       <article className="panel">
         {idea ? (
@@ -933,7 +942,10 @@ function IdeasDesk({
               <li>Competition {idea.competitionScore ?? "—"}</li>
               <li>Priority {idea.priority ?? "—"}</li>
             </ul>
-            <Button appearance="primary" disabled={busy} onClick={() => onDraft(idea.topic, idea.id)}>Write this draft</Button>
+            <div className="row-actions">
+              <Button appearance="primary" disabled={busy} onClick={() => onDraft(idea.topic, idea.id)}>Write this draft</Button>
+              <Button appearance="subtle" disabled={busy} onClick={() => onDismiss(idea.id)}>Dismiss</Button>
+            </div>
           </>
         ) : (
           <>

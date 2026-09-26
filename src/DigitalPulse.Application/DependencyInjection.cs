@@ -137,6 +137,8 @@ public static class DependencyInjection
         services.AddScoped<CreateHubVariantsHandler>();
         services.AddScoped<DistributeHubContentHandler>();
         services.AddScoped<DiscoverContentOpportunitiesHandler>();
+        services.AddScoped<DismissContentOpportunityHandler>();
+        services.AddScoped<CreateContentOpportunityHandler>();
         services.AddScoped<GenerateHubContentHandler>();
         services.AddScoped<AssistHubContentHandler>();
         services.AddScoped<GetPublicHubIndexHandler>();
@@ -618,6 +620,15 @@ public sealed class GenerateHubContentRequestValidator : AbstractValidator<Gener
     public GenerateHubContentRequestValidator()
     {
         RuleFor(x => x.Prompt).NotEmpty().MinimumLength(4).MaximumLength(4000);
+    }
+}
+
+public sealed class CreateContentOpportunityRequestValidator : AbstractValidator<CreateContentOpportunityRequest>
+{
+    public CreateContentOpportunityRequestValidator()
+    {
+        RuleFor(x => x.Topic).NotEmpty().MinimumLength(4).MaximumLength(160);
+        RuleFor(x => x.Description).MaximumLength(1000);
     }
 }
 

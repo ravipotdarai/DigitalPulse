@@ -498,6 +498,10 @@ public sealed class DiscoverContentOpportunitiesHandler
         var services = await _db.Services.AsNoTracking().Where(s => s.BusinessId == businessId).ToListAsync(cancellationToken);
         var projects = await _db.Projects.AsNoTracking().Where(p => p.BusinessId == businessId).ToListAsync(cancellationToken);
         var findings = await _db.Findings.AsNoTracking().Where(f => f.BusinessId == businessId).OrderByDescending(f => f.CreatedAtUtc).Take(8).ToListAsync(cancellationToken);
+        var gaps = await _db.SearchObservations.AsNoTracking().Where(o => o.BusinessId == businessId).OrderByDescending(o => o.CreatedAtUtc).Take(8).ToListAsync(cancellationToken);
+        var queries = await _db.SearchConsoleQueries.AsNoTracking().Where(q => q.BusinessId == businessId).OrderByDescending(q => q.Impressions).Take(8).ToListAsync(cancellationToken);
+        var competitors = await _db.Competitors.AsNoTracking().Where(c => c.BusinessId == businessId).Take(8).ToListAsync(cancellationToken);
+        var snapshot = await _db.WebsiteSnapshots.AsNoTracking().Where(s => s.BusinessId == businessId).OrderByDescending(s => s.FetchedAtUtc).FirstOrDefaultAsync(cancellationToken);
 
         foreach (var service in services)
         {
@@ -511,9 +515,75 @@ public sealed class DiscoverContentOpportunitiesHandler
 
         foreach (var finding in findings)
         {
-            await ContentComposer.OfferAsync(_db, tenantId, businessId, finding.Title, finding.Description, ContentOpportunitySource.Finding, titles, cancellationToken);
+            await ContentComposer.OfferAsync(_db, tenantId, businessId, finding.Title, finding.Recommendation ?? finding.Description, ContentOpportunitySource.Finding, titles, cancellationToken);
         }
 
+        foreach (var gap in gaps)
+        {
+            await ContentComposer.OfferAsync(_db, tenantId, businessId, gap.Title, string.IsNullOrWhiteSpace(gap.Recommendation) ? gap.Detail : gap.Recommendation, ContentOpportunitySource.WebsiteGap, titles, cancellationToken);
+        }
+
+        foreach (var query in queries)
+        {
+            await ContentComposer.OfferAsync(_db, tenantId, businessId, query.Query, $"Stored Search Console query. Clicks {query.Clicks}, impressions {query.Impressions} from the official grant. Volume was not invented.", ContentOpportunitySource.Search, titles, cancellationToken);
+        }
+
+        foreach (var competitor in competitors)
+        {
+            await ContentComposer.OfferAsync(_db, tenantId, businessId, $"How we compare to {competitor.Name}", competitor.Notes ?? "A comparison only from the stored competitor record. Rankings were not invented.", ContentOpportunitySource.Competitor, titles, cancellationToken);
+        }
+
+        if (snapshot is { HasFaqSchema: false } && services.Count > 0)
+        {
+            await ContentComposer.OfferAsync(_db, tenantId, businessId, $"FAQ: {services[0].Name}", "The stored website snapshot has no FAQ schema. This idea is a customer-question gap, not invented search demand.", ContentOpportunitySource.CustomerQuestion, titles, cancellationToken);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return await ContentComposer.WorkspaceAsync(_db, businessId, cancellationToken);
+    }
+}
+
+public sealed class DismissContentOpportunityHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+
+    public DismissContentOpportunityHandler(IAppDbContext db, ITenantContext tenant)
+    {
+        _db = db;
+        _tenant = tenant;
+    }
+
+    public async Task<ContentHubWorkspace> Handle(Guid businessId, Guid opportunityId, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        var opportunity = await _db.ContentOpportunities.FirstOrDefaultAsync(o => o.Id == opportunityId && o.BusinessId == businessId, cancellationToken)
+            ?? throw AppException.NotFound("Opportunity was not found.");
+        opportunity.Dismiss();
+        await _db.SaveChangesAsync(cancellationToken);
+        return await ContentComposer.WorkspaceAsync(_db, businessId, cancellationToken);
+    }
+}
+
+public sealed class CreateContentOpportunityHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+
+    public CreateContentOpportunityHandler(IAppDbContext db, ITenantContext tenant)
+    {
+        _db = db;
+        _tenant = tenant;
+    }
+
+    public async Task<ContentHubWorkspace> Handle(Guid businessId, CreateContentOpportunityRequest request, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        ContentGuard.Require(request.Topic, request.Description);
+        var titles = await _db.ContentItems.AsNoTracking().Where(c => c.BusinessId == businessId).Select(c => c.Title).ToListAsync(cancellationToken);
+        await ContentComposer.OfferAsync(_db, tenantId, businessId, request.Topic, request.Description ?? "Manual idea recorded on this business.", ContentOpportunitySource.Manual, titles, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
         return await ContentComposer.WorkspaceAsync(_db, businessId, cancellationToken);
     }
@@ -553,7 +623,7 @@ public sealed class GenerateHubContentHandler
             if (topic is not null)
             {
                 prompt = topic.Topic;
-                opportunity?.Accept();
+                opportunity?.Convert();
             }
         }
 

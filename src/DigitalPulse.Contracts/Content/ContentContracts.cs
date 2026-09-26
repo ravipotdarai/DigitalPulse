@@ -145,6 +145,7 @@ public sealed record AssistHubContentResponse(string Action, string Suggestion, 
 public sealed record AnalyzeHubSeoRequest(string? FocusKeyword);
 public sealed record DistributeHubContentRequest(string ProviderCode);
 public sealed record DiscoverOpportunitiesRequest();
+public sealed record CreateContentOpportunityRequest(string Topic, string? Description);
 public sealed record RejectHubContentRequest(string? Note);
 public sealed record AttachHubMediaRequest(Guid MediaAssetId, string Role);
 public sealed record RegisterHubMediaRequest(string Label, string Kind, string SourceUrl);

@@ -415,6 +415,10 @@ export const api = {
     request<HubContent>(`/v1/businesses/${businessId}/content/${contentId}/distribute`, { method: "POST", body: JSON.stringify({ providerCode }) }),
   discoverContentOpportunities: (businessId: string) =>
     request<ContentHubWorkspace>(`/v1/businesses/${businessId}/content/opportunities/discover`, { method: "POST" }),
+  createContentOpportunity: (businessId: string, topic: string, description?: string) =>
+    request<ContentHubWorkspace>(`/v1/businesses/${businessId}/content/opportunities`, { method: "POST", body: JSON.stringify({ topic, description: description ?? null }) }),
+  dismissContentOpportunity: (businessId: string, opportunityId: string) =>
+    request<ContentHubWorkspace>(`/v1/businesses/${businessId}/content/opportunities/${opportunityId}/dismiss`, { method: "POST" }),
   generateHubContent: (businessId: string, prompt: string, opportunityId?: string | null) =>
     request<HubContent>(`/v1/businesses/${businessId}/content/generate`, { method: "POST", body: JSON.stringify({ prompt, opportunityId: opportunityId ?? null }) }),
   assistHubContent: (businessId: string, body: { action: string; instruction?: string | null; contentId?: string | null; section?: string | null }) =>

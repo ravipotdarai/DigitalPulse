@@ -29,6 +29,8 @@ public static class ContentEndpoints
         group.MapPost("/{contentId:guid}/variants", VariantsAsync);
         group.MapPost("/{contentId:guid}/distribute", DistributeAsync);
         group.MapPost("/opportunities/discover", DiscoverAsync);
+        group.MapPost("/opportunities", CreateOpportunityAsync);
+        group.MapPost("/opportunities/{opportunityId:guid}/dismiss", DismissOpportunityAsync);
         group.MapPost("/generate", GenerateAsync);
         group.MapPost("/assist", AssistAsync);
 
@@ -139,6 +141,14 @@ public static class ContentEndpoints
     private static async Task<Ok<ContentHubWorkspace>> DiscoverAsync(
         Guid businessId, DiscoverContentOpportunitiesHandler handler, CancellationToken cancellationToken) =>
         TypedResults.Ok(await handler.Handle(businessId, cancellationToken));
+
+    private static async Task<Ok<ContentHubWorkspace>> CreateOpportunityAsync(
+        Guid businessId, CreateContentOpportunityRequest request, CreateContentOpportunityHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, request, cancellationToken));
+
+    private static async Task<Ok<ContentHubWorkspace>> DismissOpportunityAsync(
+        Guid businessId, Guid opportunityId, DismissContentOpportunityHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, opportunityId, cancellationToken));
 
     private static async Task<Ok<HubContentResponse>> GenerateAsync(
         Guid businessId, GenerateHubContentRequest request, GenerateHubContentHandler handler, CancellationToken cancellationToken) =>
