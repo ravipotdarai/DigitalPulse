@@ -31,6 +31,10 @@ public static class ContentEndpoints
         group.MapPost("/{contentId:guid}/seo", AnalyzeAsync);
         group.MapPost("/{contentId:guid}/variants", VariantsAsync);
         group.MapPost("/{contentId:guid}/distribute", DistributeAsync);
+        group.MapPost("/{contentId:guid}/distribute/everywhere", PublishEverywhereAsync);
+        group.MapPost("/{contentId:guid}/distributions/{distributionId:guid}/retry", RetryDistributionAsync);
+        group.MapPost("/{contentId:guid}/distributions/{distributionId:guid}/cancel", CancelDistributionAsync);
+        group.MapPost("/{contentId:guid}/distributions/{distributionId:guid}/verify", VerifyDistributionAsync);
         group.MapPost("/opportunities/discover", DiscoverAsync);
         group.MapPost("/opportunities", CreateOpportunityAsync);
         group.MapPost("/opportunities/{opportunityId:guid}/dismiss", DismissOpportunityAsync);
@@ -154,7 +158,23 @@ public static class ContentEndpoints
 
     private static async Task<Ok<HubContentResponse>> DistributeAsync(
         Guid businessId, Guid contentId, DistributeHubContentRequest request, DistributeHubContentHandler handler, CancellationToken cancellationToken) =>
-        TypedResults.Ok(await handler.Handle(businessId, contentId, request.ProviderCode, cancellationToken));
+        TypedResults.Ok(await handler.Handle(businessId, contentId, request, cancellationToken));
+
+    private static async Task<Ok<HubContentResponse>> PublishEverywhereAsync(
+        Guid businessId, Guid contentId, PublishEverywhereRequest? request, PublishEverywhereHubContentHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, contentId, request ?? new PublishEverywhereRequest(), cancellationToken));
+
+    private static async Task<Ok<HubContentResponse>> RetryDistributionAsync(
+        Guid businessId, Guid contentId, Guid distributionId, RetryHubDistributionHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, contentId, distributionId, cancellationToken));
+
+    private static async Task<Ok<HubContentResponse>> CancelDistributionAsync(
+        Guid businessId, Guid contentId, Guid distributionId, CancelHubDistributionHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, contentId, distributionId, cancellationToken));
+
+    private static async Task<Ok<HubContentResponse>> VerifyDistributionAsync(
+        Guid businessId, Guid contentId, Guid distributionId, VerifyHubDistributionHandler handler, CancellationToken cancellationToken) =>
+        TypedResults.Ok(await handler.Handle(businessId, contentId, distributionId, cancellationToken));
 
     private static async Task<Ok<ContentHubWorkspace>> DiscoverAsync(
         Guid businessId, DiscoverContentOpportunitiesHandler handler, CancellationToken cancellationToken) =>

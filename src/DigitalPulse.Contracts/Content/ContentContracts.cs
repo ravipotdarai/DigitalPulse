@@ -126,7 +126,8 @@ public sealed record ContentHubWorkspace(
     string Note,
     IReadOnlyList<string> Entities,
     IReadOnlyList<ContentNamedResponse> Projects,
-    IReadOnlyList<HubDistributionChannelResponse> Channels);
+    IReadOnlyList<HubDistributionChannelResponse> Channels,
+    IReadOnlyList<ContentNamedResponse> Locations);
 
 public sealed record CreateHubContentRequest(
     string ContentTypeCode,
@@ -166,7 +167,15 @@ public sealed record GenerateHubContentRequest(string? OpportunityId, string Pro
 public sealed record AssistHubContentRequest(string Action, string? Instruction, string? ContentId, string? Section);
 public sealed record AssistHubContentResponse(string Action, string Suggestion, string Hold, string ProviderName, bool IsLive, string Target);
 public sealed record AnalyzeHubSeoRequest(string? FocusKeyword);
-public sealed record DistributeHubContentRequest(string ProviderCode);
+public sealed record DistributeHubContentRequest(
+    string ProviderCode,
+    Guid? LocationId = null,
+    IReadOnlyList<Guid>? LocationIds = null,
+    string? IdempotencyKey = null);
+
+public sealed record PublishEverywhereRequest(
+    IReadOnlyList<Guid>? LocationIds = null,
+    string? IdempotencyKey = null);
 public sealed record DiscoverOpportunitiesRequest();
 public sealed record CreateContentOpportunityRequest(string Topic, string? Description);
 public sealed record CreateHubCaseStudyRequest(Guid ProjectId);

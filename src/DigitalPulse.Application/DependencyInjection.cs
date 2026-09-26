@@ -146,6 +146,10 @@ public static class DependencyInjection
         services.AddScoped<AnalyzeHubSeoHandler>();
         services.AddScoped<CreateHubVariantsHandler>();
         services.AddScoped<DistributeHubContentHandler>();
+        services.AddScoped<PublishEverywhereHubContentHandler>();
+        services.AddScoped<RetryHubDistributionHandler>();
+        services.AddScoped<CancelHubDistributionHandler>();
+        services.AddScoped<VerifyHubDistributionHandler>();
         services.AddScoped<DiscoverContentOpportunitiesHandler>();
         services.AddScoped<DismissContentOpportunityHandler>();
         services.AddScoped<CreateContentOpportunityHandler>();
@@ -647,6 +651,15 @@ public sealed class DistributeHubContentRequestValidator : AbstractValidator<Dis
     public DistributeHubContentRequestValidator()
     {
         RuleFor(x => x.ProviderCode).NotEmpty().MaximumLength(32);
+        RuleFor(x => x.IdempotencyKey).MaximumLength(48);
+    }
+}
+
+public sealed class PublishEverywhereRequestValidator : AbstractValidator<PublishEverywhereRequest>
+{
+    public PublishEverywhereRequestValidator()
+    {
+        RuleFor(x => x.IdempotencyKey).MaximumLength(48);
     }
 }
 

@@ -510,6 +510,13 @@ public sealed class ContentDistribution : TenantOwnedEntity
         VerifiedAtUtc = DateTimeOffset.UtcNow;
         Touch();
     }
+
+    public void HoldVerification(string detail)
+    {
+        VerificationStatus = "Hold";
+        VerificationDetail = detail.Trim();
+        Touch();
+    }
 }
 
 public sealed class ContentMetric : TenantOwnedEntity

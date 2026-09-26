@@ -8,6 +8,7 @@ using DigitalPulse.Contracts.Content;
 using DigitalPulse.Domain.Ai;
 using DigitalPulse.Domain.Businesses;
 using DigitalPulse.Domain.Content;
+using DigitalPulse.Domain.Operations;
 using DigitalPulse.Domain.Projects;
 using Microsoft.EntityFrameworkCore;
 
@@ -568,35 +569,158 @@ public sealed class DistributeHubContentHandler
         _tenant = tenant;
     }
 
-    public async Task<HubContentResponse> Handle(Guid businessId, Guid contentId, string providerCode, CancellationToken cancellationToken)
+    public Task<HubContentResponse> Handle(Guid businessId, Guid contentId, string providerCode, CancellationToken cancellationToken) =>
+        Handle(businessId, contentId, new DistributeHubContentRequest(providerCode), cancellationToken);
+
+    public async Task<HubContentResponse> Handle(Guid businessId, Guid contentId, DistributeHubContentRequest request, CancellationToken cancellationToken)
     {
         var tenantId = _tenant.RequireTenantId();
         await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
         var item = await _db.ContentItems.FirstOrDefaultAsync(c => c.Id == contentId && c.BusinessId == businessId, cancellationToken)
             ?? throw AppException.NotFound("Content was not found.");
-        if (item.Status is not (ContentItemStatus.Approved or ContentItemStatus.Published or ContentItemStatus.Scheduled))
+        ContentDistributionEngine.RequireApproved(item);
+        await ContentDistributionEngine.EnsureEntitlementAsync(_db, tenantId, fanOut: false, cancellationToken);
+        var code = ContentDistributionEngine.Normalize(request.ProviderCode);
+        var locations = await ContentDistributionEngine.ResolveLocationsAsync(
+            _db, businessId, code, request.LocationId, request.LocationIds, cancellationToken);
+        foreach (var location in locations)
         {
-            throw AppException.Validation("Approve the article before distribution.");
+            await ContentDistributionEngine.PlaceAsync(_db, tenantId, businessId, item, code, location, request.IdempotencyKey, cancellationToken);
         }
 
-        var code = string.IsNullOrWhiteSpace(providerCode) ? "HUB" : providerCode.Trim().ToUpperInvariant();
-        var link = await _db.Connections.FirstOrDefaultAsync(c => c.BusinessId == businessId && c.PlatformCode == code, cancellationToken);
-        var distribution = ContentDistribution.Start(tenantId, businessId, item.Id, code, null, link?.Id);
-        if (code == "HUB")
+        await _db.SaveChangesAsync(cancellationToken);
+        return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
+    }
+}
+
+public sealed class PublishEverywhereHubContentHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+
+    public PublishEverywhereHubContentHandler(IAppDbContext db, ITenantContext tenant)
+    {
+        _db = db;
+        _tenant = tenant;
+    }
+
+    public async Task<HubContentResponse> Handle(Guid businessId, Guid contentId, PublishEverywhereRequest request, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        await BusinessAccess.RequireAsync(_db, tenantId, businessId, cancellationToken);
+        var item = await _db.ContentItems.FirstOrDefaultAsync(c => c.Id == contentId && c.BusinessId == businessId, cancellationToken)
+            ?? throw AppException.NotFound("Content was not found.");
+        ContentDistributionEngine.RequireApproved(item);
+        await ContentDistributionEngine.EnsureEntitlementAsync(_db, tenantId, fanOut: true, cancellationToken);
+        foreach (var code in ContentDistributionEngine.Everywhere)
         {
-            if (item.Status != ContentItemStatus.Published) item.Publish();
-            distribution.MarkPublished(item.Slug);
+            var locations = await ContentDistributionEngine.ResolveLocationsAsync(
+                _db, businessId, code, null, request.LocationIds, cancellationToken);
+            foreach (var location in locations)
+            {
+                await ContentDistributionEngine.PlaceAsync(_db, tenantId, businessId, item, code, location, request.IdempotencyKey, cancellationToken);
+            }
         }
-        else if (link is null || !link.HasLiveCredential)
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
+    }
+}
+
+public sealed class RetryHubDistributionHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+
+    public RetryHubDistributionHandler(IAppDbContext db, ITenantContext tenant)
+    {
+        _db = db;
+        _tenant = tenant;
+    }
+
+    public async Task<HubContentResponse> Handle(Guid businessId, Guid contentId, Guid distributionId, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        var item = await _db.ContentItems.FirstOrDefaultAsync(c => c.Id == contentId && c.BusinessId == businessId, cancellationToken)
+            ?? throw AppException.NotFound("Content was not found.");
+        var row = await ContentDistributionEngine.RequireRowAsync(_db, tenantId, businessId, contentId, distributionId, cancellationToken);
+        ContentDistributionEngine.RequireApproved(item);
+        await ContentDistributionEngine.EnsureEntitlementAsync(_db, tenantId, fanOut: false, cancellationToken);
+        try
         {
-            distribution.Hold("No live official credential for this provider. Distribution stays assisted — DigitalPulse will not invent a post.");
+            row.Retry();
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw AppException.Validation(ex.Message);
+        }
+
+        var link = await _db.Connections.FirstOrDefaultAsync(
+            c => c.BusinessId == businessId && c.PlatformCode == row.ProviderCode, cancellationToken);
+        ContentDistributionEngine.ApplyOutcome(row, item, link, row.ProviderCode);
+        _db.OperationsAudits.Add(OperationsAudit.Record(
+            tenantId,
+            "content.distribute.retry",
+            $"{row.ProviderCode} attempts {row.AttemptCount} status {row.Status}."));
+        await _db.SaveChangesAsync(cancellationToken);
+        return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
+    }
+}
+
+public sealed class CancelHubDistributionHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+
+    public CancelHubDistributionHandler(IAppDbContext db, ITenantContext tenant)
+    {
+        _db = db;
+        _tenant = tenant;
+    }
+
+    public async Task<HubContentResponse> Handle(Guid businessId, Guid contentId, Guid distributionId, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        var item = await _db.ContentItems.FirstOrDefaultAsync(c => c.Id == contentId && c.BusinessId == businessId, cancellationToken)
+            ?? throw AppException.NotFound("Content was not found.");
+        var row = await ContentDistributionEngine.RequireRowAsync(_db, tenantId, businessId, contentId, distributionId, cancellationToken);
+        row.Cancel("Cancelled by operator.");
+        _db.OperationsAudits.Add(OperationsAudit.Record(tenantId, "content.distribute.cancel", $"{row.ProviderCode} cancelled."));
+        await _db.SaveChangesAsync(cancellationToken);
+        return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
+    }
+}
+
+public sealed class VerifyHubDistributionHandler
+{
+    private readonly IAppDbContext _db;
+    private readonly ITenantContext _tenant;
+
+    public VerifyHubDistributionHandler(IAppDbContext db, ITenantContext tenant)
+    {
+        _db = db;
+        _tenant = tenant;
+    }
+
+    public async Task<HubContentResponse> Handle(Guid businessId, Guid contentId, Guid distributionId, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenant.RequireTenantId();
+        var item = await _db.ContentItems.FirstOrDefaultAsync(c => c.Id == contentId && c.BusinessId == businessId, cancellationToken)
+            ?? throw AppException.NotFound("Content was not found.");
+        var row = await ContentDistributionEngine.RequireRowAsync(_db, tenantId, businessId, contentId, distributionId, cancellationToken);
+        if (row.Status == ContentDistributionStatus.Published && !string.IsNullOrWhiteSpace(row.ExternalContentId))
+        {
+            row.MarkVerified(row.ExternalContentId, "Official provider ID already stored.");
         }
         else
         {
-            distribution.Hold("Official write for long-form hub articles is not wired on this provider. Use Social compose for short posts.");
+            row.HoldVerification("Verification waits for an official provider confirmation. DigitalPulse will not invent a published ID.");
         }
 
-        _db.ContentDistributions.Add(distribution);
+        _db.OperationsAudits.Add(OperationsAudit.Record(
+            tenantId,
+            "content.distribute.verify",
+            $"{row.ProviderCode} verification {row.VerificationStatus}."));
         await _db.SaveChangesAsync(cancellationToken);
         return (await ContentComposer.LoadAsync(_db, businessId, item.Id, cancellationToken))!;
     }
@@ -1928,7 +2052,10 @@ internal static class ContentComposer
             (await db.Projects.AsNoTracking().Where(p => p.BusinessId == businessId).OrderBy(p => p.Name).ToListAsync(cancellationToken))
                 .Select(p => new ContentNamedResponse(p.Id, p.Name, ContentSlug.From(null, p.Name)))
                 .ToList(),
-            await ChannelsAsync(db, businessId, cancellationToken));
+            await ChannelsAsync(db, businessId, cancellationToken),
+            (await db.Locations.AsNoTracking().Where(l => l.BusinessId == businessId).OrderBy(l => l.Name).ToListAsync(cancellationToken))
+                .Select(l => new ContentNamedResponse(l.Id, l.Name, ContentSlug.From(null, l.Name)))
+                .ToList());
     }
 
     public static async Task<HubContentResponse?> LoadAsync(IAppDbContext db, Guid businessId, Guid contentId, CancellationToken cancellationToken)
@@ -2053,6 +2180,7 @@ internal static class ContentComposer
         (string Code, string Mode, string Note)[] catalog =
         [
             ("HUB", "Supported", "DigitalPulse public page at /hub/{business}. Official hosting on this product."),
+            ("WEBSITE", "Assisted", "Customer website publish stays assisted until an official CMS write exists."),
             ("GOOGLE", "Assisted", "Google Business Profile write stays held without an official grant."),
             ("LINKEDIN", "Assisted", "LinkedIn write stays held without an official grant."),
             ("FACEBOOK", "Assisted", "Facebook write stays held without an official grant."),
