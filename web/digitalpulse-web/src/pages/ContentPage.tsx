@@ -1127,19 +1127,18 @@ function DistributionDesk({
       </article>
       <article className="panel">
         <h2>Distribution</h2>
-        <p className="ink-muted">HUB writes the DigitalPulse public page at /hub/{businessId}. LinkedIn, Facebook, and Google stay assisted until that official login exists.</p>
+        <p className="ink-muted">HUB writes the DigitalPulse public page. Other providers stay assisted or manual until an official grant exists. DigitalPulse will not invent a post.</p>
         <p><Link className="text-link" to={`/hub/${businessId}`} target="_blank" rel="noreferrer">Open public hub</Link></p>
         <SelectField
           label="Provider"
           value={provider}
           onChange={setProvider}
-          options={[
-            { value: "HUB", label: "Content Hub public page" },
-            { value: "LINKEDIN", label: "LinkedIn" },
-            { value: "FACEBOOK", label: "Facebook" },
-            { value: "GOOGLE", label: "Google" }
-          ]}
+          options={(data.channels ?? [{ providerCode: "HUB", mode: "Supported", note: "" }]).map((item) => ({
+            value: item.providerCode,
+            label: `${item.providerCode} · ${item.mode}`
+          }))}
         />
+        <p className="ink-muted">{(data.channels ?? []).find((item) => item.providerCode === provider)?.note}</p>
         <Button appearance="primary" disabled={!selectedId} onClick={() => onDistribute(provider)}>Distribute</Button>
         {selected ? (
           <>

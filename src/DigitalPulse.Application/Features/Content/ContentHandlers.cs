@@ -1833,7 +1833,8 @@ internal static class ContentComposer
             await EntitiesAsync(db, businessId, cancellationToken),
             (await db.Projects.AsNoTracking().Where(p => p.BusinessId == businessId).OrderBy(p => p.Name).ToListAsync(cancellationToken))
                 .Select(p => new ContentNamedResponse(p.Id, p.Name, ContentSlug.From(null, p.Name)))
-                .ToList());
+                .ToList(),
+            await ChannelsAsync(db, businessId, cancellationToken));
     }
 
     public static async Task<HubContentResponse?> LoadAsync(IAppDbContext db, Guid businessId, Guid contentId, CancellationToken cancellationToken)
@@ -1940,6 +1941,33 @@ internal static class ContentComposer
 
     private static ContentSeoCheckResponse ToCheck(ContentSeoCheck check) =>
         new(check.Code, check.Label, check.Passed, check.Note);
+
+    private static async Task<IReadOnlyList<HubDistributionChannelResponse>> ChannelsAsync(IAppDbContext db, Guid businessId, CancellationToken cancellationToken)
+    {
+        var links = await db.Connections.AsNoTracking().Where(c => c.BusinessId == businessId).ToListAsync(cancellationToken);
+        (string Code, string Mode, string Note)[] catalog =
+        [
+            ("HUB", "Supported", "DigitalPulse public page at /hub/{business}. Official hosting on this product."),
+            ("GOOGLE", "Assisted", "Google Business Profile write stays held without an official grant."),
+            ("LINKEDIN", "Assisted", "LinkedIn write stays held without an official grant."),
+            ("FACEBOOK", "Assisted", "Facebook write stays held without an official grant."),
+            ("INSTAGRAM", "Assisted", "Instagram write stays held without an official grant."),
+            ("YOUTUBE", "Assisted", "YouTube upload stays held without an official grant."),
+            ("WHATSAPP", "Assisted", "WhatsApp templates stay on Cloud API. Unofficial clients are out of scope."),
+            ("INDIAMART", "Manual", "IndiaMART uses the existing capability model. No unofficial scrape."),
+            ("JUSTDIAL", "Manual", "Justdial uses the existing capability model. No unofficial scrape.")
+        ];
+        return catalog.Select(item =>
+        {
+            var link = links.FirstOrDefault(c => string.Equals(c.PlatformCode, item.Code, StringComparison.OrdinalIgnoreCase));
+            var note = item.Code == "HUB"
+                ? item.Note
+                : link is { HasLiveCredential: true }
+                    ? $"{item.Note} Connected. Long-form hub publish is still held; use Social compose for short posts."
+                    : item.Note;
+            return new HubDistributionChannelResponse(item.Code, item.Mode, note);
+        }).ToList();
+    }
 
     private static async Task<IReadOnlyList<ContentMetricResponse>> MetricsAsync(IAppDbContext db, Guid businessId, Guid? contentId, CancellationToken cancellationToken)
     {

@@ -1921,7 +1921,7 @@ Do NOT:
 
 ## 43. Implementation Sequence
 
-**Overall: 63% (10/16 phases).**
+**Overall: 69% (11/16 phases).**
 
 Implement in this order:
 
@@ -1955,7 +1955,7 @@ Content variants / repurposing
 ### Phase 10 — completed (100%)
 Approval integration
 
-### Phase 11
+### Phase 11 — completed (100%)
 Scheduling / Distribution
 
 ### Phase 12
@@ -2031,9 +2031,9 @@ The feature is NOT complete until:
 - [x] project-to-case-study works
 - [x] content variants work
 - [x] approval integration works
-- [ ] scheduling works
-- [ ] supported distribution works
-- [ ] unsupported providers use Assisted/Manual mode
+- [x] scheduling works
+- [x] supported distribution works
+- [x] unsupported providers use Assisted/Manual mode
 - [ ] public content hub works
 - [ ] analytics works
 - [ ] agency clients work

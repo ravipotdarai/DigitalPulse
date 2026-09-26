@@ -937,6 +937,7 @@ export type ContentHubWorkspace = {
   note: string;
   entities?: string[];
   projects?: ContentNamed[];
+  channels?: { providerCode: string; mode: string; note: string }[];
 };
 export type HubMediaAsset = { id: string; label: string; kind: string; sourceUrl: string | null };
 export type HubAssist = { action: string; suggestion: string; hold: string; providerName: string; isLive: boolean; target: string };

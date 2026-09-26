@@ -93,6 +93,8 @@ public sealed record ContentCalendarResponse(Guid Id, Guid ContentItemId, string
 
 public sealed record HubMediaAssetResponse(Guid Id, string Label, string Kind, string? SourceUrl);
 
+public sealed record HubDistributionChannelResponse(string ProviderCode, string Mode, string Note);
+
 public sealed record ContentHubWorkspace(
     IReadOnlyList<ContentTypeResponse> Types,
     IReadOnlyList<HubContentSummary> Items,
@@ -104,7 +106,8 @@ public sealed record ContentHubWorkspace(
     IReadOnlyList<HubMediaAssetResponse> Media,
     string Note,
     IReadOnlyList<string> Entities,
-    IReadOnlyList<ContentNamedResponse> Projects);
+    IReadOnlyList<ContentNamedResponse> Projects,
+    IReadOnlyList<HubDistributionChannelResponse> Channels);
 
 public sealed record CreateHubContentRequest(
     string ContentTypeCode,
