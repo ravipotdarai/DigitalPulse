@@ -1970,7 +1970,7 @@ internal static class ContentComposer
             seoResponse,
             revisions.Select(r => new ContentRevisionResponse(r.Id, r.VersionNumber, r.Title, r.ChangeSummary, r.CreatedAtUtc)).ToList(),
             variants.Select(v => new ContentVariantHubResponse(v.Id, v.Kind.ToString(), v.Title, v.Body, v.Status.ToString(), v.PublicationHold)).ToList(),
-            distributions.Select(d => new ContentDistributionResponse(d.Id, d.ProviderCode, d.Status.ToString(), d.FailureReason, d.PublishedAtUtc)).ToList(),
+            distributions.Select(d => new ContentDistributionResponse(d.Id, d.ProviderCode, d.Status.ToString(), d.FailureReason, d.PublishedAtUtc, d.LocationId, d.IdempotencyKey, d.AttemptCount, d.VerificationStatus, d.VerificationDetail)).ToList(),
             await MetricsAsync(db, businessId, item.Id, cancellationToken),
             mediaRows.Select(m =>
             {

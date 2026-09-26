@@ -284,8 +284,16 @@ public static class ContentHubSchemaUpgrader
                 [PublishedAtUtc] datetimeoffset NULL,
                 [ExternalContentId] nvarchar(160) NULL,
                 [FailureReason] nvarchar(500) NULL,
+                [LocationId] uniqueidentifier NULL,
+                [IdempotencyKey] nvarchar(80) NULL,
+                [AttemptCount] int NOT NULL CONSTRAINT [DF_ContentDistribution_Attempts] DEFAULT (1),
+                [VerificationStatus] nvarchar(24) NOT NULL CONSTRAINT [DF_ContentDistribution_Verify] DEFAULT ('None'),
+                [VerificationDetail] nvarchar(500) NULL,
+                [VerifiedAtUtc] datetimeoffset NULL,
                 CONSTRAINT [PK_ContentDistribution] PRIMARY KEY ([Id])
             );
+            CREATE INDEX [IX_ContentDistribution_Item_Provider_Location] ON [dp].[ContentDistribution] ([ContentItemId], [ProviderCode], [LocationId]);
+            CREATE INDEX [IX_ContentDistribution_BusinessId_IdempotencyKey] ON [dp].[ContentDistribution] ([BusinessId], [IdempotencyKey]);
             """, cancellationToken);
 
         await CreateAsync(db, "ContentMetric",
@@ -384,6 +392,25 @@ public static class ContentHubSchemaUpgrader
             IF OBJECT_ID(N'dp.ContentCalendarEntry', N'U') IS NOT NULL
                AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_ContentCalendarEntry_BusinessId_ScheduledAtUtc' AND object_id = OBJECT_ID(N'dp.ContentCalendarEntry'))
                 CREATE INDEX [IX_ContentCalendarEntry_BusinessId_ScheduledAtUtc] ON [dp].[ContentCalendarEntry] ([BusinessId], [ScheduledAtUtc]);
+            IF OBJECT_ID(N'dp.ContentDistribution', N'U') IS NOT NULL
+            BEGIN
+                IF COL_LENGTH('dp.ContentDistribution', 'LocationId') IS NULL
+                    ALTER TABLE [dp].[ContentDistribution] ADD [LocationId] uniqueidentifier NULL;
+                IF COL_LENGTH('dp.ContentDistribution', 'IdempotencyKey') IS NULL
+                    ALTER TABLE [dp].[ContentDistribution] ADD [IdempotencyKey] nvarchar(80) NULL;
+                IF COL_LENGTH('dp.ContentDistribution', 'AttemptCount') IS NULL
+                    ALTER TABLE [dp].[ContentDistribution] ADD [AttemptCount] int NOT NULL CONSTRAINT [DF_ContentDistribution_Attempts] DEFAULT (1);
+                IF COL_LENGTH('dp.ContentDistribution', 'VerificationStatus') IS NULL
+                    ALTER TABLE [dp].[ContentDistribution] ADD [VerificationStatus] nvarchar(24) NOT NULL CONSTRAINT [DF_ContentDistribution_Verify] DEFAULT ('None');
+                IF COL_LENGTH('dp.ContentDistribution', 'VerificationDetail') IS NULL
+                    ALTER TABLE [dp].[ContentDistribution] ADD [VerificationDetail] nvarchar(500) NULL;
+                IF COL_LENGTH('dp.ContentDistribution', 'VerifiedAtUtc') IS NULL
+                    ALTER TABLE [dp].[ContentDistribution] ADD [VerifiedAtUtc] datetimeoffset NULL;
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_ContentDistribution_Item_Provider_Location' AND object_id = OBJECT_ID(N'dp.ContentDistribution'))
+                    CREATE INDEX [IX_ContentDistribution_Item_Provider_Location] ON [dp].[ContentDistribution] ([ContentItemId], [ProviderCode], [LocationId]);
+                IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_ContentDistribution_BusinessId_IdempotencyKey' AND object_id = OBJECT_ID(N'dp.ContentDistribution'))
+                    CREATE INDEX [IX_ContentDistribution_BusinessId_IdempotencyKey] ON [dp].[ContentDistribution] ([BusinessId], [IdempotencyKey]);
+            END
             """, cancellationToken);
     }
 

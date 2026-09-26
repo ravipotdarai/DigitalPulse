@@ -23,4 +23,15 @@ public sealed class PublishingEngineAuditTests
         Assert.False(website.Capabilities.CanPublish);
         Assert.True(website.Capabilities.AssistedOnly);
     }
+
+    [Fact]
+    public void Distribution_retry_increments_attempts_and_never_invents_published()
+    {
+        var row = ContentDistribution.Start(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "GOOGLE", null, null, Guid.NewGuid(), "gbp-pune");
+        row.Hold("Official write is not confirmed.");
+        row.Retry();
+        Assert.Equal(2, row.AttemptCount);
+        Assert.Equal(ContentDistributionStatus.ApprovalRequired, row.Status);
+        Assert.NotEqual(ContentDistributionStatus.Published, row.Status);
+    }
 }

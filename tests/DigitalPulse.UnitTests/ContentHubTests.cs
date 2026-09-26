@@ -166,6 +166,18 @@ public sealed class ContentHubTests
     }
 
     [Fact]
+    public void Distribution_stores_location_and_idempotency_without_inventing_publish()
+    {
+        var location = Guid.NewGuid();
+        var row = ContentDistribution.Start(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "GOOGLE", null, null, location, "google-pune-1");
+        Assert.Equal(location, row.LocationId);
+        Assert.Equal("google-pune-1", row.IdempotencyKey);
+        Assert.Equal(1, row.AttemptCount);
+        Assert.Equal("None", row.VerificationStatus);
+        Assert.NotEqual(ContentDistributionStatus.Published, row.Status);
+    }
+
+    [Fact]
     public void Ordinary_hub_copy_is_allowed()
     {
         Assert.True(ContentSafety.Assess("How to choose a conference room", "A practical guide from the stored service.").Allowed);

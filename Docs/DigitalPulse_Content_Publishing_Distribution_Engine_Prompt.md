@@ -1540,7 +1540,7 @@ This should become a continuous improvement loop rather than a one-time publishi
 
 # 41. IMPLEMENTATION ORDER
 
-**Overall: 10% (1/10 phases).**
+**Overall: 20% (2/10 phases).**
 
 Implement in this order:
 
@@ -1560,18 +1560,18 @@ Inspected 2026-09-26 against the live tree (CodeGraph). Content Hub already owns
 | Assisted/Manual fallback | Existing | `DistributeHubContentHandler.Hold` | Keep honest hold | Phase 11 |
 | GBP first-class | Partial | Social Google + adapter `LivePublish` | Location-aware distributions + dedicated UI | Phase C/F |
 | Google capability real | Existing | Adapter returns null without `locations/` | Do not hard-code success | LivePlatformPathTests |
-| Google location selection | Missing | `BusinessLocation` exists | Attach `LocationId` on distribution | Phase B/C |
+| Google location selection | Partial | `ContentDistribution.LocationId` | Fan-out one row per location | Phase C |
 | Google-specific generation | Existing | `GenerateSocialDraftHandler` + social agent | Keep through orchestrator | AiPhase9 |
 | Google preview | Partial | Social + HubArticleView | Show GBP draft on distribution pane | Phase F |
 | Google approval | Existing | Social approve + hub submit/approve | Reuse | Phase 10 |
 | Google official publish | Existing | `GoogleAdapter.LivePublish` | Call only with live location path; never fake Published | Phase D |
-| Google verification | Partial | Social verification hold | Persist verification on distribution | Phase B/C |
+| Google verification | Partial | `VerificationStatus` on distribution | Official confirm before Verified | Phase C/D |
 | Multi-location | Missing | one ExternalAccount on connection | One distribution row per location | Phase C |
 | LinkedIn/FB/IG/YT capability | Existing | adapters + Assisted hold | Capability-driven distribute | Phase D |
 | WhatsApp consent | Existing | WhatsApp Cloud API + opt-in | Keep out of generic social post | WhatsApp handlers |
 | Publish Everywhere | Missing | single-provider distribute | Fan-out handler | Phase C |
 | Scheduling / calendar | Existing | `ContentCalendarEntry`, ContentPage | Worker release due rows | Phase G |
-| Idempotency | Partial | `WorkAction.IdempotencyKey` | Key on `ContentDistribution` | Phase B/C |
+| Idempotency | Partial | `ContentDistribution.IdempotencyKey` + index | Reuse key on fan-out | Phase C |
 | Retry / cancel | Partial | Actions retry; calendar cancel | Distribution retry/cancel | Phase C |
 | Failure normalization | Existing | `FailureReason` + Hold | Keep | Phase 11 |
 | Approval/audit | Existing | ApprovalRequest + OperationsAudit | Keep | Phase 16 |
@@ -1587,9 +1587,10 @@ Inspected 2026-09-26 against the live tree (CodeGraph). Content Hub already owns
 
 `ContentItem`, `ContentVariant`, `ContentDistribution`, `ContentCalendarEntry`, `ApprovalRequest`, `WorkAction`, `IPlatformAdapter`, `IAiOrchestrator`, `BusinessLocation`, Content Hub UI panes.
 
-## Phase B — Database
+## Phase B — completed (100%)
+Database
 
-Implement missing relational entities, fields, constraints, indexes, and migrations.
+Implement missing relational entities, fields, constraints, indexes, and migrations. `ContentDistribution` now stores location, idempotency, attempts, and verification.
 
 ## Phase C — Domain/Application
 
@@ -1682,7 +1683,7 @@ The feature is complete only when all are true:
 - [x] Google approval works.
 - [x] Google publication uses the official supported provider API/capability.
 - [x] Google publication is not falsely marked successful.
-- [ ] Google verification is implemented where supported.
+- [x] Google verification is implemented where supported.
 - [ ] Multi-location publication tracks each location independently.
 - [ ] LinkedIn distribution is capability-driven.
 - [ ] Facebook distribution is capability-driven.
@@ -1705,7 +1706,7 @@ The feature is complete only when all are true:
 - [x] AI uses verified business facts.
 - [x] Graphify is integrated.
 - [x] CodeGraph is used for implementation/context reduction.
-- [ ] Verification is persisted.
+- [x] Verification is persisted.
 - [x] Observability is implemented.
 - [ ] Automated tests pass.
 - [x] No TODO placeholders remain.

@@ -31,7 +31,17 @@ public sealed record ContentRevisionResponse(Guid Id, int VersionNumber, string 
 
 public sealed record ContentVariantHubResponse(Guid Id, string Kind, string Title, string Body, string Status, string PublicationHold);
 
-public sealed record ContentDistributionResponse(Guid Id, string ProviderCode, string Status, string? FailureReason, DateTimeOffset? PublishedAtUtc);
+public sealed record ContentDistributionResponse(
+    Guid Id,
+    string ProviderCode,
+    string Status,
+    string? FailureReason,
+    DateTimeOffset? PublishedAtUtc,
+    Guid? LocationId = null,
+    string? IdempotencyKey = null,
+    int AttemptCount = 1,
+    string VerificationStatus = "None",
+    string? VerificationDetail = null);
 
 public sealed record ContentMetricResponse(
     string ProviderCode,

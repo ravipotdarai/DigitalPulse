@@ -179,7 +179,11 @@ public sealed class ContentDistributionConfiguration : IEntityTypeConfiguration<
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
         builder.Property(x => x.ExternalContentId).HasMaxLength(160);
         builder.Property(x => x.FailureReason).HasMaxLength(500);
-        builder.HasIndex(x => new { x.ContentItemId, x.ProviderCode });
+        builder.Property(x => x.IdempotencyKey).HasMaxLength(80);
+        builder.Property(x => x.VerificationStatus).HasMaxLength(24).IsRequired();
+        builder.Property(x => x.VerificationDetail).HasMaxLength(500);
+        builder.HasIndex(x => new { x.ContentItemId, x.ProviderCode, x.LocationId });
+        builder.HasIndex(x => new { x.BusinessId, x.IdempotencyKey });
         builder.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ContentItem>().WithMany().HasForeignKey(x => x.ContentItemId).OnDelete(DeleteBehavior.Cascade);
     }

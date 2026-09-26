@@ -419,6 +419,7 @@ public sealed class ContentDistribution : TenantOwnedEntity
     public Guid BusinessId { get; private set; }
     public Guid ContentItemId { get; private set; }
     public Guid? ContentVariantId { get; private set; }
+    public Guid? LocationId { get; private set; }
     public string ProviderCode { get; private set; } = string.Empty;
     public Guid? PlatformConnectionId { get; private set; }
     public ContentDistributionStatus Status { get; private set; } = ContentDistributionStatus.Draft;
@@ -426,6 +427,11 @@ public sealed class ContentDistribution : TenantOwnedEntity
     public DateTimeOffset? PublishedAtUtc { get; private set; }
     public string? ExternalContentId { get; private set; }
     public string? FailureReason { get; private set; }
+    public string? IdempotencyKey { get; private set; }
+    public int AttemptCount { get; private set; }
+    public string VerificationStatus { get; private set; } = "None";
+    public string? VerificationDetail { get; private set; }
+    public DateTimeOffset? VerifiedAtUtc { get; private set; }
 
     private ContentDistribution() { }
 
@@ -435,22 +441,30 @@ public sealed class ContentDistribution : TenantOwnedEntity
         Guid contentItemId,
         string providerCode,
         Guid? variantId,
-        Guid? connectionId) =>
+        Guid? connectionId,
+        Guid? locationId = null,
+        string? idempotencyKey = null) =>
         new()
         {
             TenantId = tenantId,
             BusinessId = businessId,
             ContentItemId = contentItemId,
             ContentVariantId = variantId,
+            LocationId = locationId,
             ProviderCode = providerCode.Trim().ToUpperInvariant(),
             PlatformConnectionId = connectionId,
-            Status = ContentDistributionStatus.ApprovalRequired
+            Status = ContentDistributionStatus.ApprovalRequired,
+            IdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey.Trim(),
+            AttemptCount = 1,
+            VerificationStatus = "None"
         };
 
     public void Hold(string reason)
     {
         Status = ContentDistributionStatus.Failed;
         FailureReason = reason.Trim();
+        VerificationStatus = "Hold";
+        VerificationDetail = reason.Trim();
         Touch();
     }
 
@@ -460,6 +474,40 @@ public sealed class ContentDistribution : TenantOwnedEntity
         PublishedAtUtc = DateTimeOffset.UtcNow;
         ExternalContentId = externalId;
         FailureReason = null;
+        VerificationStatus = string.IsNullOrWhiteSpace(externalId) ? "Hold" : "Verified";
+        VerificationDetail = string.IsNullOrWhiteSpace(externalId)
+            ? "Published on DigitalPulse. No external provider ID."
+            : "Official provider returned an external ID.";
+        VerifiedAtUtc = DateTimeOffset.UtcNow;
+        Touch();
+    }
+
+    public void Cancel(string reason)
+    {
+        Status = ContentDistributionStatus.Cancelled;
+        FailureReason = reason.Trim();
+        Touch();
+    }
+
+    public void Retry()
+    {
+        if (Status is ContentDistributionStatus.Published or ContentDistributionStatus.Cancelled)
+        {
+            throw new InvalidOperationException("Published or cancelled distributions are not retried.");
+        }
+
+        AttemptCount += 1;
+        Status = ContentDistributionStatus.ApprovalRequired;
+        FailureReason = null;
+        Touch();
+    }
+
+    public void MarkVerified(string? externalId, string detail)
+    {
+        ExternalContentId = string.IsNullOrWhiteSpace(externalId) ? ExternalContentId : externalId.Trim();
+        VerificationStatus = "Verified";
+        VerificationDetail = detail.Trim();
+        VerifiedAtUtc = DateTimeOffset.UtcNow;
         Touch();
     }
 }
